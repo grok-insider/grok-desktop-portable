@@ -18,11 +18,15 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
-const DIST = (() => {
-  const pub = path.join(ROOT, "public");
+/** Product landing + install scripts live here after `pnpm build`. */
+const PUBLIC = path.join(ROOT, "public");
+/** Hosted demo Work SPA (never product install path). */
+const DEMO_ROOT = (() => {
+  const demo = path.join(PUBLIC, "demo");
+  if (fs.existsSync(path.join(demo, "index.html"))) return demo;
   const legacy = path.join(ROOT, "apps", "web", "dist");
-  if (fs.existsSync(path.join(pub, "index.html"))) return pub;
-  return legacy;
+  if (fs.existsSync(path.join(legacy, "index.html"))) return legacy;
+  return demo;
 })();
 const PORT = Number(process.env.PORT || process.env.PREVIEW_PORT || 8080);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -383,32 +387,49 @@ function securityHeaders(isHtml) {
   };
 }
 
-function sendIndex(req, res) {
-  const index = path.join(DIST, "index.html");
+function sendFile(res, filePath, type, extraHeaders = {}) {
+  const body = fs.readFileSync(filePath);
+  res.writeHead(200, {
+    "Content-Type": type,
+    "Content-Length": body.length,
+    ...extraHeaders,
+  });
+  res.end(body);
+}
+
+function sendLanding(res) {
+  const index = path.join(PUBLIC, "index.html");
   if (!fs.existsSync(index)) {
-    res.writeHead(503, { "Content-Type": "text/plain" });
-    res.end("SPA not built. Run: pnpm build");
+    res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Product landing missing. Run: pnpm build");
+    return;
+  }
+  sendFile(res, index, "text/html; charset=utf-8", {
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+}
+
+function sendDemoIndex(req, res) {
+  const index = path.join(DEMO_ROOT, "index.html");
+  if (!fs.existsSync(index)) {
+    res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Demo SPA not built. Run: pnpm build");
     return;
   }
   let html = fs.readFileSync(index, "utf8");
-  html = html.replace(
-    /http-equiv=(["'])Content-Security-Policy\1[^>]*content=(["'])([\s\S]*?)\2/gi,
-    (_full, q1, q2) => {
-      const c =
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors *";
-      return `http-equiv=${q1}Content-Security-Policy${q1} content=${q2}${c.replace(/'/g, "&#39;")}${q2}`;
-    },
-  );
+  if (!html.includes('name="grok-path-base"')) {
+    const meta = '<meta name="grok-path-base" content="/demo" data-demo-base />';
+    html = html.includes("</head>")
+      ? html.replace("</head>", `${meta}</head>`)
+      : meta + html;
+  }
   if (!html.includes("data-demo-banner")) {
-    const banner = `<div data-demo-banner style="position:fixed;z-index:9999;left:0;right:0;top:0;padding:6px 12px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif;background:#1a1a1f;color:#c8c8d0;border-bottom:1px solid #2a2a32;text-align:center">Hosted demo of Grok Desktop Portable Work UI — real CLI sessions need the local bridge on your machine.</div><style data-demo-banner>body{padding-top:32px !important}</style>`;
+    const banner = `<div data-demo-banner style="position:fixed;z-index:9999;left:0;right:0;top:0;padding:6px 12px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif;background:#1a1a1f;color:#c8c8d0;border-bottom:1px solid #2a2a32;text-align:center">Hosted demo of Grok Desktop Portable Work UI — real CLI sessions need the local bridge on your machine. <a href="/" style="color:#9fd4b0">Install bridge</a></div><style data-demo-banner>body{padding-top:32px !important}</style>`;
     html = html.replace("<body>", `<body>${banner}`);
   }
-  const inject = `<script data-demo-pair>(function(){try{if(location.hash.indexOf("#pair=")===0)history.replaceState(null,"",location.pathname+location.search);}catch(e){}})();</script>`;
-  if (html.includes("</head>")) {
-    html = html.replace("</head>", `${inject}</head>`);
-  }
 
-  // Auto-pair so resume works without a terminal ceremony.
+  // Auto-pair so the demo SPA can talk without a terminal ceremony.
   let token = getCookie(req, SESSION_COOKIE);
   if (!token || !state.pairs.has(token)) {
     token = hex(32);
@@ -430,28 +451,76 @@ function sendIndex(req, res) {
 
 function serveStatic(req, res, urlPath) {
   let rel = decodeURIComponent(urlPath.split("?")[0]);
-  if (rel === "/") return sendIndex(req, res);
-  const filePath = path.normalize(path.join(DIST, rel));
-  if (!filePath.startsWith(DIST)) {
+
+  // Product install scripts — never SPA HTML.
+  if (rel === "/install.sh") {
+    const f = path.join(PUBLIC, "install.sh");
+    if (!fs.existsSync(f)) {
+      res.writeHead(503, { "Content-Type": "text/plain" });
+      res.end("install.sh missing — run pnpm build");
+      return;
+    }
+    sendFile(res, f, "text/x-shellscript; charset=utf-8", {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    return;
+  }
+  if (rel === "/install.ps1") {
+    const f = path.join(PUBLIC, "install.ps1");
+    if (!fs.existsSync(f)) {
+      res.writeHead(503, { "Content-Type": "text/plain" });
+      res.end("install.ps1 missing — run pnpm build");
+      return;
+    }
+    sendFile(res, f, "text/plain; charset=utf-8", {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    return;
+  }
+
+  if (rel === "/" || rel === "") {
+    return sendLanding(res);
+  }
+
+  // Hosted demo Work UI only under /demo.
+  if (rel === "/demo" || rel === "/demo/" || rel.startsWith("/demo/")) {
+    let demoRel = rel === "/demo" || rel === "/demo/" ? "/" : rel.slice("/demo".length);
+    if (!demoRel.startsWith("/")) demoRel = `/${demoRel}`;
+    if (demoRel === "/" || !path.extname(demoRel)) {
+      return sendDemoIndex(req, res);
+    }
+    const filePath = path.normalize(path.join(DEMO_ROOT, demoRel));
+    if (!filePath.startsWith(DEMO_ROOT)) {
+      res.writeHead(403);
+      res.end("forbidden");
+      return;
+    }
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+      return sendDemoIndex(req, res);
+    }
+    const ext = path.extname(filePath);
+    sendFile(res, filePath, MIME[ext] || "application/octet-stream", securityHeaders(false));
+    return;
+  }
+
+  // Other static files under public/ (not SPA fallback).
+  const filePath = path.normalize(path.join(PUBLIC, rel));
+  if (!filePath.startsWith(PUBLIC)) {
     res.writeHead(403);
     res.end("forbidden");
     return;
   }
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    if (!path.extname(rel)) return sendIndex(req, res);
     res.writeHead(404);
     res.end("not found");
     return;
   }
-  if (filePath.endsWith("index.html")) return sendIndex(req, res);
   const ext = path.extname(filePath);
-  const body = fs.readFileSync(filePath);
-  res.writeHead(200, {
-    "Content-Type": MIME[ext] || "application/octet-stream",
-    "Content-Length": body.length,
-    ...securityHeaders(false),
+  sendFile(res, filePath, MIME[ext] || "application/octet-stream", {
+    "Cache-Control": "no-store",
   });
-  res.end(body);
 }
 
 async function readBody(req) {
@@ -651,11 +720,16 @@ const isMain =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain || process.env.FORCE_LISTEN === "1") {
-  if (!fs.existsSync(path.join(DIST, "index.html"))) {
+  if (!fs.existsSync(path.join(PUBLIC, "index.html"))) {
     console.warn("warning: public/index.html missing — run `pnpm build` first");
+  }
+  if (!fs.existsSync(path.join(DEMO_ROOT, "index.html"))) {
+    console.warn("warning: demo SPA missing — run `pnpm build` first");
   }
   const server = createServer();
   server.listen(PORT, HOST, () => {
-    console.log(`grok-desktop-portable demo host on http://${HOST}:${PORT}`);
+    console.log(
+      `grok-desktop-portable host on http://${HOST}:${PORT} (landing / · demo /demo · install /install.sh)`,
+    );
   });
 }

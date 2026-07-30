@@ -54,7 +54,9 @@ export default defineConfig(({ command }) => ({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
-    outDir: "../../public",
+    // Product bridge embeds apps/web/dist (see crates/grok-bridge/build.rs).
+    // Hosted demo is assembled later by scripts/prepare-public.mjs → public/demo.
+    outDir: "dist",
     emptyOutDir: true,
     sourcemap: false,
   },

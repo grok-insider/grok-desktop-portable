@@ -1,8 +1,11 @@
 /**
- * Client-side URL model for Grok Light (opaque ids only).
+ * Client-side URL model for Grok Desktop Portable (opaque ids only).
  *
- * The SPA is still one origin served by the host; the path only names *which*
+ * The SPA is one origin served by the host; the path only names *which*
  * open surface to show so refresh and share work. Never a filesystem path.
+ *
+ * Hosted demo mounts under `/demo` (meta `grok-path-base`); the product bridge
+ * serves at the origin root with no base prefix.
  */
 
 export type LightRoute =
@@ -10,9 +13,43 @@ export type LightRoute =
   | { kind: "session"; sessionId: string }
   | { kind: "setup" };
 
+/**
+ * Path prefix where the SPA is mounted, without trailing slash.
+ * Empty string at product root; `/demo` on the hosted demo surface.
+ */
+export function pathBase(): string {
+  if (typeof document !== "undefined") {
+    const meta = document.querySelector('meta[name="grok-path-base"]');
+    const content = meta?.getAttribute("content")?.trim();
+    if (content) {
+      return content.replace(/\/+$/, "") || "";
+    }
+  }
+  // Vite BASE_URL is `./` for the bridge embed and absolute when configured.
+  try {
+    const viteBase = (import.meta as ImportMeta & { env?: { BASE_URL?: string } })
+      .env?.BASE_URL;
+    if (viteBase && viteBase !== "./" && viteBase !== "/") {
+      return viteBase.replace(/\/+$/, "");
+    }
+  } catch {
+    /* non-Vite test host */
+  }
+  return "";
+}
+
+function stripBase(pathname: string): string {
+  const base = pathBase();
+  let path = pathname || "/";
+  if (base && (path === base || path.startsWith(`${base}/`))) {
+    path = path.slice(base.length) || "/";
+  }
+  return path.replace(/\/+$/, "") || "/";
+}
+
 /** Parse `location.pathname` into a Light route. Unknown paths → home. */
 export function parsePath(pathname: string): LightRoute {
-  const path = pathname.replace(/\/+$/, "") || "/";
+  const path = stripBase(pathname);
   if (path === "/" || path === "") {
     return { kind: "home" };
   }
@@ -26,16 +63,28 @@ export function parsePath(pathname: string): LightRoute {
   return { kind: "home" };
 }
 
-/** Path for a route (no origin, no query). */
+/** Path for a route (no origin, no query), including demo base when set. */
 export function pathFor(route: LightRoute): string {
+  const base = pathBase();
+  let rest: string;
   switch (route.kind) {
     case "home":
-      return "/";
+      rest = "/";
+      break;
     case "setup":
-      return "/setup";
+      rest = "/setup";
+      break;
     case "session":
-      return `/s/${route.sessionId}`;
+      rest = `/s/${route.sessionId}`;
+      break;
   }
+  if (!base) {
+    return rest;
+  }
+  if (rest === "/") {
+    return `${base}/`;
+  }
+  return `${base}${rest}`;
 }
 
 /**
