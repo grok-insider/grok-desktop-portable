@@ -14,7 +14,7 @@ $ErrorActionPreference = 'Stop'
 
 # --- fixed product constants (do not read env for these) ---
 $Repo = 'grok-insider/grok-desktop-portable'
-$FallbackTag = 'v0.1.0-beta.2'
+$FallbackTag = 'v0.1.0'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'grok-bridge\bin'
 $BinName = 'grok-bridge.exe'
 $Asset = 'grok-bridge-windows-x64.exe'

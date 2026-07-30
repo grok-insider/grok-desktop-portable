@@ -298,17 +298,20 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Download release assets and publish checksums
+        env:
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # No checkout needed; pass -R so gh does not require a local git repo.
           mkdir -p release
           cd release
           for a in grok-bridge-linux-x64 grok-bridge-darwin-arm64; do
-            gh release download "$TAG" --pattern "$a" --clobber
+            gh release download "$TAG" -R "$GH_REPO" --pattern "$a" --clobber
             test -f "$a"
           done
           sha256sum grok-bridge-linux-x64 grok-bridge-darwin-arm64 | tee checksums.txt
           test -s checksums.txt
-          gh release upload "$TAG" checksums.txt --clobber
+          gh release upload "$TAG" checksums.txt -R "$GH_REPO" --clobber
           ls -la
 
   release-notes-blurb:
@@ -321,11 +324,12 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Ensure install section on release body
         run: |
           set -euo pipefail
-          body="$(gh release view "$TAG" --json body --jq .body)"
+          body="$(gh release view "$TAG" -R "$GH_REPO" --json body --jq .body)"
           blurb="$(cat <<'EOF'
 
           ---
@@ -352,4 +356,4 @@ jobs:
           fi
           tmp="$(mktemp)"
           printf '%s\n%s\n' "$body" "$blurb" > "$tmp"
-          gh release edit "$TAG" --notes-file "$tmp"
+          gh release edit "$TAG" -R "$GH_REPO" --notes-file "$tmp"

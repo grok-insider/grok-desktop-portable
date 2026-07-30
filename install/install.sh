@@ -4,13 +4,13 @@
 #
 # Usage:
 #   ./install/install.sh
-#   VERSION=v0.1.0-beta.2 GROK_BRIDGE_INSTALL_DIR=/opt/bin ./install/install.sh
+#   VERSION=v0.1.0 GROK_BRIDGE_INSTALL_DIR=/opt/bin ./install/install.sh
 #   INSTALL_DRY_RUN=1 ./install/install.sh
 set -eu
 
 REPO="${GROK_BRIDGE_REPO:-grok-insider/grok-desktop-portable}"
 VERSION="${VERSION:-latest}"
-FALLBACK_TAG="${GROK_BRIDGE_FALLBACK_TAG:-v0.1.0-beta.2}"
+FALLBACK_TAG="${GROK_BRIDGE_FALLBACK_TAG:-v0.1.0}"
 INSTALL_DIR="${GROK_BRIDGE_INSTALL_DIR:-${HOME}/.local/bin}"
 BIN_NAME="grok-bridge"
 
