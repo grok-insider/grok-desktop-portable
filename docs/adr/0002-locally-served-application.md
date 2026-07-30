@@ -1,7 +1,12 @@
 # ADR light 0002: Locally served application with no CDN and no Light backend
 
-- Status: proposed
+- Status: **superseded for production UI** by
+  [ADR light 0016](0016-hosted-ui-local-bridge.md) (2026-07-30)
 - Date: 2026-07-28
+- Note: The loopback-served SPA remains a **supported fallback** (dev, offline,
+  recovery). Production Work UI is hosted at `https://desktop.grok.me` and talks
+  to `grok-bridge` on loopback. This ADR records the original threat reasoning
+  that 0016 accepts as residual risk.
 
 ## Context
 
