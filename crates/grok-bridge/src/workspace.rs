@@ -273,7 +273,16 @@ pub fn persist(directory: &Path, index: &WorkspaceIndex) -> Result<(), Workspace
     file.write_all(encoded.as_bytes())
         .map_err(|_| WorkspaceError::Storage)?;
     file.sync_all().map_err(|_| WorkspaceError::Storage)?;
-    std::fs::rename(&temporary, &path).map_err(|_| WorkspaceError::Storage)
+    #[cfg(windows)]
+    {
+        crate::win_acl::set_owner_only(&temporary).map_err(|_| WorkspaceError::Storage)?;
+    }
+    std::fs::rename(&temporary, &path).map_err(|_| WorkspaceError::Storage)?;
+    #[cfg(windows)]
+    {
+        let _ = crate::win_acl::set_owner_only(&path);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

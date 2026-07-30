@@ -130,7 +130,12 @@ fn write_private(path: &Path, bytes: &[u8]) -> Result<(), StateError> {
     }
     let mut file = options.open(path).map_err(StateError::Io)?;
     file.write_all(bytes).map_err(StateError::Io)?;
-    file.sync_all().map_err(StateError::Io)
+    file.sync_all().map_err(StateError::Io)?;
+    #[cfg(windows)]
+    {
+        crate::win_acl::set_owner_only(path).map_err(StateError::Io)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

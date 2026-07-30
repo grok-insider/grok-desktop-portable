@@ -101,15 +101,20 @@ pub fn ensure_private_directory(directory: &Path) -> Result<(), InstanceError> {
 }
 
 fn create_private_directory(directory: &Path) -> Result<(), InstanceError> {
-    if directory.exists() {
-        return Ok(());
+    if !directory.exists() {
+        std::fs::create_dir_all(directory).map_err(InstanceError::Directory)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
+                .map_err(InstanceError::Directory)?;
+        }
     }
-    std::fs::create_dir_all(directory).map_err(InstanceError::Directory)?;
-    #[cfg(unix)]
+    // Windows: always (re)apply the owner-only DACL so upgrades from pre-ACL
+    // installs become private, and a foreign owner fails closed here.
+    #[cfg(windows)]
     {
-        use std::os::unix::fs::PermissionsExt as _;
-        std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
-            .map_err(InstanceError::Directory)?;
+        crate::win_acl::set_owner_only(directory).map_err(InstanceError::Directory)?;
     }
     Ok(())
 }
@@ -130,6 +135,14 @@ fn verify_private_directory(directory: &Path) -> Result<(), InstanceError> {
             return Err(InstanceError::ForeignOwner);
         }
     }
+    #[cfg(windows)]
+    {
+        match crate::win_acl::is_owner_only(directory) {
+            Ok(true) => {}
+            Ok(false) => return Err(InstanceError::ForeignOwner),
+            Err(error) => return Err(InstanceError::Directory(error)),
+        }
+    }
     Ok(())
 }
 
@@ -141,7 +154,12 @@ fn private_file(path: &Path) -> Result<File, InstanceError> {
         use std::os::unix::fs::OpenOptionsExt as _;
         options.mode(0o600);
     }
-    options.open(path).map_err(InstanceError::Lock)
+    let file = options.open(path).map_err(InstanceError::Lock)?;
+    #[cfg(windows)]
+    {
+        crate::win_acl::set_owner_only(path).map_err(InstanceError::Lock)?;
+    }
+    Ok(file)
 }
 
 #[cfg(test)]
@@ -165,6 +183,17 @@ mod tests {
                 .permissions()
                 .mode();
             assert_eq!(mode & 0o777, 0o700, "state directory must be owner-only");
+        }
+        #[cfg(windows)]
+        {
+            assert!(
+                crate::win_acl::is_owner_only(&directory).expect("acl"),
+                "state directory must be owner-only on Windows"
+            );
+            assert!(
+                crate::win_acl::is_owner_only(&directory.join(LOCK_FILE_NAME)).expect("lock acl"),
+                "lock file must be owner-only on Windows"
+            );
         }
     }
 
