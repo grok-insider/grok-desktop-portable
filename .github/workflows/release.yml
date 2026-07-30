@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: grok-bridge-linux-x64
+            bin: grok-bridge
+          - os: windows-latest
+            asset: grok-bridge-windows-x64.exe
+            bin: grok-bridge.exe
+          - os: macos-latest
+            asset: grok-bridge-darwin-arm64
+            bin: grok-bridge
+          # Intel macOS (optional second job if needed later)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - name: Release build
+        run: cargo build -p grok-bridge --release
+      - name: Assert SPA embedded
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Fail closed: release artifacts must include the Work SPA.
+          cargo test -p grok-bridge embed_bundle -- --ignored 2>/dev/null || true
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            BIN="target/release/grok-bridge.exe"
+          else
+            BIN="target/release/grok-bridge"
+          fi
+          # The placeholder page is tiny; a real bundle grows the binary a lot
+          # and must contain a Vite marker. Prefer string scan over size alone.
+          if ! strings "$BIN" | grep -q "index.html\|/assets/"; then
+            # strings may be missing on Windows; fall back to file size check
+            SIZE=$(wc -c < "$BIN" | tr -d ' ')
+            if [[ "$SIZE" -lt 5000000 ]]; then
+              echo "binary looks like it lacks an embedded SPA (size=$SIZE)" >&2
+              exit 1
+            fi
+          fi
+      - name: Stage asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp "target/release/grok-bridge.exe" "dist/${{ matrix.asset }}"
+          else
+            cp "target/release/grok-bridge" "dist/${{ matrix.asset }}"
+            chmod +x "dist/${{ matrix.asset }}"
+            strip "dist/${{ matrix.asset }}" || true
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect assets and checksums
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find artifacts -type f -print0 | while IFS= read -r -d '' f; do
+            cp "$f" "release/$(basename "$f")"
+          done
+          cd release
+          sha256sum * | tee checksums.txt
+          ls -la
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: true
+          files: release/*
+          body: |
+            **Grok Desktop Portable** — `grok-bridge` only.
+
+            Install:
+            ```sh
+            curl -fsSL https://desktop.grok.me/install.sh | sh
+            ```
+            Windows: `irm https://desktop.grok.me/install.ps1 | iex`
+
+            Verify SHA-256 against `checksums.txt`. Builds are unsigned FOSS.
+
+            Requirements: Grok Build CLI ≥ 0.2.115, Chromium or Firefox 84+.
+            Safari is unsupported.

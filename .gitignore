@@ -1,0 +1,10 @@
+/target
+**/node_modules
+apps/web/dist
+.DS_Store
+*.swp
+.idea
+.vscode
+.env
+.env.*
+.pnpm-store

@@ -1,0 +1,50 @@
+[package]
+name = "grok-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+description = "Local bridge host for Grok Desktop Portable (Work UI for the user's Grok Build CLI)"
+
+[[bin]]
+name = "grok-bridge"
+path = "src/bin/grok-bridge.rs"
+
+[dependencies]
+async-trait.workspace = true
+axum = { version = "0.8.9", default-features = false, features = [
+    "http1",
+    "json",
+    "tokio",
+    "ws",
+] }
+cap-std.workspace = true
+fs2.workspace = true
+getrandom.workspace = true
+git2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+similar.workspace = true
+thiserror.workspace = true
+url.workspace = true
+tokio.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, features = ["process"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# The xdg-desktop-portal FileChooser. Only the picker needs it.
+ashpd = { version = "0.13.12", default-features = false, features = ["tokio", "file_chooser"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
+serde_json.workspace = true
+async-trait.workspace = true
+tokio-tungstenite = "0.29.0"
+tower = { version = "0.5.3", features = ["util"] }
