@@ -7,6 +7,7 @@
 node_modules
 
 # SPA build outputs (Vite → public/; legacy dist)
+# Vercel outputDirectory is public/; never commit built HTML/assets.
 public/
 apps/web/dist
 
@@ -33,6 +34,7 @@ control.sock
 AGENTS.project.md
 .node_modules.lock
 .node_modules.tmp.*/
+artifacts/
 
 # Logs and QA artifacts
 *.log
