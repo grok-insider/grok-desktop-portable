@@ -1,9 +1,13 @@
-# Hosted demo host
+# Hosted demo host (stub / preview)
 
-> **Not the product.** Production Grok Desktop Portable is the local
-> `grok-bridge` binary serving the Work SPA on a loopback origin (ADR light
-> 0002). This document describes an optional **demo** surface used for
-> previews, static hosting checks, and Vercel deploys of this repository.
+> **Not the product.** Production Grok Desktop Portable (ADR light 0016) is:
+>
+> - Work UI at **`https://desktop.grok.me`** (real SPA), and
+> - **`grok-bridge`** on loopback talking to the user's Grok Build CLI.
+>
+> This document describes an optional **stub demo** (`server.mjs`) used for
+> previews and CI without a real CLI. It must not be confused with production
+> hosted UI + real bridge.
 
 ## Why it exists
 
@@ -73,7 +77,9 @@ In addition to the product [threat model](threat-model.md):
 
 ## Relationship to product invariants
 
-`AGENTS.md` requires that the **product** never serve the Work SPA from a CDN
-and never accept filesystem paths from the browser. The demo host is a separate
-entrypoint, documented as non-product, and must not be published as the
-canonical install path on `desktop.grok.me`.
+ADR light 0016 **does** ship the production Work SPA from `desktop.grok.me`,
+but that SPA talks only to a **real** `grok-bridge` on loopback — not to
+`server.mjs` stubs. The demo host here remains a separate, non-product
+entrypoint for previews without a CLI. It must never be the path that drives a
+user's agent. The product still never accepts filesystem paths from the
+browser.

@@ -1,15 +1,17 @@
 # ADR light 0008: Supported browser engines and WebKit exclusion
 
-- Status: proposed
+- Status: proposed (amended 2026-07-30 for hosted UI — see
+  [ADR light 0016](0016-hosted-ui-local-bridge.md))
 - Date: 2026-07-28
 
 ## Context
 
-ADR light 0002 serves the application from a loopback origin, and ADR light 0006
-makes that origin a random subdomain under `.localhost`. Both depend on a
-browser behaviour that is not universal: forcing `*.localhost` to resolve to the
-loopback interface without consulting DNS, and treating the resulting origin as
-potentially trustworthy.
+Production Work UI is hosted at `https://desktop.grok.me` and calls
+`grok-bridge` on loopback (ADR 0016). That path depends on the browser allowing
+a **public origin to connect to loopback** (Chromium Local Network Access /
+equivalent). Fallback loopback SPA still depends on `*.localhost` resolving to
+loopback without consulting DNS and treating that origin as potentially
+trustworthy.
 
 Chromium implements this. Firefox has supported `http://localhost` and
 `http://*.localhost` as trustworthy origins since Firefox 84. WebKit does not:
@@ -41,6 +43,14 @@ platform phase.
 Supported engines are Chromium and Firefox 84 or later. WebKit is unsupported
 and not qualified. This includes Safari on macOS and iOS, GNOME Web, and any
 WebKitGTK embedder.
+
+**Hosted UI (ADR 0016):** Chromium shows a Local Network Access (or successor)
+permission when `https://desktop.grok.me` first reaches `http://127.0.0.1`. The
+user must allow it for Work mode. Denial is a first-class UI state (landing +
+help), not a silent hang. Firefox support requires the same local-access story
+as qualified on the matrix; engines that cannot reach loopback from a public
+page cannot use hosted mode (fallback loopback SPA may still work where
+`*.localhost` qualifies).
 
 Setup detects the engine. A non-conforming engine is blocked with a diagnostic
 and guidance rather than an opaque failure. Each platform installer verifies the
