@@ -28,7 +28,11 @@ loopback are not sent** on cross-site requests from `https://desktop.grok.me`,
 so the cookie alone cannot authenticate the hosted client.
 
 1. Pair (and resume) responses include `sessionToken` (and CSRF) in the JSON
-   body. The SPA keeps the session token in memory.
+   body. The SPA keeps the session token in memory and may also persist it on
+   the **document origin** (`localStorage` key `grok-bridge-session.v1`) with
+   the last loopback port for silent resume across tabs and browser restarts
+   (soft TTL; clear on demotion / `not_paired`). Port-only discovery uses
+   `grok-bridge-port`. See ADR light 0016 and `docs/ui.md`.
 2. **HTTP** mutations and session calls send `x-gl-session: <token>` (and
    CSRF on mutations). `credentials: 'include'` may still be set for
    same-origin fallback; it is not relied on for hosted auth.
