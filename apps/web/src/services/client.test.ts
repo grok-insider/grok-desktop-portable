@@ -174,6 +174,33 @@ describe("resume", () => {
     expect(result).toEqual({ ok: false, failure: { kind: "not_paired" } });
   });
 
+  it("does not call the public origin when the hosted SPA has no loopback port", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    // jsdom location is http://localhost:3000 by default — force hosted origin.
+    vi.stubGlobal("location", { ...location, origin: "https://desktop.grok.me" });
+
+    const client = new LightClient({ bridgeBaseUrl: "" });
+    const result = await client.resume();
+    expect(result).toEqual({ ok: false, failure: { kind: "unreachable" } });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects a session body that has CSRF but no session token", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          sessionId: "bs-1",
+          csrfToken: "only-csrf",
+          protocolVersion: PROTOCOL_VERSION,
+        }),
+      ),
+    );
+    const result = await new LightClient({ bridgeBaseUrl: "http://127.0.0.1:20001" }).resume();
+    expect(result).toEqual({ ok: false, failure: { kind: "not_paired" } });
+  });
+
   it("opens events with family protocol and gls.session token (no cookie path)", async () => {
     const fetchSpy = vi
       .fn()

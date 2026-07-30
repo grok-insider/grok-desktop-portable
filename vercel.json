@@ -21,10 +21,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/pair", "destination": "/api/pair" },
-    { "source": "/session", "destination": "/api/session" },
-    { "source": "/command", "destination": "/api/command" },
-    { "source": "/healthz", "destination": "/api/healthz" },
     { "source": "/s/:sessionId", "destination": "/index.html" },
     { "source": "/setup", "destination": "/index.html" },
     { "source": "/demo", "destination": "/demo/index.html" },

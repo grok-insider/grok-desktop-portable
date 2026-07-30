@@ -60,8 +60,10 @@ curl -s localhost:8080/healthz
 | Install | `corepack enable && pnpm install` (see `vercel.json`) |
 | Build | `pnpm build` → writes `public/` |
 | Output Directory | `public` |
-| Serverless API | `api/pair`, `api/session`, `api/command`, `api/healthz` |
-| WebSocket `/events` | Not available on serverless; use local `npm start` for that |
+| Production SPA routes | `/`, `/s/:sessionId`, `/setup` → `index.html` |
+| Demo static | `/demo` only |
+| Bridge API | **Not** on Vercel — only `grok-bridge` on loopback (ADR 0016) |
+| Serverless `api/*` | Local/demo only. Production **must not** rewrite `/pair` `/session` `/command` `/healthz` to stubs (that made the hosted SPA treat the public origin as a bridge). |
 
 Do not commit `public/` (gitignored). The platform build must produce it.
 
