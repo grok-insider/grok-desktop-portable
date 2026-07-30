@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CSRF_HEADER, PROTOCOL_VERSION } from "./protocol";
+import {
+  CSRF_HEADER,
+  PROTOCOL_VERSION,
+  WS_SESSION_PROTOCOL_PREFIX,
+  WS_SUBPROTOCOL,
+} from "./protocol";
 import { LightClient, takePairingNonce } from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -168,6 +173,54 @@ describe("resume", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 403 })));
     const result = await new LightClient().resume();
     expect(result).toEqual({ ok: false, failure: { kind: "not_paired" } });
+  });
+
+  it("opens events with family protocol and gls.session token (no cookie path)", async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          sessionId: "bs-1",
+          csrfToken: "csrf",
+          sessionToken: "a".repeat(64),
+          protocolVersion: PROTOCOL_VERSION,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const constructed: { url: string; protocols: string | string[] }[] = [];
+    class FakeWebSocket {
+      static OPEN = 1;
+      readyState = FakeWebSocket.OPEN;
+      constructor(url: string, protocols?: string | string[]) {
+        constructed.push({ url, protocols: protocols ?? [] });
+      }
+      addEventListener() {}
+      close() {}
+    }
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+
+    const client = new LightClient({ bridgeBaseUrl: "http://127.0.0.1:20001" });
+    await client.pair("b".repeat(64));
+    const socket = client.openEvents({
+      onEvent: () => {},
+      onOpen: () => {},
+      onClose: () => {},
+    });
+    expect(socket).not.toBeNull();
+    expect(constructed).toHaveLength(1);
+    expect(constructed[0]?.url).toBe("ws://127.0.0.1:20001/events");
+    expect(constructed[0]?.protocols).toEqual([
+      WS_SUBPROTOCOL,
+      `${WS_SESSION_PROTOCOL_PREFIX}${"a".repeat(64)}`,
+    ]);
+  });
+
+  it("refuses to open events before pairing", () => {
+    const client = new LightClient({ bridgeBaseUrl: "http://127.0.0.1:20001" });
+    expect(
+      client.openEvents({ onEvent: () => {}, onOpen: () => {}, onClose: () => {} }),
+    ).toBeNull();
   });
 });
 

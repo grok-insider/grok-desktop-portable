@@ -15,10 +15,16 @@ export const PROTOCOL_VERSION = 2;
 /** WebSocket subprotocol carrying the same version. */
 export const WS_SUBPROTOCOL = "light.local.v1";
 
+/**
+ * Prefix for the session token as a second WebSocket subprotocol (`gls.<hex>`).
+ * Required for hosted UI: no Cookie, no custom WS headers (ADR 0016).
+ */
+export const WS_SESSION_PROTOCOL_PREFIX = "gls.";
+
 /** Header carrying the per-page CSRF token on mutations. */
 export const CSRF_HEADER = "x-grok-light-csrf";
 
-/** Session token for hosted cross-origin clients (ADR 0016). */
+/** Session token for hosted cross-origin HTTP (ADR 0016). */
 export const SESSION_HEADER = "x-gl-session";
 
 /**
