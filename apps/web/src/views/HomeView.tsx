@@ -10,7 +10,7 @@
  * user's GROK_HOME. Listing every folder the Grok Build CLI had touched put a
  * long tail of one-off directories above the two the user actually works in,
  * and disclosed their names to the browser for no gain (light ADR 0014).
- * Enrolment is the host picker or `grok-light workspace add`; the browser
+ * Enrolment is the host picker or `grok-bridge workspace add`; the browser
  * never names a directory and only sends opaque ids (light ADR 0009).
  */
 
@@ -269,7 +269,7 @@ export function HomeView({
                   </Button>
                 )}
                 <p className="font-mono text-label text-subtle-foreground">
-                  or: grok-light workspace add &lt;path&gt;
+                  or: grok-bridge workspace add &lt;path&gt;
                 </p>
               </div>
             ) : (

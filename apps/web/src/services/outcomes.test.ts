@@ -18,7 +18,7 @@ describe("failure messages", () => {
   });
 
   it("explains a lost pairing instead of a generic failure", () => {
-    expect(failureMessage({ kind: "not_paired" }, "fallback")).toMatch(/grok-light open/);
+    expect(failureMessage({ kind: "not_paired" }, "fallback")).toMatch(/grok-bridge open/);
   });
 
   it("passes a refusal through to its own wording", () => {

@@ -23,11 +23,26 @@ Before Work is shown, the SPA probes the bridge:
 
 | State | UI |
 |-------|-----|
+| `checking` | Landing: brief “looking for bridge…” (never Work chrome) |
 | `bridge_missing` | Landing: install + `grok-bridge serve` |
 | `blocked_lna` | Landing: allow local network for this site |
 | `needs_pairing` | Pair instructions; consume `#pair=` from `grok-bridge open` |
-| `ready` | Work shell (home / session / setup routes below) |
-| `error` | Bounded diagnostic; no silent agent actions |
+| `ready` | Work shell (home / session) **only if still paired** |
+| `error` | Landing diagnostic; no silent agent actions |
+
+### First paint and demotion
+
+- **First paint / clean visit:** non-ready probe → **landing/welcome only**. Never
+  mount Work chrome with “Disconnected”, empty “Pick a project”, or pairing
+  alerts as if the app were half-open.
+- **Work only when** `probe.kind === "ready"` **and** the client is paired
+  (`shouldShowWork` in `apps/web/src/services/surfaceGate.ts`).
+- **Demotion:** if pairing is lost mid-session (`not_paired` / rejected) or the
+  host is gone past the WebSocket reconnect budget, the SPA **leaves Work** and
+  returns to landing (`needs_pairing` or `bridge_missing`). It does **not** keep
+  a permanent Disconnected Work shell with inline alerts.
+- Brief reconnect while still under the attempt budget may show a connection
+  strip **inside** Work; after the budget is exhausted, demote.
 
 ## Source of truth
 

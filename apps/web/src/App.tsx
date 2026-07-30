@@ -19,6 +19,12 @@ import {
   takePairingFragment,
   type ClientFailure,
 } from "./services/client";
+import {
+  probeAfterHostGone,
+  probeAfterSessionLoss,
+  shouldDemoteFromWork,
+  shouldShowWork,
+} from "./services/surfaceGate";
 import { LandingView } from "./views/LandingView";
 import { isBashMode, bashSendText } from "./services/bashMode";
 import {
@@ -99,7 +105,7 @@ function hostErrorMessage(code: string): string {
     case "controller_held":
       return "Another tab is already controlling this host. Close it or wait for the lease to expire.";
     case "picker_unavailable":
-      return "The directory picker could not open. Enrol a path with `grok-light workspace add` instead.";
+      return "The directory picker could not open. Enrol a path with `grok-bridge workspace add` instead.";
     case "workspace_enrolment_failed":
       return "That directory could not be enrolled.";
     case "picker_already_open":
@@ -107,7 +113,7 @@ function hostErrorMessage(code: string): string {
     case "queued_prompt_failed":
       return "A message that was waiting could not be sent. The rest are still queued.";
     case "agent_exited":
-      return "The Grok Build CLI stopped. Every open conversation closed with it; restart the host with `grok-light serve`, then resume from the session list.";
+      return "The Grok Build CLI stopped. Every open conversation closed with it; restart the host with `grok-bridge serve`, then resume from the session list.";
     default:
       return `The host reported an error (${code}).`;
   }
@@ -196,12 +202,41 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const activeReviewRevision =
     sessionId === null ? 0 : (reviewRevisions[sessionId] ?? 0);
 
+  /** Leave Work for landing when pairing dies or the host is gone. */
+  const demoteToLanding = useCallback(
+    (next: BridgeProbeState) => {
+      client.clearPairing();
+      setPaired(false);
+      setConnected(false);
+      setReconnecting(false);
+      setRefusal(undefined);
+      setProbe(next);
+    },
+    [client],
+  );
+
+  /**
+   * Soft error inside Work, or demote when the failure means we are no longer
+   * a live paired session (ADR 0016 / docs/ui.md demotion rule).
+   */
+  const reportClientFailure = useCallback(
+    (failure: ClientFailure, fallback: string) => {
+      if (shouldDemoteFromWork(failure)) {
+        demoteToLanding(probeAfterSessionLoss(failure));
+        return;
+      }
+      setRefusal(failureMessage(failure, fallback));
+    },
+    [demoteToLanding],
+  );
+
   // Hosted UI: probe loopback bridge, then pair if needed (ADR 0016).
   // Same-origin fallback (empty bridge base) skips probe and pairs as before.
   const runProbeAndPair = useCallback(() => {
     if (!browserSupport.ok) {
       return;
     }
+    setProbe({ kind: "checking" });
     const fragment = takePairingFragment();
     if (fragment?.port) {
       client.setBridgeBaseUrl(`http://127.0.0.1:${fragment.port}`);
@@ -210,6 +245,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     const afterPairAttempt = (isPaired: boolean) => {
       if (!base && !client.bridgeBaseUrl) {
         // No known API port yet (hosted, never opened) → treat as missing bridge.
+        // Same-origin tests inject an empty base with a paired resume → ready.
         setProbe(
           isPaired ? { kind: "ready" } : { kind: "bridge_missing" },
         );
@@ -231,8 +267,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         afterPairAttempt(true);
         return;
       }
+      client.clearPairing();
       setPaired(false);
       setFailure(nonce === null ? undefined : result.failure);
+      if (result.failure.kind === "protocol_mismatch") {
+        setProbe(probeAfterSessionLoss(result.failure));
+        return;
+      }
       afterPairAttempt(false);
     });
   }, [browserSupport.ok, client]);
@@ -427,9 +468,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     void client.send({ kind: "listWorkspaces" }).then((result) => {
       setBusy(false);
       if (!result.ok) {
-        setRefusal(
-          failureMessage(result.failure, "The host refused the request."),
-        );
+        reportClientFailure(result.failure, "The host refused the request.");
         return;
       }
       const projected = asWorkspaces(result.value);
@@ -572,9 +611,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       void client.send({ kind: "listSessions", workspaceId }).then((result) => {
         setBusy(false);
         if (!result.ok) {
-          setRefusal(
-            failureMessage(result.failure, "The host could not list sessions."),
-          );
+          reportClientFailure(result.failure, "The host could not list sessions.");
           return;
         }
         const listed = asSessions(result.value);
@@ -616,9 +653,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             refreshWorkspaces();
             return;
           }
-          setRefusal(
-            failureMessage(result.failure, "The host could not start a session."),
-          );
+          reportClientFailure(result.failure, "The host could not start a session.");
         });
     },
     [client, refreshWorkspaces],
@@ -642,9 +677,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             refreshWorkspaces();
             return;
           }
-          setRefusal(
-            failureMessage(result.failure, "The host could not resume that session."),
-          );
+          reportClientFailure(result.failure, "The host could not resume that session.");
         });
     },
     [client, refreshWorkspaces],
@@ -667,12 +700,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       .then((result) => {
         setRepairBusyBySession((held) => ({ ...held, [target]: false }));
         if (!result.ok) {
-          setRefusal(
-            failureMessage(
-              result.failure,
-              "The host could not diagnose this conversation's history.",
-            ),
-          );
+          reportClientFailure(result.failure, "The host could not diagnose this conversation's history.");
           return;
         }
         const diagnosis = asSessionDiagnosis(result.value);
@@ -708,12 +736,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       .then((result) => {
         setRepairBusyBySession((held) => ({ ...held, [target]: false }));
         if (!result.ok) {
-          setRefusal(
-            failureMessage(
-              result.failure,
-              "History repair failed. Nothing was retried automatically.",
-            ),
-          );
+          reportClientFailure(result.failure, "History repair failed. Nothing was retried automatically.");
           return;
         }
         const repaired = asSessionRepair(result.value);
@@ -741,9 +764,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         .then((result) => {
           setBusy(false);
           if (!result.ok) {
-            setRefusal(
-              failureMessage(result.failure, "The host could not record that you have seen this."),
-            );
+            reportClientFailure(result.failure, "The host could not record that you have seen this.");
             return;
           }
           // Acknowledging only changes what is shown, so the projection is
@@ -762,9 +783,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       .then((result) => {
         setBusy(false);
         if (!result.ok) {
-          setRefusal(
-            failureMessage(result.failure, "The host could not open a directory picker."),
-          );
+          reportClientFailure(result.failure, "The host could not open a directory picker.");
         }
         // Nothing to refresh yet: the dialog is still open. The host emits
         // `workspacesChanged` once the user has chosen.
@@ -774,7 +793,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // There is no `openProject` here on purpose. The rail lists only projects
   // already enrolled (light ADR 0014), so the browser can never hold the id of
   // an unenrolled one. Enrolment goes through the host picker above, or
-  // `grok-light workspace add`. The host operation still exists for the CLI.
+  // `grok-bridge workspace add`. The host operation still exists for the CLI.
 
   const handleEvent = useCallback((envelope: EventEnvelope) => {
     if (envelope.event.kind === "workspacesChanged") {
@@ -875,13 +894,8 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           socketRef.current = null;
           attempts += 1;
           if (attempts > RECONNECT_MAX_ATTEMPTS) {
-            // Retrying for ever against a host that is gone burns battery and
-            // hides the problem behind a spinner. Stopping says plainly that
-            // the page is no longer live and the user must act.
-            setReconnecting(false);
-            setRefusal(
-              "Lost the connection to the local host. Start it with `grok-light serve`, then reload.",
-            );
+            // Host is gone: leave Work for landing (not a permanent Disconnected shell).
+            demoteToLanding(probeAfterHostGone());
             return;
           }
           setReconnecting(true);
@@ -907,7 +921,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [client, handleEvent, paired, wsGeneration]);
+  }, [client, demoteToLanding, handleEvent, paired, wsGeneration]);
 
   const sendPrompt = useCallback(
     (text: string) => {
@@ -987,13 +1001,11 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           if (!result.ok) {
             // A refused prompt used to vanish: the composer simply re-enabled
             // and the user was left guessing whether the agent had heard them.
-            setRefusal(
-              failureMessage(result.failure, "The host did not accept that prompt."),
-            );
+            reportClientFailure(result.failure, "The host did not accept that prompt.");
           }
         });
     },
-    [client, refreshWorkspaces, sessionId],
+    [client, refreshWorkspaces, reportClientFailure, sessionId],
   );
 
   const closeSession = useCallback(
@@ -1006,9 +1018,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         )
         .then((result) => {
           if (!result.ok) {
-            setRefusal(
-              failureMessage(result.failure, "The host could not close that session."),
-            );
+            reportClientFailure(result.failure, "The host could not close that session.");
             return;
           }
           // The host decides what is still open; the browser re-reads rather
@@ -1016,7 +1026,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           refreshWorkspaces();
         });
     },
-    [client, refreshWorkspaces],
+    [client, refreshWorkspaces, reportClientFailure],
   );
 
   const decide = useCallback(
@@ -1059,30 +1069,11 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     );
   }
 
-  // Hosted path: gate Work behind probe (landing when bridge missing / unpaired).
-  // Same-origin fallback still uses SetupView for unpaired.
-  // Prefer landing gate whenever we are not same-origin fallback-ready.
-  // Injected test clients with empty base + paired skip landing via probe ready.
-  if (probe.kind !== "ready" && probe.kind !== "checking") {
+  // Work only when probe is ready and the client is still paired (ADR 0016).
+  // Every other probe state — including checking — is the welcome landing.
+  // Injected test clients with empty base + successful resume set probe ready.
+  if (!shouldShowWork(probe, paired)) {
     return <LandingView probe={probe} onRetry={runProbeAndPair} />;
-  }
-  if (probe.kind === "checking" && !paired) {
-    return <LandingView probe={probe} onRetry={runProbeAndPair} />;
-  }
-
-  if (!paired) {
-    return (
-      <SetupView
-        mode={
-          failure === undefined
-            ? { kind: "unpaired" }
-            : { kind: "failure", failure }
-        }
-        onReload={() => {
-          location.reload();
-        }}
-      />
-    );
   }
 
   const connectionStrip = !connected ? (
@@ -1237,9 +1228,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             )
             .then((result) => {
               if (!result.ok) {
-                setRefusal(
-                  failureMessage(result.failure, "The host could not change the model."),
-                );
+                reportClientFailure(result.failure, "The host could not change the model.");
               }
             });
         }}
@@ -1260,9 +1249,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             )
             .then((result) => {
               if (!result.ok) {
-                setRefusal(
-                  failureMessage(result.failure, "The host could not change reasoning effort."),
-                );
+                reportClientFailure(result.failure, "The host could not change reasoning effort.");
               }
             });
         }}
@@ -1299,9 +1286,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             )
             .then((result) => {
               if (!result.ok) {
-                setRefusal(
-                  failureMessage(result.failure, "The host could not send that now."),
-                );
+                reportClientFailure(result.failure, "The host could not send that now.");
               }
             });
         }}
@@ -1316,9 +1301,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             )
             .then((result) => {
               if (!result.ok) {
-                setRefusal(
-                  failureMessage(result.failure, "The host could not remove that message."),
-                );
+                reportClientFailure(result.failure, "The host could not remove that message.");
                 return;
               }
               refreshWorkspaces();

@@ -35,8 +35,7 @@ describe("LightClient", () => {
         jsonResponse({
           sessionId: "bs-1",
           sessionToken: "sess",
-            csrfToken: "csrf-value",
-          sessionToken: "sess",
+          csrfToken: "csrf-value",
           protocolVersion: PROTOCOL_VERSION,
         }),
       )
