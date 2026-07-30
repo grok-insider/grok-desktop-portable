@@ -1,0 +1,35 @@
+# Canonical org guard — enforce Model A: only `dev` (or release-bot heads)
+# may open a PR into `master`. Add the job name `only dev into master` to
+# master's required status checks.
+#
+# Allowed heads:
+#   - dev
+#   - release-plz-* / release-plz-manual-*
+#   - release-please--* / release-please-manual-*
+
+name: guard master
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  only-dev-into-master:
+    name: only dev into master
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify PR head is dev or a release branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            dev|release-plz-*|release-plz-manual-*|release-please--*|release-please-manual-*)
+              echo "OK: PR into master comes from '$HEAD_REF'."
+              ;;
+            *)
+              echo "::error::PRs into 'master' must come from 'dev' (got '$HEAD_REF')."
+              echo "Land your work in 'dev' first, then open a single 'dev -> master' PR."
+              echo "Release bots may use release-plz-* / release-please--* heads."
+              exit 1
+              ;;
+          esac
