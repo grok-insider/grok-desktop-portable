@@ -14,7 +14,11 @@ import {
   probeBridge,
 } from "./services/bridgeProbe";
 import {
+  BRIDGE_PORT_KEY,
+  BRIDGE_SESSION_KEY,
   LightClient,
+  clearStoredPort,
+  hasStoredPort,
   resolveBridgeBaseUrl,
   takePairingFragment,
   type ClientFailure,
@@ -205,7 +209,11 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   /** Leave Work for landing when pairing dies or the host is gone. */
   const demoteToLanding = useCallback(
     (next: BridgeProbeState) => {
-      client.clearPairing();
+      // Keep remembered port on not_paired (bridge may still be up); drop it when gone.
+      client.clearPairing({ clearPort: next.kind === "bridge_missing" });
+      if (next.kind === "bridge_missing") {
+        clearStoredPort();
+      }
       setPaired(false);
       setConnected(false);
       setReconnecting(false);
@@ -232,6 +240,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
 
   // Hosted UI: probe loopback bridge, then pair if needed (ADR 0016).
   // Same-origin fallback (empty bridge base) skips probe and pairs as before.
+  // Resume store: restore tokens + port from document origin before resume.
   const runProbeAndPair = useCallback(() => {
     if (!browserSupport.ok) {
       return;
@@ -240,8 +249,14 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     const fragment = takePairingFragment();
     if (fragment?.port) {
       client.setBridgeBaseUrl(`http://127.0.0.1:${fragment.port}`);
+    } else {
+      // Silent resume path: restore grant before reading base URL.
+      client.restoreFromStorage();
     }
     const base = client.bridgeBaseUrl || resolveBridgeBaseUrl();
+    if (base && !client.bridgeBaseUrl) {
+      client.setBridgeBaseUrl(base);
+    }
     const afterPairAttempt = (isPaired: boolean) => {
       if (!base && !client.bridgeBaseUrl) {
         // No known API port yet (hosted, never opened) → treat as missing bridge.
@@ -255,7 +270,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       void probeBridge({
         bridgeBaseUrl: apiBase,
         isPaired,
-      }).then(setProbe);
+      }).then((state) => {
+        if (state.kind === "bridge_missing" || state.kind === "blocked_lna") {
+          clearStoredPort();
+          client.clearPairing({ clearPort: true });
+        }
+        setProbe(state);
+      });
     };
 
     const nonce = fragment?.nonce ?? null;
@@ -267,7 +288,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         afterPairAttempt(true);
         return;
       }
-      client.clearPairing();
+      // Keep port on not_paired so landing can emphasize open, not reinstall.
+      const dropPort = result.failure.kind === "unreachable";
+      client.clearPairing({ clearPort: dropPort });
+      if (dropPort) {
+        clearStoredPort();
+      }
       setPaired(false);
       setFailure(nonce === null ? undefined : result.failure);
       if (result.failure.kind === "protocol_mismatch") {
@@ -280,6 +306,17 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
 
   useEffect(() => {
     runProbeAndPair();
+  }, [runProbeAndPair]);
+
+  // Other tabs that clear the resume grant re-run probe (storage event).
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === BRIDGE_SESSION_KEY || event.key === BRIDGE_PORT_KEY) {
+        runProbeAndPair();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, [runProbeAndPair]);
 
   // Ask the host for the enrolment set. The reply also says whether a session
@@ -1073,7 +1110,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // Every other probe state — including checking — is the welcome landing.
   // Injected test clients with empty base + successful resume set probe ready.
   if (!shouldShowWork(probe, paired)) {
-    return <LandingView probe={probe} onRetry={runProbeAndPair} />;
+    return (
+      <LandingView
+        probe={probe}
+        onRetry={runProbeAndPair}
+        hadPort={hasStoredPort()}
+      />
+    );
   }
 
   const connectionStrip = !connected ? (

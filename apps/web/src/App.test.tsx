@@ -52,6 +52,9 @@ function fakeHost() {
     clearPairing() {
       paired = false;
     },
+    restoreFromStorage() {
+      return false;
+    },
     get bridgeBaseUrl() {
       // Same-origin test host: skip hosted landing probe.
       return "";
@@ -217,6 +220,9 @@ function unpairedHost() {
       return false;
     },
     clearPairing() {},
+    restoreFromStorage() {
+      return false;
+    },
     get bridgeBaseUrl() {
       return "";
     },

@@ -11,47 +11,90 @@ grok-bridge doctor
 grok-bridge serve
 grok-bridge open`;
 
+const SERVE_SNIPPET = `grok-bridge serve
+grok-bridge open`;
+
+const OPEN_SNIPPET = `grok-bridge open`;
+
 export function LandingView({
   probe,
   onRetry,
+  hadPort = false,
 }: {
   probe: BridgeProbeState;
   onRetry: () => void;
+  /** True when this profile has a remembered loopback port (even if host is down). */
+  hadPort?: boolean;
 }) {
   let title = "Grok Desktop Portable";
   let body =
     "Drive your local Grok Build CLI from the browser. This site is only the UI — install and authentication stay on your machine.";
+  let snippet = INSTALL_SNIPPET;
+  let steps: string[] = [
+    "Install the bridge (or confirm it is already installed).",
+    "Run grok-bridge serve in a terminal.",
+    "Run grok-bridge open and open the printed URL once to pair.",
+  ];
+
   switch (probe.kind) {
     case "checking":
       title = "Looking for the local bridge…";
       body = "Checking whether grok-bridge is running on this machine.";
+      snippet = hadPort ? SERVE_SNIPPET : INSTALL_SNIPPET;
       break;
     case "bridge_missing":
-      title = "Start the local bridge";
-      body =
-        "Install and run grok-bridge on this machine, then retry. The site only drives your local Grok Build CLI through that bridge.";
+      if (hadPort) {
+        title = "Start the local bridge";
+        body =
+          "This browser remembers a local bridge port, but nothing answered. Start grok-bridge on this machine, then retry.";
+        snippet = SERVE_SNIPPET;
+        steps = [
+          "In a terminal, run grok-bridge serve.",
+          "If the port changed, run grok-bridge open and open the new URL once.",
+          "Then press Retry.",
+        ];
+      } else {
+        title = "Start the local bridge";
+        body =
+          "Install and run grok-bridge on this machine, then retry. The site only drives your local Grok Build CLI through that bridge.";
+        snippet = INSTALL_SNIPPET;
+        steps = [
+          "Install the bridge (or confirm it is already installed).",
+          "Run grok-bridge serve in a terminal.",
+          "Run grok-bridge open and open the printed URL once to pair.",
+        ];
+      }
       break;
     case "blocked_lna":
       title = "Allow local network access";
       body =
         "This browser blocked connections from desktop.grok.me to your machine. Allow local network (or loopback) access for this site, then retry.";
+      snippet = SERVE_SNIPPET;
+      steps = [];
       break;
     case "needs_pairing":
       title = "Pair this browser";
       body =
         "The bridge is running. Run `grok-bridge open` and open the printed URL (or paste the #pair= link) so this tab can control your CLI.";
+      snippet = OPEN_SNIPPET;
+      steps = [
+        "Run grok-bridge open in a terminal.",
+        "Open the printed URL once in this browser.",
+      ];
       break;
     case "error":
       title = "Bridge error";
       body = probe.message;
+      snippet = hadPort ? SERVE_SNIPPET : INSTALL_SNIPPET;
       break;
     case "ready":
       title = "Ready";
       body = "Connecting to Work…";
+      steps = [];
       break;
   }
 
-  const showInstall =
+  const showCommands =
     probe.kind === "bridge_missing" ||
     probe.kind === "needs_pairing" ||
     probe.kind === "checking" ||
@@ -62,27 +105,25 @@ export function LandingView({
       className="landing"
       data-testid="landing-view"
       data-probe-kind={probe.kind}
+      data-had-port={hadPort ? "1" : "0"}
     >
       <div className="landing-card">
         <p className="landing-kicker">Grok Desktop Portable</p>
         <h1>{title}</h1>
         <p className="landing-body">{body}</p>
-        {showInstall ? (
+        {showCommands ? (
           <>
             <p className="landing-steps-label">On this machine</p>
             <pre className="landing-install" data-testid="landing-install">
-              {INSTALL_SNIPPET}
+              {snippet}
             </pre>
-            <ol className="landing-steps">
-              <li>Install the bridge (or confirm it is already installed).</li>
-              <li>
-                Run <code>grok-bridge serve</code> in a terminal.
-              </li>
-              <li>
-                Run <code>grok-bridge open</code> and open the printed URL once
-                to pair.
-              </li>
-            </ol>
+            {steps.length > 0 ? (
+              <ol className="landing-steps">
+                {steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            ) : null}
           </>
         ) : null}
         {probe.kind === "blocked_lna" ? (
