@@ -3,7 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $Repo = if ($env:GROK_BRIDGE_REPO) { $env:GROK_BRIDGE_REPO } else { 'grok-insider/grok-desktop-portable' }
 $Version = if ($env:VERSION) { $env:VERSION } else { 'latest' }
-$FallbackTag = if ($env:GROK_BRIDGE_FALLBACK_TAG) { $env:GROK_BRIDGE_FALLBACK_TAG } else { 'v0.1.0-beta.2' }
+$FallbackTag = if ($env:GROK_BRIDGE_FALLBACK_TAG) { $env:GROK_BRIDGE_FALLBACK_TAG } else { 'v0.1.0' }
 $InstallDir = if ($env:GROK_BRIDGE_INSTALL_DIR) { $env:GROK_BRIDGE_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'grok-bridge\bin' }
 $BinName = 'grok-bridge.exe'
 $Asset = 'grok-bridge-windows-x64.exe'
