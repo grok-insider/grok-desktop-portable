@@ -60,6 +60,8 @@ pub mod state;
 pub mod tools;
 #[cfg(windows)]
 pub mod win_acl;
+#[cfg(windows)]
+pub mod win_job;
 pub mod workspace;
 
 /// Host wall clock in milliseconds since the Unix epoch.
