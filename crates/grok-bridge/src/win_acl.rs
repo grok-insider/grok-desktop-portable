@@ -13,6 +13,9 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::ptr;
 
+/// ACCESS_ALLOWED_ACE_TYPE from winnt.h (not always re-exported by windows-sys).
+const ACCESS_ALLOWED_ACE_TYPE: u8 = 0;
+
 /// Apply an owner-only protected DACL to `path` (file or directory).
 ///
 /// SDDL: protected DACL, full control for Owner and SYSTEM. OI/CI inheritance
@@ -23,12 +26,12 @@ pub fn set_owner_only(path: &Path) -> std::io::Result<()> {
     unsafe {
         use windows_sys::Win32::Foundation::LocalFree;
         use windows_sys::Win32::Security::Authorization::{
-            DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION, SE_FILE_OBJECT,
+            ConvertStringSecurityDescriptorToSecurityDescriptorW, SE_FILE_OBJECT,
             SetNamedSecurityInfoW,
         };
         use windows_sys::Win32::Security::{
-            ACL, BOOL, ConvertStringSecurityDescriptorToSecurityDescriptorW,
-            GetSecurityDescriptorDacl, PSECURITY_DESCRIPTOR,
+            ACL, DACL_SECURITY_INFORMATION, GetSecurityDescriptorDacl,
+            PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
         };
 
         let wide = wide_path(path);
@@ -50,9 +53,9 @@ pub fn set_owner_only(path: &Path) -> std::io::Result<()> {
             return Err(std::io::Error::last_os_error());
         }
 
-        let mut dacl_present: BOOL = 0;
+        let mut dacl_present: i32 = 0;
         let mut dacl: *mut ACL = ptr::null_mut();
-        let mut dacl_defaulted: BOOL = 0;
+        let mut dacl_defaulted: i32 = 0;
         if GetSecurityDescriptorDacl(sd, &mut dacl_present, &mut dacl, &mut dacl_defaulted) == 0 {
             LocalFree(sd as *mut _);
             return Err(std::io::Error::last_os_error());
@@ -84,16 +87,15 @@ pub fn is_owner_only(path: &Path) -> std::io::Result<bool> {
     // SAFETY: GetNamedSecurityInfo allocates a security descriptor we free with
     // LocalFree; the process token handle is always closed.
     unsafe {
-        use windows_sys::Win32::Foundation::{CloseHandle, ERROR_SUCCESS, HANDLE, LocalFree};
-        use windows_sys::Win32::Security::Authorization::{
-            DACL_SECURITY_INFORMATION, GetNamedSecurityInfoW, OWNER_SECURITY_INFORMATION,
-            SE_FILE_OBJECT,
+        use windows_sys::Win32::Foundation::{
+            CloseHandle, ERROR_SUCCESS, HANDLE, INVALID_HANDLE_VALUE, LocalFree,
         };
+        use windows_sys::Win32::Security::Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT};
         use windows_sys::Win32::Security::{
-            ACCESS_ALLOWED_ACE, ACCESS_ALLOWED_ACE_TYPE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION,
-            AclSizeInformation, CreateWellKnownSid, EqualSid, GetAce, GetAclInformation,
-            GetTokenInformation, IsValidSid, PSECURITY_DESCRIPTOR, PSID, TOKEN_QUERY, TOKEN_USER,
-            TokenUser, WinWorldSid,
+            ACCESS_ALLOWED_ACE, ACE_HEADER, ACL, ACL_SIZE_INFORMATION, AclSizeInformation,
+            DACL_SECURITY_INFORMATION, EqualSid, GetAce, GetAclInformation, GetTokenInformation,
+            IsValidSid, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID, TOKEN_QUERY,
+            TOKEN_USER, TokenUser,
         };
         use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
@@ -120,8 +122,12 @@ pub fn is_owner_only(path: &Path) -> std::io::Result<bool> {
             return Ok(false);
         }
 
-        let mut token: HANDLE = 0;
+        let mut token: HANDLE = ptr::null_mut();
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            LocalFree(sd as *mut _);
+            return Err(std::io::Error::last_os_error());
+        }
+        if token.is_null() || token == INVALID_HANDLE_VALUE {
             LocalFree(sd as *mut _);
             return Err(std::io::Error::last_os_error());
         }
@@ -188,12 +194,13 @@ pub fn is_owner_only(path: &Path) -> std::io::Result<bool> {
                 continue;
             }
             let header = &*(ace as *const ACE_HEADER);
-            if u32::from(header.AceType) != ACCESS_ALLOWED_ACE_TYPE {
+            if header.AceType != ACCESS_ALLOWED_ACE_TYPE {
                 continue;
             }
             let allowed = &*(ace as *const ACCESS_ALLOWED_ACE);
             let ace_sid = std::ptr::addr_of!(allowed.SidStart) as PSID;
-            if IsValidSid(ace_sid) != 0 && EqualSid(ace_sid, everyone.as_ptr().cast()) != 0 {
+            let everyone_sid = everyone.as_ptr() as PSID;
+            if IsValidSid(ace_sid) != 0 && EqualSid(ace_sid, everyone_sid) != 0 {
                 LocalFree(sd as *mut _);
                 return Ok(false);
             }

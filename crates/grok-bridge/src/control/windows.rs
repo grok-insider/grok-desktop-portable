@@ -14,7 +14,7 @@
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
-use std::os::windows::io::{FromRawHandle, IntoRawHandle, OwnedHandle};
+use std::os::windows::io::RawHandle;
 use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
@@ -158,10 +158,8 @@ fn create_server_with_user_dacl(
         use windows_sys::Win32::Foundation::{
             ERROR_ACCESS_DENIED, ERROR_PIPE_BUSY, FALSE, HANDLE, INVALID_HANDLE_VALUE, LocalFree,
         };
-        use windows_sys::Win32::Security::{
-            ConvertStringSecurityDescriptorToSecurityDescriptorW, PSECURITY_DESCRIPTOR,
-            SECURITY_ATTRIBUTES,
-        };
+        use windows_sys::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
+        use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
         use windows_sys::Win32::Storage::FileSystem::{
             FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED, PIPE_ACCESS_DUPLEX,
         };
@@ -216,17 +214,23 @@ fn create_server_with_user_dacl(
 
         LocalFree(sd as *mut _);
 
-        if handle == 0 || handle == INVALID_HANDLE_VALUE {
+        if handle.is_null() || handle == INVALID_HANDLE_VALUE {
             let err = std::io::Error::last_os_error();
             // Preserve raw OS codes (access denied / pipe busy) for diagnostics.
             let _ = (ERROR_ACCESS_DENIED, ERROR_PIPE_BUSY);
             return Err(ControlError::Io(err));
         }
 
-        // Transfer ownership into NamedPipeServer (closes on drop).
-        let owned = OwnedHandle::from_raw_handle(handle as *mut _);
-        let server = NamedPipeServer::from_raw_handle(owned.into_raw_handle());
-        Ok(server)
+        // Tokio takes ownership of the handle; returns Result on register failure.
+        // SAFETY: handle is a valid open named-pipe server from CreateNamedPipeW.
+        match NamedPipeServer::from_raw_handle(handle as RawHandle) {
+            Ok(server) => Ok(server),
+            Err(err) => {
+                use windows_sys::Win32::Foundation::CloseHandle;
+                CloseHandle(handle);
+                Err(ControlError::Io(err))
+            }
+        }
     }
 }
 
@@ -283,8 +287,9 @@ mod windows_tests {
         assert_eq!(stop, ControlResponse::Stopping);
     }
 
-    #[test]
-    fn bind_writes_pipe_sidecar() {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn bind_writes_pipe_sidecar() {
+        // NamedPipeServer::from_raw_handle requires a Tokio reactor.
         let root = tempfile::tempdir().expect("tempdir");
         let listener = bind(root.path()).expect("bind");
         let sidecar = root.path().join(CONTROL_PIPE_NAME_FILE);
@@ -295,8 +300,8 @@ mod windows_tests {
         drop(listener);
     }
 
-    #[test]
-    fn pipe_path_matches_derived_name() {
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn pipe_path_matches_derived_name() {
         let root = tempfile::tempdir().expect("tempdir");
         let expected = named_pipe_path_for(root.path());
         let listener = bind(root.path()).expect("bind");
