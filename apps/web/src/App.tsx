@@ -17,7 +17,6 @@ import {
   BRIDGE_PORT_KEY,
   BRIDGE_SESSION_KEY,
   LightClient,
-  clearStoredPort,
   hasStoredPort,
   resolveBridgeBaseUrl,
   takePairingFragment,
@@ -209,11 +208,10 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   /** Leave Work for landing when pairing dies or the host is gone. */
   const demoteToLanding = useCallback(
     (next: BridgeProbeState) => {
-      // Keep remembered port on not_paired (bridge may still be up); drop it when gone.
-      client.clearPairing({ clearPort: next.kind === "bridge_missing" });
-      if (next.kind === "bridge_missing") {
-        clearStoredPort();
-      }
+      // Always keep the remembered port: landing Retry and "serve then open"
+      // need resolveBridgeBaseUrl to still point at the last loopback port.
+      // Clear only the session grant (tokens). Port is discovery, not authority.
+      client.clearPairing({ clearPort: false });
       setPaired(false);
       setConnected(false);
       setReconnecting(false);
@@ -272,8 +270,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         isPaired,
       }).then((state) => {
         if (state.kind === "bridge_missing" || state.kind === "blocked_lna") {
-          clearStoredPort();
-          client.clearPairing({ clearPort: true });
+          // Drop tokens so we do not look paired, but keep the port so
+          // LandingView can show "serve" (hadPort) and Retry re-probes the same base.
+          client.clearPairing({ clearPort: false });
         }
         setProbe(state);
       });
@@ -288,12 +287,8 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         afterPairAttempt(true);
         return;
       }
-      // Keep port on not_paired so landing can emphasize open, not reinstall.
-      const dropPort = result.failure.kind === "unreachable";
-      client.clearPairing({ clearPort: dropPort });
-      if (dropPort) {
-        clearStoredPort();
-      }
+      // Keep port always (discovery for Retry / sticky serve). Clear grant only.
+      client.clearPairing({ clearPort: false });
       setPaired(false);
       setFailure(nonce === null ? undefined : result.failure);
       if (result.failure.kind === "protocol_mismatch") {
