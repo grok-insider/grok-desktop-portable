@@ -1,0 +1,288 @@
+/*
+ * Grok Light renderer styles.
+ *
+ * The tokens below are the Grok Desktop design system, defined by
+ * apps/desktop/DESIGN.md. Read DESIGN.md before any UI work here: Light is a
+ * separate product, but it is deliberately not a separate visual language.
+ *
+ * These tokens are duplicated rather than imported because the shared
+ * `packages/design-tokens` extraction is a later phase of the Light program
+ * (docs/light/light-website-plan.md). Duplication here is temporary and
+ * documented; do not diverge the values. When the package lands, this file
+ * becomes an import.
+ *
+ * Light ships light + dark. Desktop remains light-first until it adopts the
+ * same `.dark` remaps (DESIGN.md §2). Prefer semantic tokens in JSX — never
+ * hardcode hex there.
+ */
+@import "tailwindcss";
+/*
+ * Class-gate the `dark:` variant. Theme is applied by adding `.dark` on
+ * <html> (see theme/ + the boot script in index.html), not by following the
+ * OS scheme alone.
+ */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Semantic tokens (DESIGN.md §2) — hex documented alongside OKLCH there. */
+  --background: #f4f6f5;
+  --foreground: #1d211f;
+  --card: #ffffff;
+  --card-foreground: #1d211f;
+  --popover: #ffffff;
+  --popover-foreground: #1d211f;
+  --primary: #252d29;
+  --primary-hover: #111713;
+  --primary-foreground: #f4f6f5;
+  --secondary: #e9edeb;
+  --secondary-foreground: #1d211f;
+  --muted: #f7f8f7;
+  --muted-foreground: #5e6662;
+  --subtle-foreground: #687069;
+  --accent: #e2e9e5;
+  --accent-foreground: #1d211f;
+  --destructive: #a54545;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #faeaea;
+  --border: #dfe3e1;
+  --input: #cbd1ce;
+  --input-hover: #adb6b1;
+  --destructive-hover: #8e3535;
+  --ring: #456b84;
+  --info: #456b84;
+  --info-soft: #e6f0f5;
+  --success: #3f7255;
+  --success-soft: #e6f1ea;
+  --warning: #8a5734;
+  --warning-soft: #f6ece3;
+  --sidebar: #e9edeb;
+  --sidebar-foreground: #1d211f;
+  --sidebar-primary: #252d29;
+  --sidebar-primary-foreground: #f4f6f5;
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #1d211f;
+  --sidebar-border: #cbd1ce;
+  --sidebar-ring: #456b84;
+  --selection: #c8dbd0;
+  --scrim: rgb(20 27 24 / 34%);
+  --radius: 7px;
+  --shadow-raised: 0 1px 2px rgb(24 33 28 / 5%);
+  --shadow-overlay: 0 4px 16px rgb(28 38 33 / 6%);
+  --shadow-dialog: 0 24px 70px rgb(25 35 30 / 18%), 0 3px 14px rgb(25 35 30 / 10%);
+  --ease: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: light;
+}
+
+/*
+ * Dark remaps — same green-gray family (~165°) and charcoal ink identity.
+ * Surfaces invert; status inks stay readable on soft fills. Documented in
+ * docs/light/ui.md.
+ */
+.dark {
+  --background: #121614;
+  --foreground: #e8ebe9;
+  --card: #1a1f1c;
+  --card-foreground: #e8ebe9;
+  --popover: #1a1f1c;
+  --popover-foreground: #e8ebe9;
+  --primary: #c5d0c9;
+  --primary-hover: #dbe3de;
+  --primary-foreground: #121614;
+  --secondary: #242a27;
+  --secondary-foreground: #e8ebe9;
+  --muted: #1e2421;
+  --muted-foreground: #9aa39e;
+  --subtle-foreground: #8a938d;
+  --accent: #2a322e;
+  --accent-foreground: #e8ebe9;
+  --destructive: #d47070;
+  --destructive-foreground: #1a1010;
+  --destructive-soft: #3a2222;
+  --border: #2e3632;
+  --input: #3d4641;
+  --input-hover: #55605a;
+  --destructive-hover: #e08888;
+  --ring: #6a9bb8;
+  --info: #6a9bb8;
+  --info-soft: #1a2a33;
+  --success: #6aad84;
+  --success-soft: #1a2e22;
+  --warning: #c48a5a;
+  --warning-soft: #332518;
+  --sidebar: #181c1a;
+  --sidebar-foreground: #e8ebe9;
+  --sidebar-primary: #c5d0c9;
+  --sidebar-primary-foreground: #121614;
+  --sidebar-accent: #1a1f1c;
+  --sidebar-accent-foreground: #e8ebe9;
+  --sidebar-border: #2e3632;
+  --sidebar-ring: #6a9bb8;
+  --selection: #2d4038;
+  --scrim: rgb(0 0 0 / 55%);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-overlay: 0 4px 16px rgb(0 0 0 / 40%);
+  --shadow-dialog: 0 24px 70px rgb(0 0 0 / 55%), 0 3px 14px rgb(0 0 0 / 35%);
+  color-scheme: dark;
+}
+
+@theme {
+  --font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Type ramp (DESIGN.md §3): 11px floor, hierarchy by weight not size jumps. */
+  --text-label: 11px;
+  --text-label--line-height: 16px;
+  --text-body-sm: 12px;
+  --text-body-sm--line-height: 18px;
+  --text-body: 13px;
+  --text-body--line-height: 20px;
+  --text-body-lg: 14px;
+  --text-body-lg--line-height: 22px;
+  --text-title-sm: 15px;
+  --text-title-sm--line-height: 22px;
+  --text-title: 18px;
+  --text-title--line-height: 26px;
+  --text-title-lg: 22px;
+  --text-title-lg--line-height: 30px;
+  --text-display: 28px;
+  --text-display--line-height: 36px;
+
+  --ease-fluid: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-hover: var(--input-hover);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* DESIGN.md radius scale is exactly 5/7/9 — sm intentionally equals md so no
+   * utility can render an off-scale 3px corner. */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-dialog: var(--shadow-dialog);
+  --color-scrim: var(--scrim);
+}
+
+/*
+ * Reveal an auxiliary control only when its row is hovered or focused.
+ *
+ * Rows carry their actions without drawing them at full strength all the time,
+ * which is what keeps a dense list calm. Pointer-less devices have no hover to
+ * give, so there the control is always visible rather than unreachable.
+ */
+@utility hover-reveal {
+  opacity: 0;
+  transition: opacity 150ms var(--ease-fluid);
+
+  @media (hover: none) {
+    opacity: 1;
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-width: 320px;
+    min-height: 100%;
+    margin: 0;
+  }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 20px;
+    /* Counts, timestamps, and token figures change while a turn streams.
+     * Proportional digits reflow the row on every change; lining them up keeps
+     * the transcript still (DESIGN.md §3). */
+    font-variant-numeric: tabular-nums;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+
+  ::selection {
+    background: var(--selection);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* The shell switches to a bottom tab bar below 680px; the page scrolls again.
+   * Range syntax matches Tailwind's exclusive max-[680px]: boundary exactly. */
+  @media (width < 680px) {
+    body {
+      overflow: auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+

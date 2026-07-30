@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Grok Desktop Portable</title>
+    <meta
+      name="description"
+      content="Local Work UI for the Grok Build CLI you already use. One bridge binary; no cloud app."
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1210;
+        --fg: #e8eeea;
+        --muted: #9aa8a0;
+        --accent: #7dcea0;
+        --card: #1a1f1c;
+        --border: #2a322e;
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f4f7f5;
+          --fg: #121816;
+          --muted: #4a5850;
+          --accent: #1b7a4a;
+          --card: #ffffff;
+          --border: #d0dbd4;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.55;
+      }
+      main {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.5rem;
+      }
+      .lead {
+        color: var(--muted);
+        font-size: 1.05rem;
+        margin: 0 0 1.75rem;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem 1.15rem;
+        margin: 1rem 0;
+      }
+      pre,
+      code {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 0.9rem;
+      }
+      pre {
+        margin: 0;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      a {
+        color: var(--accent);
+      }
+      ul {
+        padding-left: 1.2rem;
+      }
+      li {
+        margin: 0.35rem 0;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 2rem 0 0.6rem;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+        margin-bottom: 0.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="badge">Public beta</div>
+      <h1>Grok Desktop Portable</h1>
+      <p class="lead">
+        A local Work interface for the Grok Build CLI you already installed.
+        One bridge binary runs on your machine and serves the UI over loopback.
+        This page is only for download and docs — it never runs your agent.
+      </p>
+
+      <div class="card">
+        <pre>curl -fsSL https://desktop.grok.me/install.sh | sh</pre>
+      </div>
+      <p class="note">
+        Windows (PowerShell):
+        <code>irm https://desktop.grok.me/install.ps1 | iex</code>
+      </p>
+
+      <h2>Requirements</h2>
+      <ul>
+        <li>Grok Build CLI installed and authenticated (<code>grok</code>)</li>
+        <li>Chrome, Edge, or Firefox 84+ (Safari is not supported)</li>
+        <li>Linux, Windows, or macOS</li>
+      </ul>
+
+      <h2>First run</h2>
+      <div class="card">
+        <pre>grok-bridge doctor
+grok-bridge serve
+# other terminal:
+grok-bridge open</pre>
+      </div>
+
+      <h2>What this is not</h2>
+      <ul>
+        <li>Not the full Electron Grok Desktop app</li>
+        <li>Not a sandbox or remote execution product</li>
+        <li>Not a CDN-hosted app talking to localhost</li>
+      </ul>
+      <p class="note">
+        The bridge runs with the same authority as your CLI, including plugins,
+        hooks, and MCP servers you configured. Read the
+        <a href="https://github.com/grok-insider/grok-desktop-portable/blob/main/docs/threat-model.md"
+          >threat model</a
+        >.
+      </p>
+
+      <h2>Verify</h2>
+      <p class="note">
+        Releases are unsigned FOSS binaries. Prefer checking
+        <code>checksums.txt</code> on the
+        <a href="https://github.com/grok-insider/grok-desktop-portable/releases"
+          >GitHub release</a
+        >
+        against the file you downloaded, and audit the matching source tag.
+      </p>
+      <p class="note">
+        macOS may quarantine unsigned downloads; Windows SmartScreen may warn.
+        After checksum verification you can open the binary explicitly.
+      </p>
+
+      <h2>Source</h2>
+      <p>
+        <a href="https://github.com/grok-insider/grok-desktop-portable"
+          >github.com/grok-insider/grok-desktop-portable</a
+        >
+      </p>
+    </main>
+  </body>
+</html>

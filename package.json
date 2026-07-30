@@ -1,0 +1,17 @@
+{
+  "name": "grok-desktop-portable",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Grok Desktop Portable monorepo: local bridge host + Work SPA + landing site",
+  "scripts": {
+    "build:web": "pnpm --filter @grok-desktop-portable/web build",
+    "test:web": "pnpm --filter @grok-desktop-portable/web test",
+    "typecheck:web": "pnpm --filter @grok-desktop-portable/web typecheck",
+    "build:bridge": "pnpm build:web && cargo build -p grok-bridge --release",
+    "test": "pnpm test:web && cargo test -p grok-bridge"
+  },
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  }
+}
