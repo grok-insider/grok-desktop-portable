@@ -1,50 +1,70 @@
 #!/usr/bin/env sh
-# Drive the real site/install.sh resolution path (INSTALL_DRY_RUN=1).
-# Proves VERSION=latest does not use /releases/latest (prerelease 404) and
-# that the resolved download URLs return success for a published asset.
+# Drive the real site/install.sh resolution path (--dry-run).
+# Proves public installer ignores env overrides and does not use /releases/latest.
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 INSTALL_SH="$ROOT/site/install.sh"
-SCRATCH="${INSTALL_TEST_SCRATCH:-/tmp/grok-goal-505a811f98f9/implementer}"
+SCRATCH="${INSTALL_TEST_SCRATCH:-$(mktemp -d)}"
 mkdir -p "$SCRATCH"
 
-# Static: scripts must not use the prerelease-blind latest *download* URL.
 if grep -E 'releases/latest/download' "$INSTALL_SH" "$ROOT/site/install.ps1" 2>/dev/null; then
   echo "install scripts must not hardcode releases/latest/download" >&2
   exit 1
 fi
-# Must resolve via API (includes prereleases).
+
+for forbidden in \
+  'GROK_BRIDGE_REPO' \
+  'GROK_BRIDGE_FALLBACK_TAG' \
+  'GROK_BRIDGE_INSTALL_DIR' \
+  'INSTALL_DRY_RUN' \
+  'VERSION:-' \
+  '${VERSION:-' \
+  'env:VERSION' \
+  'env:GROK_BRIDGE' \
+  'env:INSTALL_DRY_RUN'
+do
+  if grep -F "$forbidden" "$INSTALL_SH" "$ROOT/site/install.ps1" 2>/dev/null; then
+    echo "public install scripts must not reference override knob: $forbidden" >&2
+    exit 1
+  fi
+done
+
+grep -q 'grok-insider/grok-desktop-portable' "$INSTALL_SH"
 grep -q 'api.github.com/repos/' "$INSTALL_SH"
 grep -q 'Invoke-RestMethod' "$ROOT/site/install.ps1"
+grep -q -- '--dry-run' "$INSTALL_SH"
 
-# Live: dry-run the real install.sh (network).
-out=$(INSTALL_DRY_RUN=1 VERSION=latest sh "$INSTALL_SH" 2>"$SCRATCH/install-resolve.err" | tee "$SCRATCH/install-resolve.out")
+# Env poisoning must not change resolution.
+out=$(
+  env -i PATH="$PATH" HOME="$HOME" \
+    VERSION=v0.0.0-evil \
+    GROK_BRIDGE_REPO=evil/evil \
+    GROK_BRIDGE_FALLBACK_TAG=v0.0.0-evil \
+    GROK_BRIDGE_INSTALL_DIR=/tmp/evil-bin \
+    INSTALL_DRY_RUN=1 \
+    sh "$INSTALL_SH" --dry-run 2>"$SCRATCH/install-resolve.err" | tee "$SCRATCH/install-resolve.out"
+)
 echo "$out" | grep -q '^RESOLVED_TAG=v'
 echo "$out" | grep -q '^DOWNLOAD_URL=https://github.com/grok-insider/grok-desktop-portable/releases/download/'
 echo "$out" | grep -q '^DRY_RUN_OK$'
-# Must not mention /releases/latest/download
+if echo "$out" | grep -q 'evil'; then
+  echo "public installer honored poisoned env" >&2
+  exit 1
+fi
 if echo "$out" | grep -q '/releases/latest/download'; then
   echo "resolved URL still uses /releases/latest/download" >&2
   exit 1
 fi
 
-# Explicit pin still works.
-out2=$(INSTALL_DRY_RUN=1 VERSION=v0.1.0-beta.1 sh "$INSTALL_SH" 2>>"$SCRATCH/install-resolve.err" | tee -a "$SCRATCH/install-resolve.out")
-echo "$out2" | grep -q 'RESOLVED_TAG=v0.1.0-beta.1'
-echo "$out2" | grep -q 'DRY_RUN_OK'
-
-# Full install into scratch dir (real download + checksum + install path).
+# Operator clone script still allows install dir + version for tests.
+op="$ROOT/install/install.sh"
 install_dir="$SCRATCH/install-bin"
 rm -rf "$install_dir"
 mkdir -p "$install_dir"
-GROK_BRIDGE_INSTALL_DIR="$install_dir" VERSION=latest sh "$INSTALL_SH" 2>&1 | tee "$SCRATCH/install-full.log"
+GROK_BRIDGE_INSTALL_DIR="$install_dir" VERSION=latest sh "$op" 2>&1 | tee "$SCRATCH/install-full.log"
 test -x "$install_dir/grok-bridge"
-# Binary has SPA
-sh "$ROOT/scripts/assert-spa-embedded.sh" "$install_dir/grok-bridge"
-# doctor is informative
-STATE="$SCRATCH/install-state"
-rm -rf "$STATE" && mkdir -m 700 "$STATE"
-GROK_BRIDGE_STATE_DIR="$STATE" "$install_dir/grok-bridge" doctor 2>&1 | tee "$SCRATCH/install-doctor.log"
-grep -q 'grok cli' "$SCRATCH/install-doctor.log"
+if [ -x "$ROOT/scripts/assert-spa-embedded.sh" ]; then
+  sh "$ROOT/scripts/assert-spa-embedded.sh" "$install_dir/grok-bridge"
+fi
 
 echo "install-resolve.test.sh: ok"

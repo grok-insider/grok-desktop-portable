@@ -1,25 +1,38 @@
-# Install grok-bridge from GitHub Releases (Grok Desktop Portable).
-# Usage (PowerShell):
-#   irm https://desktop.grok.me/install.ps1 | iex
-#   $env:VERSION='v0.1.0-beta.1'; irm https://desktop.grok.me/install.ps1 | iex
+# Public installer for grok-bridge (Grok Desktop Portable).
+# Served at: https://desktop.grok.me/install.ps1
 #
-# Default VERSION=latest resolves via the GitHub API including prereleases.
-# GitHub's /releases/latest URL skips prereleases and 404s when only betas exist.
+# This script does NOT read install policy from environment variables.
+# It always installs the newest release of the official repo (including
+# prereleases) into %LOCALAPPDATA%\grok-bridge\bin.
+#
+# Usage:
+#   irm https://desktop.grok.me/install.ps1 | iex
+#
+# For forks / custom paths / pinned tags, clone the repo and use
+# install/install.ps1.
 $ErrorActionPreference = 'Stop'
 
-$Repo = if ($env:GROK_BRIDGE_REPO) { $env:GROK_BRIDGE_REPO } else { 'grok-insider/grok-desktop-portable' }
-$Version = if ($env:VERSION) { $env:VERSION } else { 'latest' }
-$FallbackTag = if ($env:GROK_BRIDGE_FALLBACK_TAG) { $env:GROK_BRIDGE_FALLBACK_TAG } else { 'v0.1.0-beta.1' }
-$InstallDir = if ($env:GROK_BRIDGE_INSTALL_DIR) {
-  $env:GROK_BRIDGE_INSTALL_DIR
-} else {
-  Join-Path $env:LOCALAPPDATA 'grok-bridge\bin'
-}
+# --- fixed product constants (do not read env for these) ---
+$Repo = 'grok-insider/grok-desktop-portable'
+$FallbackTag = 'v0.1.0-beta.2'
+$InstallDir = Join-Path $env:LOCALAPPDATA 'grok-bridge\bin'
 $BinName = 'grok-bridge.exe'
 $Asset = 'grok-bridge-windows-x64.exe'
 
-function Resolve-Tag([string]$Want) {
-  if ($Want -ne 'latest') { return $Want }
+$DryRun = $false
+foreach ($a in $args) {
+  if ($a -eq '-DryRun' -or $a -eq '--dry-run') { $DryRun = $true }
+  elseif ($a -eq '-h' -or $a -eq '--help' -or $a -eq '-Help') {
+    Write-Host 'Public installer: irm https://desktop.grok.me/install.ps1 | iex'
+    Write-Host 'Only optional flag when running the file: -DryRun'
+    return
+  }
+  else {
+    throw "Unknown argument: $a (public installer accepts only -DryRun)"
+  }
+}
+
+function Resolve-Tag {
   try {
     $headers = @{ Accept = 'application/vnd.github+json' }
     $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=20" -Headers $headers
@@ -33,14 +46,14 @@ function Resolve-Tag([string]$Want) {
   return $FallbackTag
 }
 
-$Version = Resolve-Tag $Version
+$Version = Resolve-Tag
 $Base = "https://github.com/$Repo/releases/download/$Version"
 
-if ($env:INSTALL_DRY_RUN -eq '1') {
+if ($DryRun) {
   Write-Host "RESOLVED_TAG=$Version"
   Write-Host "DOWNLOAD_URL=$Base/$Asset"
   Write-Host "CHECKSUMS_URL=$Base/checksums.txt"
-  # HEAD-style check
+  Write-Host "INSTALL_DIR=$InstallDir"
   Invoke-WebRequest -Uri "$Base/$Asset" -Method Head -UseBasicParsing | Out-Null
   Invoke-WebRequest -Uri "$Base/checksums.txt" -Method Head -UseBasicParsing | Out-Null
   Write-Host 'DRY_RUN_OK'
@@ -51,21 +64,17 @@ $Tmp = New-Item -ItemType Directory -Path ([System.IO.Path]::GetTempPath()) -Nam
 try {
   $BinPath = Join-Path $Tmp.FullName $Asset
   $SumPath = Join-Path $Tmp.FullName 'checksums.txt'
-  Write-Host "Downloading $Asset ($Version)…"
+  Write-Host "Downloading $Asset ($Version) from $Repo…"
   Invoke-WebRequest -Uri "$Base/$Asset" -OutFile $BinPath -UseBasicParsing
-  try {
-    Invoke-WebRequest -Uri "$Base/checksums.txt" -OutFile $SumPath -UseBasicParsing
-    $line = Select-String -Path $SumPath -Pattern ([regex]::Escape($Asset)) | Select-Object -First 1
-    if (-not $line) { throw "$Asset not listed in checksums.txt" }
-    $expected = ($line.Line -split '\s+')[0].Trim().ToLowerInvariant()
-    $actual = (Get-FileHash -Algorithm SHA256 -Path $BinPath).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) {
-      throw "checksum mismatch for $Asset`n  expected: $expected`n  actual:   $actual"
-    }
-    Write-Host 'Checksum OK'
-  } catch {
-    Write-Warning "Checksum verification skipped or failed: $_"
+  Invoke-WebRequest -Uri "$Base/checksums.txt" -OutFile $SumPath -UseBasicParsing
+  $line = Select-String -Path $SumPath -Pattern ([regex]::Escape($Asset)) | Select-Object -First 1
+  if (-not $line) { throw "$Asset not listed in checksums.txt" }
+  $expected = ($line.Line -split '\s+')[0].Trim().ToLowerInvariant()
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $BinPath).Hash.ToLowerInvariant()
+  if ($actual -ne $expected) {
+    throw "checksum mismatch for $Asset`n  expected: $expected`n  actual:   $actual"
   }
+  Write-Host 'Checksum OK'
 
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   $Dest = Join-Path $InstallDir $BinName

@@ -23,7 +23,7 @@ managed `GROK_HOME`. Architecture: [docs/adr/0016-hosted-ui-local-bridge.md](doc
 - Linux (primary); macOS bridge binary available; Windows bridge not in beta yet
 - For hosted UI: allow **local network** access when the browser asks
 
-## Install bridge (beta)
+## Install bridge
 
 ```sh
 curl -fsSL https://desktop.grok.me/install.sh | sh
@@ -33,7 +33,14 @@ Or download from
 [GitHub Releases](https://github.com/grok-insider/grok-desktop-portable/releases)
 and verify `checksums.txt`. Unsigned FOSS builds.
 
-**v0.1.0-beta.1:** `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`.
+Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`.
+
+## Contributing
+
+Default branch is **`master`**. Open feature/fix PRs against **`dev`**. When a
+batch is ready, open one integration PR from `dev` into `master`. Releases are
+cut by the Release workflow (patch auto; minor/major via Manual Version Bump).
+See [AGENTS.md](AGENTS.md).
 
 ## First run
 
