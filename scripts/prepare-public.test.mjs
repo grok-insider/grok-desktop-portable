@@ -49,12 +49,26 @@ assert.ok(installSh.startsWith("#!/usr/bin/env sh"));
 assert.ok(!installSh.includes("<!doctype"));
 assert.ok(!installSh.includes("releases/latest/download"));
 assert.ok(installSh.includes("api.github.com/repos/"));
+assert.ok(installSh.includes("grok-insider/grok-desktop-portable"));
+for (const knob of [
+  "GROK_BRIDGE_REPO",
+  "GROK_BRIDGE_FALLBACK_TAG",
+  "GROK_BRIDGE_INSTALL_DIR",
+  "INSTALL_DRY_RUN",
+  "VERSION:-",
+]) {
+  assert.ok(!installSh.includes(knob), `public install.sh must not allow ${knob}`);
+}
+assert.ok(installSh.includes("--dry-run"), "public dry-run is argv-only");
 
 const installPs1 = read(path.join(pub, "install.ps1"));
 assert.ok(
   installPs1.includes("$ErrorActionPreference") || installPs1.includes("Invoke-WebRequest"),
 );
 assert.ok(!installPs1.includes("releases/latest/download"));
+assert.ok(!installPs1.includes("env:GROK_BRIDGE"));
+assert.ok(!installPs1.includes("env:VERSION"));
+assert.ok(!installPs1.includes("env:INSTALL_DRY_RUN"));
 
 // --- production SPA at site root (probe → landing or Work) ---
 const index = read(path.join(pub, "index.html"));
