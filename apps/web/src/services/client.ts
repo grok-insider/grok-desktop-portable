@@ -91,6 +91,14 @@ export class LightClient {
     return `${this.#bridgeBaseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
   }
 
+  /**
+   * Hosted SPA must never treat the public origin as the bridge API.
+   * Empty base + desktop.grok.me would hit Vercel demo stubs and look "paired".
+   */
+  #requiresLoopbackBridge(): boolean {
+    return !this.#bridgeBaseUrl && isHostedDocumentOrigin();
+  }
+
   #authHeaders(extra: Record<string, string> = {}): Record<string, string> {
     const headers: Record<string, string> = { ...extra };
     if (this.#sessionToken) {
@@ -113,6 +121,10 @@ export class LightClient {
    * Resume an existing pairing after a reload.
    */
   async resume(): Promise<ClientResult<PairResult>> {
+    if (this.#requiresLoopbackBridge()) {
+      // No known loopback port yet — do not call the public origin's /session.
+      return unreachable();
+    }
     let response: Response;
     try {
       response = await fetch(this.#url("/session"), {
@@ -132,6 +144,10 @@ export class LightClient {
         failure: { kind: "protocol_mismatch", hostVersion: value.protocolVersion },
       };
     }
+    // Require a session token so a demo/stub CSRF-only body cannot look paired.
+    if (!value.sessionToken && !this.#sessionToken) {
+      return { ok: false, failure: { kind: "not_paired" } };
+    }
     this.#rememberPair(value);
     // Host echoes session token on resume; keep prior if missing.
     if (!this.#sessionToken && value.sessionToken) {
@@ -144,6 +160,10 @@ export class LightClient {
    * Redeem a single-use pairing nonce from the URL fragment.
    */
   async pair(nonce: string): Promise<ClientResult<PairResult>> {
+    if (this.#requiresLoopbackBridge()) {
+      // Pairing without &p= would POST to the public origin, not the bridge.
+      return { ok: false, failure: { kind: "rejected" } };
+    }
     let response: Response;
     try {
       response = await fetch(this.#url("/pair"), {
@@ -291,6 +311,19 @@ export function takePairingFragment(): { nonce: string; port: number | null } | 
   }
   history.replaceState(null, "", location.pathname + location.search);
   return { nonce, port: port !== null && Number.isFinite(port) ? port : null };
+}
+
+/**
+ * Production Work UI document origin (ADR light 0016).
+ * Same-origin fetch here is the public site (or a demo stub), never the bridge.
+ */
+export const HOSTED_SPA_ORIGIN = "https://desktop.grok.me";
+
+/** True when this document is the hosted SPA, not the loopback fallback UI. */
+export function isHostedDocumentOrigin(
+  origin: string = typeof location !== "undefined" ? location.origin : "",
+): boolean {
+  return origin === HOSTED_SPA_ORIGIN;
 }
 
 /** Resolve loopback base URL from build env or last pair fragment port. */
