@@ -1,27 +1,50 @@
 #!/usr/bin/env sh
-# Install grok-bridge from GitHub Releases (Grok Desktop Portable).
+# Public installer for grok-bridge (Grok Desktop Portable).
+# Served at: https://desktop.grok.me/install.sh
+#
+# This file is intentionally NOT configurable via environment variables.
+# It always installs the newest release of the official repo (including
+# prereleases) into ~/.local/bin. That keeps `curl | sh` from the site
+# deterministic and resistant to ambient env poisoning.
+#
 # Usage:
 #   curl -fsSL https://desktop.grok.me/install.sh | sh
-#   VERSION=v0.1.0-beta.1 curl -fsSL https://desktop.grok.me/install.sh | sh
+#   curl -fsSL https://desktop.grok.me/install.sh | sh -s -- --dry-run
 #
-# VERSION=latest (default) resolves the newest GitHub release *including
-# prereleases* via the API. GitHub's /releases/latest URL skips prereleases
-# and 404s when only betas are published.
+# For forks / custom install dir / pinned tags, clone the repo and use
+# install/install.sh (those knobs are for operators, not the public URL).
 set -eu
 
-REPO="${GROK_BRIDGE_REPO:-grok-insider/grok-desktop-portable}"
-VERSION="${VERSION:-latest}"
-# Used when VERSION=latest and the API is unreachable.
-FALLBACK_TAG="${GROK_BRIDGE_FALLBACK_TAG:-v0.1.0-beta.1}"
-INSTALL_DIR="${GROK_BRIDGE_INSTALL_DIR:-${HOME}/.local/bin}"
+# --- fixed product constants (do not read env for these) ---
+REPO="grok-insider/grok-desktop-portable"
+# Used only if the GitHub API is unreachable.
+FALLBACK_TAG="v0.1.0-beta.2"
+INSTALL_DIR="${HOME}/.local/bin"
 BIN_NAME="grok-bridge"
+
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)
+      DRY_RUN=1
+      ;;
+    -h | --help)
+      sed -n '2,16p' "$0" 2>/dev/null || true
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $arg (public installer accepts only --dry-run)" >&2
+      exit 1
+      ;;
+  esac
+done
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m)
 case "$os" in
   linux) platform=linux ;;
   darwin) platform=darwin ;;
-  mingw*|msys*|cygwin*)
+  mingw* | msys* | cygwin*)
     echo "Use install.ps1 on Windows (https://desktop.grok.me/install.ps1)" >&2
     exit 1
     ;;
@@ -31,8 +54,8 @@ case "$os" in
     ;;
 esac
 case "$arch" in
-  x86_64|amd64) arch=x64 ;;
-  aarch64|arm64) arch=arm64 ;;
+  x86_64 | amd64) arch=x64 ;;
+  aarch64 | arm64) arch=arm64 ;;
   *)
     echo "unsupported architecture: $arch" >&2
     exit 1
@@ -41,15 +64,8 @@ esac
 
 asset="${BIN_NAME}-${platform}-${arch}"
 
-# Resolve VERSION=latest to a concrete tag (prereleases included).
+# Newest GitHub release including prereleases (not /releases/latest).
 resolve_tag() {
-  want=$1
-  if [ "$want" != "latest" ]; then
-    printf '%s\n' "$want"
-    return 0
-  fi
-  # releases?per_page lists newest first and includes prereleases.
-  # Avoid /releases/latest — that endpoint ignores prerelease-only channels.
   api="https://api.github.com/repos/${REPO}/releases?per_page=20"
   json=$(curl -fsSL -H "Accept: application/vnd.github+json" "$api" 2>/dev/null || true)
   tag=""
@@ -68,14 +84,14 @@ resolve_tag() {
   printf '%s\n' "$tag"
 }
 
-VERSION=$(resolve_tag "$VERSION")
+VERSION=$(resolve_tag)
 base="https://github.com/${REPO}/releases/download/${VERSION}"
 
-# Dry-run: prove URL resolution without writing to the user install dir.
-if [ "${INSTALL_DRY_RUN:-0}" = "1" ]; then
+if [ "$DRY_RUN" = 1 ]; then
   echo "RESOLVED_TAG=${VERSION}"
   echo "DOWNLOAD_URL=${base}/${asset}"
   echo "CHECKSUMS_URL=${base}/checksums.txt"
+  echo "INSTALL_DIR=${INSTALL_DIR}"
   curl -fsSIL "${base}/${asset}" >/dev/null
   curl -fsSIL "${base}/checksums.txt" >/dev/null
   echo "DRY_RUN_OK"
@@ -85,32 +101,30 @@ fi
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 
-echo "Downloading ${asset} (${VERSION})…"
+echo "Downloading ${asset} (${VERSION}) from ${REPO}…"
 curl -fsSL "${base}/${asset}" -o "${tmpdir}/${asset}"
 curl -fsSL "${base}/checksums.txt" -o "${tmpdir}/checksums.txt" || {
-  echo "warning: checksums.txt not found; skipping verify" >&2
-  checksums_missing=1
+  echo "error: checksums.txt required but not found for ${VERSION}" >&2
+  exit 1
 }
 
-if [ "${checksums_missing:-0}" != 1 ]; then
-  expected=$(grep -E "[[:space:]]${asset}$" "${tmpdir}/checksums.txt" | awk '{print $1}' | head -n1)
-  if [ -z "$expected" ]; then
-    echo "error: ${asset} not listed in checksums.txt" >&2
-    exit 1
-  fi
-  if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(sha256sum "${tmpdir}/${asset}" | awk '{print $1}')
-  else
-    actual=$(shasum -a 256 "${tmpdir}/${asset}" | awk '{print $1}')
-  fi
-  if [ "$actual" != "$expected" ]; then
-    echo "error: checksum mismatch for ${asset}" >&2
-    echo "  expected: $expected" >&2
-    echo "  actual:   $actual" >&2
-    exit 1
-  fi
-  echo "Checksum OK"
+expected=$(grep -E "[[:space:]]${asset}$" "${tmpdir}/checksums.txt" | awk '{print $1}' | head -n1)
+if [ -z "$expected" ]; then
+  echo "error: ${asset} not listed in checksums.txt" >&2
+  exit 1
 fi
+if command -v sha256sum >/dev/null 2>&1; then
+  actual=$(sha256sum "${tmpdir}/${asset}" | awk '{print $1}')
+else
+  actual=$(shasum -a 256 "${tmpdir}/${asset}" | awk '{print $1}')
+fi
+if [ "$actual" != "$expected" ]; then
+  echo "error: checksum mismatch for ${asset}" >&2
+  echo "  expected: $expected" >&2
+  echo "  actual:   $actual" >&2
+  exit 1
+fi
+echo "Checksum OK"
 
 mkdir -p "$INSTALL_DIR"
 install -m 755 "${tmpdir}/${asset}" "${INSTALL_DIR}/${BIN_NAME}"
