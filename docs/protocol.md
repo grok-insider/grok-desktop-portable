@@ -23,19 +23,29 @@ The browser never sends or receives ACP; the bridge translates.
 
 ### 1.2 Hosted document → loopback API
 
-Production SPA is cross-origin to the API:
+Production SPA is cross-origin to the API. **`SameSite=Strict` cookies set on
+loopback are not sent** on cross-site requests from `https://desktop.grok.me`,
+so the cookie alone cannot authenticate the hosted client.
 
-1. SPA uses `credentials: 'include'` so the **loopback** session cookie is sent.
-2. Mutations send CSRF header (e.g. `x-grok-light-csrf`) from page memory.
-3. `Host` must match the API host (`127.0.0.1:<port>` or `localhost:<port>`).
-4. `Origin` on mutations and WebSocket upgrades must be an **allowlisted** web
+1. Pair (and resume) responses include `sessionToken` (and CSRF) in the JSON
+   body. The SPA keeps the session token in memory.
+2. **HTTP** mutations and session calls send `x-gl-session: <token>` (and
+   CSRF on mutations). `credentials: 'include'` may still be set for
+   same-origin fallback; it is not relied on for hosted auth.
+3. **WebSocket** `/events` cannot carry custom headers. The client offers
+   subprotocols `light.local.v1` and `gls.<sessionToken>`. The bridge verifies
+   the `gls.` token, then negotiates only `light.local.v1` (never echoes the
+   secret). Without a valid token (and without a same-origin cookie in
+   fallback), the upgrade is refused.
+4. `Host` must match the API host (`127.0.0.1:<port>` or `localhost:<port>`).
+5. `Origin` on mutations and WebSocket upgrades must be an **allowlisted** web
    origin (default `https://desktop.grok.me`). Unknown origins are rejected.
-5. CORS: for allowlisted `Origin` only, responses include exact
+6. CORS: for allowlisted `Origin` only, responses include exact
    `Access-Control-Allow-Origin` (never `*`), `Access-Control-Allow-Credentials:
-   true`, and the needed `Allow-Headers`. Preflight `OPTIONS` is answered
-   without side effects.
-6. Probe `GET /healthz` (name may match implementation) returns non-secret
-   status for discovery; it must not mint pairing or run agent effects.
+   true`, and the needed `Allow-Headers` (including `x-gl-session`). Preflight
+   `OPTIONS` is answered without side effects.
+7. Probe `GET /healthz` returns non-secret status for discovery; it must not
+   mint pairing or run agent effects.
 
 Allowlisted origins are a closed set in the bridge (constant such as
 `ALLOWED_WEB_ORIGINS`). Release builds do not include arbitrary dev origins

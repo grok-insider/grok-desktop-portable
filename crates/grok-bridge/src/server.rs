@@ -39,12 +39,20 @@ use crate::workspace::WorkspaceIndex;
 /// Name of the pairing cookie (same-origin fallback SPA).
 pub const SESSION_COOKIE: &str = "gl_session";
 
-/// Session token header for hosted cross-origin clients (ADR 0016).
+/// Session token header for hosted cross-origin HTTP (ADR 0016).
 ///
 /// Cross-site `fetch` from `https://desktop.grok.me` to `http://127.0.0.1`
 /// does not send `SameSite=Strict` cookies. The SPA keeps the token from the
-/// pair response and sends it on every API call.
+/// pair response and sends it on every API call via this header.
 pub const SESSION_HEADER: &str = "x-gl-session";
+
+/// Prefix for the session token as a second WebSocket subprotocol (`gls.<hex>`).
+///
+/// Browsers cannot set custom headers on the WS handshake, and Strict cookies
+/// are not sent cross-site to loopback. The client offers `light.local.v1` and
+/// `gls.<session-token>`; the server authenticates with the latter and
+/// negotiates only the family protocol.
+pub const WS_SESSION_PROTOCOL_PREFIX: &str = "gls.";
 
 /// Header carrying the per-page CSRF token on mutations.
 pub const CSRF_HEADER: &str = "x-grok-light-csrf";
@@ -962,12 +970,12 @@ async fn pair(
 /// it. Without this the user would be sent back to setup on every refresh even
 /// though the pairing cookie is still valid.
 ///
-/// Safe to expose on a GET: the cookie is `SameSite=Strict` so it is not sent
-/// cross-site at all, no CORS headers are configured so a cross-origin caller
-/// cannot read the response, and `Host` is checked exactly. Only a page
-/// already running on this origin can obtain the value.
+/// Re-issue CSRF for a still-valid session (reload recovery).
+///
+/// Hosted clients send `x-gl-session` (cookies are SameSite-blocked cross-site).
+/// Loopback fallback SPA may still present the cookie.
 async fn resume(State(state): State<Arc<HostState>>, headers: HeaderMap) -> Response {
-    let Some(token) = session_cookie(&headers) else {
+    let Some(token) = session_token(&headers) else {
         return rejected();
     };
     let now = now_ms();
@@ -999,7 +1007,7 @@ async fn command(
     if body.len() > MAX_COMMAND_BODY_BYTES {
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
     }
-    let Some(token) = session_cookie(&headers) else {
+    let Some(token) = session_token(&headers) else {
         return rejected();
     };
     let Some(csrf) = header_str(&headers, CSRF_HEADER) else {
@@ -1218,9 +1226,9 @@ async fn apply_command_effects(
 /// WebSocket upgrade carrying server-to-client events.
 ///
 /// The upgrade is a browser-initiated request that always carries `Origin`, so
-/// it is validated as strictly as a mutation. It additionally requires the
-/// paired cookie and the exact versioned subprotocol, and it is where the
-/// controlling tab takes its lease.
+/// it is validated as strictly as a mutation. It requires the versioned
+/// subprotocol, a session token (cookie, `x-gl-session`, or `gls.<token>` in
+/// `Sec-WebSocket-Protocol`), and is where the controlling tab takes its lease.
 async fn events(
     State(state): State<Arc<HostState>>,
     headers: HeaderMap,
@@ -1232,7 +1240,7 @@ async fn events(
         return rejected();
     }
 
-    let Some(token) = session_cookie(&headers) else {
+    let Some(token) = session_token(&headers) else {
         return rejected();
     };
     let now = now_ms();
@@ -1245,6 +1253,7 @@ async fn events(
     };
 
     let connection_id = format!("conn-{}", now_ms());
+    // Negotiate only the family protocol — never echo the session token.
     upgrade
         .protocols([WS_SUBPROTOCOL])
         .on_upgrade(move |socket| drive_events(socket, state, session_id, connection_id))
@@ -1256,6 +1265,17 @@ fn requests_subprotocol(headers: &HeaderMap) -> bool {
         value
             .split(',')
             .any(|candidate| candidate.trim() == WS_SUBPROTOCOL)
+    })
+}
+
+/// Session token from `Sec-WebSocket-Protocol` entries of the form `gls.<hex>`.
+fn session_token_from_ws_protocols(headers: &HeaderMap) -> Option<&str> {
+    header_str(headers, "sec-websocket-protocol").and_then(|value| {
+        value.split(',').map(str::trim).find_map(|candidate| {
+            candidate
+                .strip_prefix(WS_SESSION_PROTOCOL_PREFIX)
+                .filter(|token| !token.is_empty())
+        })
     })
 }
 
@@ -2132,12 +2152,17 @@ mod bash_wire_tests {
     }
 }
 
-fn session_cookie(headers: &HeaderMap) -> Option<&str> {
-    // Prefer explicit header for hosted cross-origin clients (ADR 0016).
+/// Resolve the browser session token for HTTP or WebSocket (ADR 0016).
+///
+/// Order: `x-gl-session` header → `gls.*` WebSocket subprotocol → cookie.
+fn session_token(headers: &HeaderMap) -> Option<&str> {
     if let Some(token) = header_str(headers, SESSION_HEADER) {
         if !token.is_empty() {
             return Some(token);
         }
+    }
+    if let Some(token) = session_token_from_ws_protocols(headers) {
+        return Some(token);
     }
     header_str(headers, header::COOKIE)?
         .split(';')
@@ -2446,6 +2471,108 @@ mod tests {
             .await
             .expect("response");
         assert_eq!(resume.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn session_token_reads_gls_ws_protocol_without_cookie() {
+        use super::{WS_SESSION_PROTOCOL_PREFIX, session_token};
+        use axum::http::HeaderValue;
+
+        let token = "a".repeat(64);
+        let protocols = format!(
+            "{}, {}{token}",
+            crate::protocol::WS_SUBPROTOCOL,
+            WS_SESSION_PROTOCOL_PREFIX
+        );
+        let mut headers = header::HeaderMap::new();
+        headers.insert(
+            header::HeaderName::from_static("sec-websocket-protocol"),
+            HeaderValue::from_str(&protocols).expect("value"),
+        );
+        assert_eq!(session_token(&headers), Some(token.as_str()));
+
+        let mut family_only = header::HeaderMap::new();
+        family_only.insert(
+            header::HeaderName::from_static("sec-websocket-protocol"),
+            HeaderValue::from_static(crate::protocol::WS_SUBPROTOCOL),
+        );
+        assert_eq!(
+            session_token(&family_only),
+            None,
+            "family protocol alone must not authenticate"
+        );
+    }
+
+    #[tokio::test]
+    async fn hosted_ws_gls_token_authenticates_session_without_cookie() {
+        // Hosted SPA cannot send Cookie (SameSite) or custom headers on WS.
+        // Auth rides in Sec-WebSocket-Protocol as gls.<token> (ADR 0016).
+        // oneshot cannot complete a real 101 upgrade; we drive the shipped
+        // session_token() + verify_session path the events handler uses.
+        use crate::origin::PRODUCTION_WEB_ORIGIN;
+        use super::{WS_SESSION_PROTOCOL_PREFIX, session_token};
+        use axum::http::HeaderValue;
+
+        let state = state();
+        let port = state.origin.port();
+        let api_host = format!("127.0.0.1:{port}");
+        let now = super::now_ms();
+        let nonce = state
+            .pairing
+            .lock()
+            .await
+            .mint_nonce(now)
+            .expect("mint")
+            .expose()
+            .to_owned();
+        let pair = router(Arc::clone(&state))
+            .oneshot(
+                Request::post("/pair")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, PRODUCTION_WEB_ORIGIN)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(r#"{{"nonce":"{nonce}"}}"#)))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(pair.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(pair.into_body(), 1 << 16)
+            .await
+            .expect("body");
+        let parsed: PairResponse = serde_json::from_slice(&body).expect("json");
+
+        let protocols = format!(
+            "{}, {}{}",
+            crate::protocol::WS_SUBPROTOCOL,
+            WS_SESSION_PROTOCOL_PREFIX,
+            parsed.session_token
+        );
+        let mut headers = header::HeaderMap::new();
+        headers.insert(
+            header::HeaderName::from_static("sec-websocket-protocol"),
+            HeaderValue::from_str(&protocols).expect("protocols"),
+        );
+        // No Cookie, no x-gl-session — only what a browser WS handshake can send.
+        let token = session_token(&headers).expect("gls token");
+        assert_eq!(token, parsed.session_token);
+        let session_id = state
+            .pairing
+            .lock()
+            .await
+            .verify_session(token, now + 1)
+            .expect("session must verify");
+        assert!(!session_id.is_empty());
+
+        let mut naked = header::HeaderMap::new();
+        naked.insert(
+            header::HeaderName::from_static("sec-websocket-protocol"),
+            HeaderValue::from_static(crate::protocol::WS_SUBPROTOCOL),
+        );
+        assert!(
+            session_token(&naked).is_none(),
+            "family protocol alone must not authenticate"
+        );
     }
 
     #[tokio::test]

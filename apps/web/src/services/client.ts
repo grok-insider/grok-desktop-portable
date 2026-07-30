@@ -2,14 +2,16 @@
  * Transport to the local bridge.
  *
  * Production: document is `https://desktop.grok.me`, API is loopback
- * (ADR 0016). Session token travels in `x-gl-session` (cookies are
- * SameSite-blocked cross-site). Fallback: same-origin to the bridge SPA.
+ * (ADR 0016). Session auth: HTTP uses `x-gl-session`; WebSocket uses a second
+ * subprotocol `gls.<token>` (cookies are SameSite-blocked cross-site and WS
+ * cannot set custom headers). Fallback: same-origin bridge SPA may use cookies.
  */
 
 import {
   CSRF_HEADER,
   PROTOCOL_VERSION,
   SESSION_HEADER,
+  WS_SESSION_PROTOCOL_PREFIX,
   WS_SUBPROTOCOL,
   defaultBridgeBaseUrl,
   type CommandEnvelope,
@@ -230,9 +232,14 @@ export class LightClient {
     if (typeof WebSocket === "undefined") {
       return null;
     }
+    if (this.#sessionToken === null) {
+      return null;
+    }
     const httpBase = this.#bridgeBaseUrl || location.origin;
     const url = `${httpBase.replace(/^http/, "ws")}/events`;
-    const socket = new WebSocket(url, WS_SUBPROTOCOL);
+    // Family protocol + session token (hosted cannot send Cookie or headers).
+    const protocols = [WS_SUBPROTOCOL, `${WS_SESSION_PROTOCOL_PREFIX}${this.#sessionToken}`];
+    const socket = new WebSocket(url, protocols);
     socket.addEventListener("message", (message: MessageEvent) => {
       try {
         handlers.onEvent(JSON.parse(String(message.data)) as EventEnvelope);
