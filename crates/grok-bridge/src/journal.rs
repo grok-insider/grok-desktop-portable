@@ -390,7 +390,15 @@ impl Journal {
         file.write_all(encoded.as_bytes())
             .map_err(|_| JournalError::Storage)?;
         file.sync_all().map_err(|_| JournalError::Storage)?;
+        #[cfg(windows)]
+        {
+            crate::win_acl::set_owner_only(&temporary).map_err(|_| JournalError::Storage)?;
+        }
         std::fs::rename(&temporary, path).map_err(|_| JournalError::Storage)?;
+        #[cfg(windows)]
+        {
+            let _ = crate::win_acl::set_owner_only(path);
+        }
 
         // The rename itself has to reach the disk, otherwise a power loss can
         // leave the directory entry behind and lose an intent the host has
