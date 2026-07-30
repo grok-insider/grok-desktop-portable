@@ -1,13 +1,15 @@
 # ADR light 0006: Local origin, pairing, control lease, and a single agent session
 
-- Status: proposed
+- Status: proposed (amended 2026-07-30 for hosted UI — see
+  [ADR light 0016](0016-hosted-ui-local-bridge.md))
 - Date: 2026-07-28
 
 ## Context
 
-ADR light 0002 puts the application on a loopback origin served by the host.
-That removes cross-origin exposure but does not by itself answer three
-questions: which browser may control the host, which tab may act, and how many
+Originally ADR light 0002 put the application on a loopback origin served by
+the host. Production UI is now the hosted document at `https://desktop.grok.me`
+(ADR 0016), while the **API** remains on loopback. That does not by itself
+answer: which browser may control the host, which tab may act, and how many
 agent sessions may run.
 
 Loopback is a machine boundary, not a user account boundary. Any local process,
@@ -18,33 +20,49 @@ cookie isolation boundary available over plain loopback HTTP.
 
 ## Decision
 
-**Origin.** The canonical origin is
-`http://<random-install-id>.grok-light.localhost:<stable-port>`. The install id
-is random, stable per installation, and derived from nothing about the machine.
-The random hostname exists because cookies ignore port, so a fixed name would
-share a cookie scope with any other local service on that name. The port is
-allocated outside the platform ephemeral range, which on Linux defaults to
-`32768-60999`, so a routine outbound socket cannot take it.
+**Two origins (after ADR 0016).** Distinguish:
 
-`Host` must always match the canonical value exactly. `Origin` handling depends
-on the request, because browsers do not attach `Origin` to same-origin safe
-requests. Verified against Chrome 150: a document navigation and a same-origin
-`GET` carry no `Origin`, while `POST` and `DELETE` carry it exactly. Therefore
-safe methods accept an absent `Origin` but reject a mismatched one, and
-mutations and the WebSocket upgrade require it exactly. Aliases, proxy headers,
-`Origin: null`, non-loopback peers, and any CORS are rejected.
+| Role | Value |
+|------|--------|
+| **Document (production)** | `https://desktop.grok.me` (allowlisted) |
+| **API (always)** | Loopback, e.g. `http://127.0.0.1:<port>` or fallback `http://<install-id>.grok-light.localhost:<port>` |
 
-Port unavailability and origin conflict are different failures. A busy port
-retries with backoff and keeps hostname, port, and pairings. Only an explicit
-`grok-light repair` rotates identity and invalidates the bookmark.
+The install id remains random and stable per installation. The port is allocated
+outside the platform ephemeral range (Linux default ephemeral `32768-60999`) so
+a routine outbound socket cannot take it. The bridge binds **loopback only**.
 
-**Pairing.** `grok-light open` reaches the host over an owner-only Unix socket,
+**`Host` (API request).** Must match the API host the client is calling
+(loopback forms only). It is not the document hostname.
+
+**`Origin` (browser).**
+
+- **Hosted document (production):** mutations and WebSocket upgrades require
+  `Origin` exactly equal to an allowlisted web origin (default
+  `https://desktop.grok.me`). Safe probe methods used for discovery may omit
+  credentials but must not accept a *mismatched* Origin when present. CORS
+  preflight is answered only for allowlisted origins with exact
+  `Access-Control-Allow-Origin` (never `*`) and credentials allowed.
+- **Loopback document (fallback SPA):** safe methods may omit `Origin`;
+  mutations and WS require the exact loopback document origin. No CORS is
+  required for same-origin fallback.
+
+`Origin: null`, unknown origins, and non-loopback peers are rejected.
+
+Port unavailability and identity rotation remain separate: a busy port retries
+with backoff and keeps pairings; only explicit `grok-bridge repair` rotates
+identity.
+
+**Pairing.** `grok-bridge open` reaches the host over an owner-only Unix socket,
 the host mints a single-use 256-bit nonce with a short TTL, and the launcher
-opens the origin with the nonce in the URL fragment. The fragment never reaches
-the server. The SPA exchanges it for a host-only, `HttpOnly`, `SameSite=Strict`
-cookie and clears the fragment immediately. The host stores only a hash of the
-browser token and supports individual and total revocation. No token appears in
-a query string, `localStorage`, a bookmark, a log, or a WebSocket URL.
+hands the user a URL whose fragment carries the nonce — for production,
+`https://desktop.grok.me/#pair=<nonce>` (or equivalent). The SPA redeems the
+nonce against the **loopback** pair endpoint. The bridge sets a host-only
+`HttpOnly` session cookie on the **loopback** response (first-party to the API
+host). The SPA clears the fragment immediately and uses `credentials: 'include'`
+on subsequent API calls. The host stores only a hash of the browser token and
+supports individual and total revocation. No token appears in a query string,
+`localStorage` as a durable grant, a public bookmark of the raw nonce, a log,
+or a WebSocket URL query.
 
 Because the nonce is only obtainable through an owner-only socket, another local
 user can reach the listener but cannot pair.
