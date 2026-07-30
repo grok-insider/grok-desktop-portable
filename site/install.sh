@@ -18,7 +18,7 @@ set -eu
 # --- fixed product constants (do not read env for these) ---
 REPO="grok-insider/grok-desktop-portable"
 # Used only if the GitHub API is unreachable.
-FALLBACK_TAG="v0.1.0-beta.2"
+FALLBACK_TAG="v0.1.0"
 INSTALL_DIR="${HOME}/.local/bin"
 BIN_NAME="grok-bridge"
 
