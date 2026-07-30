@@ -11,11 +11,12 @@ name: Release
 #   * release-plz-release — when a release PR (auto or manual) is merged (or the
 #                           tip version is still untagged), creates the `vX.Y.Z`
 #                           tag + GitHub Release from CHANGELOG.md.
-#   * resolve / artifacts — build `grok-bridge` for linux-x64 + darwin-arm64
-#                           (SPA embedded), upload flat assets + checksums.txt.
+#   * resolve / artifacts — build `grok-bridge` for linux-x64, darwin-arm64,
+#                           and windows-x64 (SPA embedded), upload flat assets
+#                           + checksums.txt.
 #
 # Nothing is published to crates.io (`git_only` + `publish = false`).
-# Windows is not a release target until control plane uses named pipes.
+# Windows uses a named-pipe control plane (owner-only DACL).
 
 on:
   pull_request:
@@ -246,10 +247,13 @@ jobs:
         include:
           - os: ubuntu-latest
             asset: grok-bridge-linux-x64
-          # Windows control plane still uses Unix domain sockets (control.rs).
-          # Until that is ported to named pipes, Windows is not a release target.
+            binary: grok-bridge
           - os: macos-latest
             asset: grok-bridge-darwin-arm64
+            binary: grok-bridge
+          - os: windows-latest
+            asset: grok-bridge-windows-x64.exe
+            binary: grok-bridge.exe
     runs-on: ${{ matrix.os }}
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
@@ -272,17 +276,19 @@ jobs:
         run: cargo build -p grok-bridge --release
       - name: Assert SPA embedded (fail closed)
         shell: bash
-        run: bash scripts/assert-spa-embedded.sh target/release/grok-bridge
+        run: bash scripts/assert-spa-embedded.sh "target/release/${{ matrix.binary }}"
       - name: Stage asset and upload
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist-release
-          src="target/release/grok-bridge"
+          src="target/release/${{ matrix.binary }}"
           dst="dist-release/${{ matrix.asset }}"
           cp "$src" "$dst"
-          chmod +x "$dst"
-          strip "$dst" || true
+          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+            chmod +x "$dst"
+            strip "$dst" || true
+          fi
           bash scripts/assert-spa-embedded.sh "$dst"
           gh release upload "$TAG" "$dst" --clobber
 
@@ -305,11 +311,11 @@ jobs:
           # No checkout needed; pass -R so gh does not require a local git repo.
           mkdir -p release
           cd release
-          for a in grok-bridge-linux-x64 grok-bridge-darwin-arm64; do
+          for a in grok-bridge-linux-x64 grok-bridge-darwin-arm64 grok-bridge-windows-x64.exe; do
             gh release download "$TAG" -R "$GH_REPO" --pattern "$a" --clobber
             test -f "$a"
           done
-          sha256sum grok-bridge-linux-x64 grok-bridge-darwin-arm64 | tee checksums.txt
+          sha256sum grok-bridge-linux-x64 grok-bridge-darwin-arm64 grok-bridge-windows-x64.exe | tee checksums.txt
           test -s checksums.txt
           gh release upload "$TAG" checksums.txt -R "$GH_REPO" --clobber
           ls -la
@@ -344,8 +350,9 @@ jobs:
 
           Verify SHA-256 against `checksums.txt`. Builds are unsigned FOSS.
 
-          Requirements: Grok Build CLI ≥ 0.2.115, Chromium or Firefox 84+.
-          Safari is unsupported. Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`.
+          Requirements: Grok Build CLI ≥ 0.2.115, Chromium or Firefox 84+ (Edge OK on Windows).
+          Safari is unsupported. Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`,
+          `grok-bridge-windows-x64.exe`. Native Windows (named pipes + `grok.exe`); not WSL-primary.
           EOF
           )"
           # Strip leading spaces from heredoc indent for cleaner body.
