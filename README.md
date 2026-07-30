@@ -31,6 +31,9 @@ Or download a binary from
 [GitHub Releases](https://github.com/grok-insider/grok-desktop-portable/releases)
 and verify the SHA-256 in `checksums.txt`.
 
+**v0.1.0-beta.1 assets:** `grok-bridge-linux-x64` and `grok-bridge-darwin-arm64`
+(Windows is not shipped yet — the control socket is still Unix-only).
+
 Builds are **unsigned** FOSS artifacts. Prefer verifying the checksum and the
 tag source over platform “smart screen” prompts.
 
