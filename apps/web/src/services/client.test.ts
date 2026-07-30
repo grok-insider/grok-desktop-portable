@@ -29,7 +29,9 @@ describe("LightClient", () => {
       .mockResolvedValueOnce(
         jsonResponse({
           sessionId: "bs-1",
-          csrfToken: "csrf-value",
+          sessionToken: "sess",
+            csrfToken: "csrf-value",
+          sessionToken: "sess",
           protocolVersion: PROTOCOL_VERSION,
         }),
       )
@@ -45,14 +47,14 @@ describe("LightClient", () => {
     const [, init] = fetchSpy.mock.calls[1] as [string, RequestInit];
     const headers = init.headers as Record<string, string>;
     expect(headers[CSRF_HEADER]).toBe("csrf-value");
-    expect(init.credentials).toBe("same-origin");
+    expect(init.credentials).toBe("include");
   });
 
   it("refuses a host that speaks a different protocol version", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
-        jsonResponse({ sessionId: "bs-1", csrfToken: "c", protocolVersion: 3 }),
+        jsonResponse({ sessionId: "bs-1", csrfToken: "c", sessionToken: "sess", protocolVersion: 3 }),
       ),
     );
 
@@ -81,7 +83,7 @@ describe("LightClient", () => {
     const fetchSpy = vi
       .fn()
       .mockResolvedValueOnce(
-        jsonResponse({ sessionId: "bs-1", csrfToken: "c", protocolVersion: PROTOCOL_VERSION }),
+        jsonResponse({ sessionId: "bs-1", csrfToken: "c", sessionToken: "sess", protocolVersion: PROTOCOL_VERSION }),
       )
       .mockResolvedValueOnce(new Response("", { status: 403 }));
     vi.stubGlobal("fetch", fetchSpy);
@@ -96,7 +98,7 @@ describe("LightClient", () => {
     const fetchSpy = vi
       .fn()
       .mockResolvedValueOnce(
-        jsonResponse({ sessionId: "bs-1", csrfToken: "c", protocolVersion: PROTOCOL_VERSION }),
+        jsonResponse({ sessionId: "bs-1", csrfToken: "c", sessionToken: "sess", protocolVersion: PROTOCOL_VERSION }),
       )
       .mockResolvedValueOnce(jsonResponse({}, 202));
     vi.stubGlobal("fetch", fetchSpy);
@@ -123,6 +125,7 @@ describe("LightClient", () => {
         Promise.resolve(
           jsonResponse({
             sessionId: "bs-1",
+            sessionToken: "sess",
             csrfToken: "c",
             protocolVersion: PROTOCOL_VERSION,
           }),
@@ -146,7 +149,7 @@ describe("resume", () => {
     const fetchSpy = vi
       .fn()
       .mockResolvedValueOnce(
-        jsonResponse({ sessionId: "bs-1", csrfToken: "fresh", protocolVersion: PROTOCOL_VERSION }),
+        jsonResponse({ sessionId: "bs-1", sessionToken: "sess", csrfToken: "fresh", protocolVersion: PROTOCOL_VERSION }),
       )
       .mockResolvedValueOnce(jsonResponse({}, 202));
     vi.stubGlobal("fetch", fetchSpy);

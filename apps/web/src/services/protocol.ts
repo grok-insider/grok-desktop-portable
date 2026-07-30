@@ -18,6 +18,28 @@ export const WS_SUBPROTOCOL = "light.local.v1";
 /** Header carrying the per-page CSRF token on mutations. */
 export const CSRF_HEADER = "x-grok-light-csrf";
 
+/** Session token for hosted cross-origin clients (ADR 0016). */
+export const SESSION_HEADER = "x-gl-session";
+
+/**
+ * Default loopback API base for the hosted SPA.
+ * Overridable via `VITE_BRIDGE_PORT` at build time.
+ */
+export function defaultBridgeBaseUrl(): string {
+  const port =
+    typeof import.meta !== "undefined" &&
+    import.meta.env &&
+    typeof import.meta.env.VITE_BRIDGE_PORT === "string" &&
+    import.meta.env.VITE_BRIDGE_PORT.length > 0
+      ? import.meta.env.VITE_BRIDGE_PORT
+      : "";
+  // When empty, same-origin (loopback fallback SPA served by the bridge).
+  if (!port) {
+    return "";
+  }
+  return `http://127.0.0.1:${port}`;
+}
+
 /** Closed set of host-owned change comparisons. */
 export type ChangeMode = "git" | "branch" | "lastTurn";
 
