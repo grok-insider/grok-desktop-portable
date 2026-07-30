@@ -19,8 +19,8 @@ jobs:
         include:
           - os: ubuntu-latest
             asset: grok-bridge-linux-x64
-          - os: windows-latest
-            asset: grok-bridge-windows-x64.exe
+          # Windows control plane still uses Unix domain sockets (control.rs).
+          # Until that is ported to named pipes, Windows is not a release target.
           - os: macos-latest
             asset: grok-bridge-darwin-arm64
     steps:
@@ -84,7 +84,7 @@ jobs:
           sha256sum * | tee checksums.txt
           test -s checksums.txt
           # Expected asset names for the beta matrix.
-          for a in grok-bridge-linux-x64 grok-bridge-windows-x64.exe grok-bridge-darwin-arm64; do
+          for a in grok-bridge-linux-x64 grok-bridge-darwin-arm64; do
             test -f "$a"
           done
           ls -la
