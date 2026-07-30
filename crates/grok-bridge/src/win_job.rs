@@ -8,7 +8,7 @@
 #![cfg(windows)]
 #![allow(unsafe_code)]
 
-use std::os::windows::io::{FromRawHandle, OwnedHandle};
+use std::os::windows::io::{FromRawHandle, OwnedHandle, RawHandle};
 use std::ptr;
 
 /// A job object that kills its process tree when dropped.
@@ -39,7 +39,7 @@ impl KillOnDropJob {
             };
 
             let job: HANDLE = CreateJobObjectW(ptr::null(), ptr::null());
-            if job == 0 || job == INVALID_HANDLE_VALUE {
+            if job.is_null() || job == INVALID_HANDLE_VALUE {
                 return Err(std::io::Error::last_os_error());
             }
 
@@ -58,7 +58,7 @@ impl KillOnDropJob {
             }
 
             let process: HANDLE = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
-            if process == 0 || process == INVALID_HANDLE_VALUE {
+            if process.is_null() || process == INVALID_HANDLE_VALUE {
                 let err = std::io::Error::last_os_error();
                 CloseHandle(job);
                 return Err(err);
@@ -72,7 +72,7 @@ impl KillOnDropJob {
             }
             CloseHandle(process);
 
-            let owned = OwnedHandle::from_raw_handle(job as *mut _);
+            let owned = OwnedHandle::from_raw_handle(job as RawHandle);
             Ok(Self { _job: owned })
         }
     }
