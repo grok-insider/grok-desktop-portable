@@ -6,7 +6,9 @@ members = ["crates/grok-bridge"]
 version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
-publish = false
+# Do NOT set `publish = false` here. release-plz skips manifest-unpublishable
+# packages entirely (no git tag / GitHub Release). Crates.io is gated only in
+# release-plz.toml (`git_only = true`, `publish = false`).
 rust-version = "1.95"
 
 [workspace.dependencies]

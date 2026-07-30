@@ -3,9 +3,9 @@ name = "grok-bridge"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
 rust-version.workspace = true
 description = "Local bridge host for Grok Desktop Portable (Work UI for the user's Grok Build CLI)"
+# Crates.io gated in release-plz.toml only — see root Cargo.toml note.
 
 [[bin]]
 name = "grok-bridge"
