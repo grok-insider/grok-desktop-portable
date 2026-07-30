@@ -9,9 +9,14 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import type { LightClient } from "./services/client";
+import {
+  LightClient,
+  readStoredPort,
+  writeStoredPort,
+  writeStoredSession,
+} from "./services/client";
 import type { EventEnvelope } from "./services/protocol";
 import { ThemeProvider } from "./theme/ThemeProvider";
 
@@ -287,6 +292,12 @@ beforeEach(() => {
 });
 
 describe("landing gate and demotion", () => {
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
   it("shows landing only when the browser is not paired", async () => {
     render(
       <ThemeProvider>
@@ -302,6 +313,57 @@ describe("landing gate and demotion", () => {
       "data-probe-kind",
       "bridge_missing",
     );
+  });
+
+  it("keeps remembered port and serve-focused copy when healthz fails", async () => {
+    // Real App path: durable port + dead loopback → bridge_missing with hadPort,
+    // not full install (install.sh), and port remains for Retry.
+    localStorage.clear();
+    sessionStorage.clear();
+    writeStoredPort(29578);
+    writeStoredSession({
+      port: 29578,
+      sessionToken: "stale-sess",
+      csrfToken: "stale-csrf",
+      savedAtMs: Date.now(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
+    );
+
+    const client = new LightClient();
+    expect(client.bridgeBaseUrl).toBe("http://127.0.0.1:29578");
+
+    render(
+      <ThemeProvider>
+        <App client={client} />
+      </ThemeProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-view")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("landing-view")).toHaveAttribute(
+      "data-probe-kind",
+      "bridge_missing",
+    );
+    expect(screen.getByTestId("landing-view")).toHaveAttribute(
+      "data-had-port",
+      "1",
+    );
+    expect(screen.getByText(/remembers a local bridge port/i)).toBeInTheDocument();
+    expect(screen.getByTestId("landing-install")).toHaveTextContent(
+      "grok-bridge serve",
+    );
+    expect(screen.getByTestId("landing-install")).not.toHaveTextContent(
+      "install.sh",
+    );
+    // Port must survive so Retry / serve can re-probe the same base.
+    expect(readStoredPort()).toBe(29578);
+    // Session grant cleared (not paired while host is gone).
+    expect(client.paired).toBe(false);
   });
 
   it("demotes to landing when a command reports not_paired", async () => {

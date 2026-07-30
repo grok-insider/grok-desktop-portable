@@ -53,8 +53,11 @@ Before Work is shown, the SPA probes the bridge:
   Enables silent resume without a new `grok-bridge open` URL.
 - **On load:** fragment pair if present → else resolve port → probe → restore
   grant → `resume`. Never call the public origin as the bridge API.
-- **Clear tokens** on `not_paired` / rejected / demotion of pairing; **clear port**
-  after confirmed healthz failure at that port (`bridge_missing`).
+- **Clear tokens** on `not_paired` / rejected / demotion / host unreachable.
+  **Keep the remembered port** through `bridge_missing` so Retry can re-probe
+  the same loopback base and landing can show “serve” (not full install) when
+  a port was already known. Port is overwritten on the next successful `open`
+  (`&p=`) or pair.
 - **Landing copy:** full install steps when no port ever; emphasize `serve` when
   a port was known but the host is down; emphasize `open` when the bridge is up
   but unpaired.
