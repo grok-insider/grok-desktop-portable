@@ -1,15 +1,29 @@
 name: CI
 
+# Status checks run on pull requests only — not on bare pushes to master/dev.
+# Optional rebuilds: v* tags and workflow_dispatch.
+
 on:
-  push:
-    branches: [main, master]
   pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   web:
+    name: web
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || github.event_name == 'push'
+      || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +46,11 @@ jobs:
           retention-days: 3
 
   rust:
+    name: fmt + clippy + test
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || github.event_name == 'push'
+      || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

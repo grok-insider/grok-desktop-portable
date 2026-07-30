@@ -1,0 +1,37 @@
+# release-plz — the RELEASE half of the pipeline only (config docs:
+# https://release-plz.dev/docs/config).
+#
+# Division of labor:
+#   * The "release PR" (version bump + Cargo.lock + CHANGELOG) is produced by
+#     OUR OWN `release-pr` job in .github/workflows/release.yml (patch line;
+#     deliberate minor/major via manual-version-bump.yml). It is NOT
+#     `release-plz release-pr` — that would auto-bump minor on feat: commits.
+#   * `release-plz release` (this config) runs when a PR into master is merged:
+#     with `release_always = true` it sees an untagged package version and cuts
+#     the `vX.Y.Z` tag + GitHub Release from CHANGELOG.md.
+#
+# Nothing is published to crates.io. Delivery is the GitHub Release (prebuilt
+# `grok-bridge` binaries attached by release.yml).
+
+[workspace]
+# Not on crates.io: determine the current version from the `v*` git tag instead
+# of the cargo registry. Implies no `cargo publish`.
+git_only = true
+# Never run `cargo publish` (git_only alone doesn't always disable it).
+publish = false
+# Release the current version whenever it isn't tagged yet (robust; also lets a
+# direct / manual version bump cut a release).
+release_always = true
+# Application binary, not a published library: skip cargo-semver-checks.
+semver_check = false
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
+
+# Preserve a curated changelog header (release-plz inserts new sections below).
+[changelog]
+header = """# Changelog
+
+All notable, user-facing changes to Grok Desktop Portable are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
