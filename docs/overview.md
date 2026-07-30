@@ -21,6 +21,7 @@ Desktop invariant applies here.
 | [threat-model.md](threat-model.md) | Trust boundaries, accepted risks, non-claims |
 | [ui.md](ui.md) | Work UI shell vs Desktop DESIGN.md |
 | [adr/](adr/) | Light architecture decisions |
+| [hosted-demo.md](hosted-demo.md) | Optional preview/Vercel demo host (not the product) |
 
 ## Naming
 
