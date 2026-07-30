@@ -16,6 +16,9 @@
 [workspace]
 # Not on crates.io: determine the current version from the `v*` git tag instead
 # of the cargo registry. Implies no `cargo publish`.
+#
+# Do NOT set `publish = false` on the Cargo.toml package/workspace.package —
+# release-plz skips manifest-unpublishable packages entirely (no tag/Release).
 git_only = true
 # Never run `cargo publish` (git_only alone doesn't always disable it).
 publish = false
@@ -26,6 +29,12 @@ release_always = true
 semver_check = false
 git_tag_name = "v{{ version }}"
 git_release_name = "v{{ version }}"
+
+# Single product changelog at the repo root (not per-crate).
+[[package]]
+name = "grok-bridge"
+changelog_path = "./CHANGELOG.md"
+changelog_update = false
 
 # Preserve a curated changelog header (release-plz inserts new sections below).
 [changelog]
