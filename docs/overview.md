@@ -104,8 +104,8 @@ with the same authority that CLI already has.
 - A conforming browser: Chromium, or Firefox 84 or later. WebKit, including
   Safari, is unsupported — see
   [ADR light 0008](adr/0008-supported-browser-engines.md).
-- Linux is the first qualification platform. Windows and macOS follow their own
-  gates.
+- Linux is the first qualification platform. macOS and **native Windows**
+  (named-pipe control plane, not WSL-primary) follow their own gates.
 
 Light is not an offline product: Grok Build needs its configured services to
 authenticate and produce responses.

@@ -68,7 +68,6 @@ doc_markdown = "allow"
 unnested_or_patterns = "allow"
 match_same_arms = "allow"
 format_collect = "allow"
-manual_duration = "allow"
 missing_errors_doc = "allow"
 
 [dev-dependencies]

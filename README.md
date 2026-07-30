@@ -19,8 +19,9 @@ managed `GROK_HOME`. Architecture: [docs/adr/0016-hosted-ui-local-bridge.md](doc
 ## Requirements
 
 - Grok Build CLI installed and authenticated (`grok`), version **≥ 0.2.115**
-- Chromium or Firefox 84+ (Safari / WebKit unsupported)
-- Linux (primary); macOS bridge binary available; Windows bridge not in beta yet
+- Chromium or Firefox 84+ (Safari / WebKit unsupported; Edge is fine on Windows)
+- Linux (primary qualification); macOS arm64 and **native Windows x64** bridge
+  binaries on GitHub Releases
 - For hosted UI: allow **local network** access when the browser asks
 
 ## Install bridge
@@ -29,11 +30,19 @@ managed `GROK_HOME`. Architecture: [docs/adr/0016-hosted-ui-local-bridge.md](doc
 curl -fsSL https://desktop.grok.me/install.sh | sh
 ```
 
+Windows (PowerShell):
+
+```powershell
+irm https://desktop.grok.me/install.ps1 | iex
+```
+
 Or download from
 [GitHub Releases](https://github.com/grok-insider/grok-desktop-portable/releases)
 and verify `checksums.txt`. Unsigned FOSS builds.
 
-Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`.
+Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`,
+`grok-bridge-windows-x64.exe`. Windows is **native** (named pipes + your
+Windows `grok` / `%USERPROFILE%\.grok`); WSL is not required.
 
 ## Contributing
 
