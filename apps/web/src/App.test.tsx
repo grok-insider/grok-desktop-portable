@@ -45,11 +45,31 @@ function fakeHost() {
     get paired() {
       return true;
     },
+    get bridgeBaseUrl() {
+      // Same-origin test host: skip hosted landing probe.
+      return "";
+    },
     async resume() {
-      return { ok: true as const, value: { sessionId: "b-1", csrfToken: "c", protocolVersion: 2 } };
+      return {
+        ok: true as const,
+        value: {
+          sessionId: "b-1",
+          sessionToken: "tok",
+          csrfToken: "c",
+          protocolVersion: 2,
+        },
+      };
     },
     async pair() {
-      return { ok: true as const, value: { sessionId: "b-1", csrfToken: "c", protocolVersion: 2 } };
+      return {
+        ok: true as const,
+        value: {
+          sessionId: "b-1",
+          sessionToken: "tok",
+          csrfToken: "c",
+          protocolVersion: 2,
+        },
+      };
     },
     async send(operation: Sent["operation"]) {
       sent.push({ operation });

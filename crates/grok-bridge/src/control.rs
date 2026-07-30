@@ -184,10 +184,13 @@ async fn execute(request: ControlRequest, state: &Arc<HostState>) -> ControlResp
                 Ok(nonce) => {
                     // Production UI is hosted (ADR 0016); nonce rides in the
                     // fragment so it never hits the public site's server logs.
+                    // Include API port so the hosted SPA can reach loopback
+                    // without guessing (port is stable per install id).
                     let url = format!(
-                        "{}/#pair={}",
+                        "{}/#pair={}&p={}",
                         crate::origin::PRODUCTION_WEB_ORIGIN,
-                        nonce.expose()
+                        nonce.expose(),
+                        state.origin.port()
                     );
                     ControlResponse::Paired {
                         origin: state.origin.origin_header(),
@@ -313,7 +316,12 @@ mod tests {
         let ControlResponse::Paired { url, .. } = response else {
             panic!("expected pairing");
         };
-        let nonce = url.rsplit("#pair=").next().expect("nonce").to_owned();
+        let nonce = url
+            .rsplit("#pair=")
+            .next()
+            .and_then(|rest| rest.split('&').next())
+            .expect("nonce")
+            .to_owned();
 
         let now = super::now_ms();
         let mut broker = state.pairing.lock().await;

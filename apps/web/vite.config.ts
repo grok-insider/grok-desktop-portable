@@ -13,13 +13,17 @@ import { defineConfig } from "vitest/config";
  * keeps `vite dev` honest.
  */
 export function contentSecurityPolicy(development: boolean): string {
+  // Hosted UI (ADR 0016) calls the loopback bridge; connect-src must allow it.
+  const connect = development
+    ? "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*"
+    : "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*";
   return [
     "default-src 'self'",
     development ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
     development ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
     "img-src 'self' data:",
     "font-src 'self'",
-    development ? "connect-src 'self' ws://127.0.0.1:*" : "connect-src 'self'",
+    connect,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'self'",

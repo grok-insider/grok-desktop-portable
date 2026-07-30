@@ -9,7 +9,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectionBanner } from "./components/ConnectionBanner";
 import { detectBrowserSupport } from "./services/browser";
-import { LightClient, takePairingNonce, type ClientFailure } from "./services/client";
+import {
+  type BridgeProbeState,
+  probeBridge,
+} from "./services/bridgeProbe";
+import {
+  LightClient,
+  resolveBridgeBaseUrl,
+  takePairingFragment,
+  type ClientFailure,
+} from "./services/client";
+import { LandingView } from "./views/LandingView";
 import { isBashMode, bashSendText } from "./services/bashMode";
 import {
   pickDefaultEffort,
@@ -110,6 +120,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // token and re-runs the event effect in a connect/disconnect loop.
   const [client] = useState(() => injected ?? new LightClient());
   const [paired, setPaired] = useState(client.paired);
+  const [probe, setProbe] = useState<BridgeProbeState>({ kind: "checking" });
   const [failure, setFailure] = useState<ClientFailure | undefined>();
   const [connected, setConnected] = useState(false);
   const [projections, setProjections] = useState<Projections>(EMPTY_PROJECTIONS);
@@ -185,26 +196,50 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const activeReviewRevision =
     sessionId === null ? 0 : (reviewRevisions[sessionId] ?? 0);
 
-  // Two ways in. A launcher nonce in the fragment pairs this browser and is
-  // cleared immediately so it never lands in a bookmark. Otherwise the page
-  // may already be paired from a previous visit, in which case only the
-  // in-memory CSRF token was lost and the host can reissue it.
-  useEffect(() => {
+  // Hosted UI: probe loopback bridge, then pair if needed (ADR 0016).
+  // Same-origin fallback (empty bridge base) skips probe and pairs as before.
+  const runProbeAndPair = useCallback(() => {
     if (!browserSupport.ok) {
       return;
     }
-    const nonce = takePairingNonce();
+    const fragment = takePairingFragment();
+    if (fragment?.port) {
+      client.setBridgeBaseUrl(`http://127.0.0.1:${fragment.port}`);
+    }
+    const base = client.bridgeBaseUrl || resolveBridgeBaseUrl();
+    const afterPairAttempt = (isPaired: boolean) => {
+      if (!base && !client.bridgeBaseUrl) {
+        // No known API port yet (hosted, never opened) → treat as missing bridge.
+        setProbe(
+          isPaired ? { kind: "ready" } : { kind: "bridge_missing" },
+        );
+        return;
+      }
+      const apiBase = client.bridgeBaseUrl || base;
+      void probeBridge({
+        bridgeBaseUrl: apiBase,
+        isPaired,
+      }).then(setProbe);
+    };
+
+    const nonce = fragment?.nonce ?? null;
     const attempt = nonce === null ? client.resume() : client.pair(nonce);
     void attempt.then((result) => {
       if (result.ok) {
         setPaired(true);
         setFailure(undefined);
+        afterPairAttempt(true);
         return;
       }
-      // An unpaired reload is the normal first visit, not an error to report.
+      setPaired(false);
       setFailure(nonce === null ? undefined : result.failure);
+      afterPairAttempt(false);
     });
   }, [browserSupport.ok, client]);
+
+  useEffect(() => {
+    runProbeAndPair();
+  }, [runProbeAndPair]);
 
   // Ask the host for the enrolment set. The reply also says whether a session
   // is already open, which is what decides the view.
@@ -1022,6 +1057,17 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         mode={{ kind: "unsupported_browser", reason: browserSupport.reason }}
       />
     );
+  }
+
+  // Hosted path: gate Work behind probe (landing when bridge missing / unpaired).
+  // Same-origin fallback still uses SetupView for unpaired.
+  // Prefer landing gate whenever we are not same-origin fallback-ready.
+  // Injected test clients with empty base + paired skip landing via probe ready.
+  if (probe.kind !== "ready" && probe.kind !== "checking") {
+    return <LandingView probe={probe} onRetry={runProbeAndPair} />;
+  }
+  if (probe.kind === "checking" && !paired) {
+    return <LandingView probe={probe} onRetry={runProbeAndPair} />;
   }
 
   if (!paired) {
