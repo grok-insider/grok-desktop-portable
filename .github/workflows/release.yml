@@ -25,9 +25,8 @@ jobs:
             asset: grok-bridge-darwin-arm64
     steps:
       - uses: actions/checkout@v4
+      # package.json packageManager pins the version; do not also pass version: here.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
