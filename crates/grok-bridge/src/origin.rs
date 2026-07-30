@@ -12,8 +12,37 @@ use crate::bounds::MAX_OPAQUE_ID_BYTES;
 /// Fixed hostname suffix under which every installation gets a random label.
 pub const ORIGIN_SUFFIX: &str = ".grok-light.localhost";
 
+/// Production hosted Work UI document origin (ADR light 0016).
+pub const PRODUCTION_WEB_ORIGIN: &str = "https://desktop.grok.me";
+
+/// Closed allowlist of document origins permitted to call the loopback API.
+///
+/// Release builds include only the production site. Dev origins must be
+/// added explicitly via configuration, never silently.
+pub const ALLOWED_WEB_ORIGINS: &[&str] = &[PRODUCTION_WEB_ORIGIN];
+
 /// Number of bytes of randomness in an install identifier.
 pub const INSTALL_ID_BYTES: usize = 16;
+
+/// Whether `origin` is an allowlisted hosted document origin.
+#[must_use]
+pub fn is_allowed_web_origin(origin: &str) -> bool {
+    ALLOWED_WEB_ORIGINS.contains(&origin)
+}
+
+/// Whether `host` is a loopback API `Host` header for this origin's port.
+///
+/// Hosted SPA calls `http://127.0.0.1:<port>` or `http://localhost:<port>`.
+#[must_use]
+pub fn is_loopback_api_host(host: &str, port: u16) -> bool {
+    let expected_port = format!(":{port}");
+    for name in ["127.0.0.1", "localhost", "[::1]"] {
+        if host == format!("{name}{expected_port}") || (port == 80 && host == name) {
+            return true;
+        }
+    }
+    false
+}
 
 /// Lowest port considered for allocation.
 ///
@@ -94,28 +123,22 @@ impl LocalOrigin {
         format!("http://{}", self.host_header())
     }
 
-    /// Validate a request's `Host` and `Origin` headers against this origin.
+    /// Validate a request's `Host` and `Origin` headers (ADR 0006 + 0016).
     ///
-    /// `Host` is always required and must match exactly.
+    /// **Host (API):** must be the loopback SPA hostname (`install-id` form)
+    /// or a loopback API host (`127.0.0.1:<port>` / `localhost:<port>`).
     ///
-    /// `Origin` handling depends on the request kind, because browsers do not
-    /// send `Origin` on same-origin safe requests. This was verified against
-    /// Chrome 150: a document navigation and a same-origin `GET` carry no
-    /// `Origin` at all, while `POST` and `DELETE` carry it exactly. Requiring
-    /// it unconditionally would reject the application's own document load.
-    ///
-    /// - [`RequestKind::Safe`]: `Origin` may be absent; when present it must
-    ///   match exactly, so a cross-origin `GET` is still refused.
-    /// - [`RequestKind::Mutation`] and [`RequestKind::WebSocket`]: `Origin` is
-    ///   required and must match exactly.
-    ///
-    /// The literal `null`, an alias, a different scheme, and a different port
-    /// are always rejected. See ADR light 0006.
+    /// **Origin (document):**
+    /// - Loopback SPA fallback: same-origin rules (absent OK on safe methods;
+    ///   exact loopback origin required on mutations/WS).
+    /// - Hosted UI: allowlisted web origin (default `https://desktop.grok.me`)
+    ///   required on mutations/WS; safe probes may send that Origin with a
+    ///   loopback API Host.
     ///
     /// # Errors
     ///
     /// Returns [`OriginError::OriginMismatch`] when a header is missing where
-    /// required, or differs from the canonical value.
+    /// required, or is not permitted.
     pub fn verify_request(
         &self,
         kind: RequestKind,
@@ -123,14 +146,27 @@ impl LocalOrigin {
         origin: Option<&str>,
     ) -> Result<(), OriginError> {
         let host = host.ok_or(OriginError::OriginMismatch)?;
-        if host != self.host_header() {
+        let host_ok = host == self.host_header() || is_loopback_api_host(host, self.port);
+        if !host_ok {
             return Err(OriginError::OriginMismatch);
         }
+        let loopback_doc = self.origin_header();
         match (kind, origin) {
             (RequestKind::Safe, None) => Ok(()),
-            (_, Some(value)) if value == self.origin_header() => Ok(()),
+            (RequestKind::Safe, Some(value))
+                if value == loopback_doc || is_allowed_web_origin(value) =>
+            {
+                Ok(())
+            }
+            (_, Some(value)) if value == loopback_doc || is_allowed_web_origin(value) => Ok(()),
             _ => Err(OriginError::OriginMismatch),
         }
+    }
+
+    /// Whether this request is from the hosted document (needs CORS).
+    #[must_use]
+    pub fn is_hosted_document_origin(origin: Option<&str>) -> bool {
+        origin.is_some_and(is_allowed_web_origin)
     }
 }
 
@@ -214,9 +250,9 @@ pub fn candidate_port(install_id: &str, attempt: u16) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::{
-        LocalOrigin, OriginError, PORT_RANGE_END, PORT_RANGE_START, RequestKind, candidate_port,
-        generate_install_id, is_allocatable_port, is_valid_install_id,
-        sec_fetch_site_is_same_origin,
+        LocalOrigin, OriginError, PORT_RANGE_END, PORT_RANGE_START, PRODUCTION_WEB_ORIGIN,
+        RequestKind, candidate_port, generate_install_id, is_allocatable_port,
+        is_allowed_web_origin, is_valid_install_id, sec_fetch_site_is_same_origin,
     };
 
     fn origin() -> LocalOrigin {
@@ -332,26 +368,75 @@ mod tests {
     }
 
     #[test]
-    fn aliases_and_loopback_literals_are_rejected() {
+    fn loopback_api_hosts_are_accepted_for_hosted_origin() {
+        let origin = origin();
+        for host in ["127.0.0.1:20001", "localhost:20001", "[::1]:20001"] {
+            assert!(
+                origin
+                    .verify_request(
+                        RequestKind::Mutation,
+                        Some(host),
+                        Some(PRODUCTION_WEB_ORIGIN)
+                    )
+                    .is_ok(),
+                "host {host} with production web origin must be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn hosted_web_origin_is_accepted_with_canonical_host() {
+        let origin = origin();
+        assert!(
+            origin
+                .verify_request(
+                    RequestKind::Mutation,
+                    Some(&origin.host_header()),
+                    Some(PRODUCTION_WEB_ORIGIN)
+                )
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn foreign_web_origin_is_rejected() {
+        let origin = origin();
+        assert_eq!(
+            origin.verify_request(
+                RequestKind::Mutation,
+                Some("127.0.0.1:20001"),
+                Some("https://evil.example")
+            ),
+            Err(OriginError::OriginMismatch)
+        );
+    }
+
+    #[test]
+    fn non_api_hosts_are_rejected() {
         let origin = origin();
         for host in [
-            "localhost:20001",
-            "127.0.0.1:20001",
-            "[::1]:20001",
             "grok-light.localhost:20001",
             "0123456789abcdef0123456789abcdef.grok-light.localhost",
             "0123456789abcdef0123456789abcdef.grok-light.localhost:20001.evil.example",
+            "192.168.1.1:20001",
         ] {
             assert_eq!(
                 origin.verify_request(
                     RequestKind::Mutation,
                     Some(host),
-                    Some(&origin.origin_header())
+                    Some(PRODUCTION_WEB_ORIGIN)
                 ),
                 Err(OriginError::OriginMismatch),
                 "host {host} must not be accepted"
             );
         }
+    }
+
+    #[test]
+    fn is_allowed_web_origin_matches_production() {
+        assert!(is_allowed_web_origin(PRODUCTION_WEB_ORIGIN));
+        assert!(!is_allowed_web_origin("https://evil.example"));
+        assert!(!is_allowed_web_origin("http://desktop.grok.me"));
     }
 
     #[test]

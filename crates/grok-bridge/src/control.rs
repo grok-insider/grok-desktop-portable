@@ -181,10 +181,19 @@ async fn execute(request: ControlRequest, state: &Arc<HostState>) -> ControlResp
         ControlRequest::MintNonce => {
             let mut broker = state.pairing.lock().await;
             match broker.mint_nonce(now) {
-                Ok(nonce) => ControlResponse::Paired {
-                    origin: state.origin.origin_header(),
-                    url: format!("{}/#pair={}", state.origin.origin_header(), nonce.expose()),
-                },
+                Ok(nonce) => {
+                    // Production UI is hosted (ADR 0016); nonce rides in the
+                    // fragment so it never hits the public site's server logs.
+                    let url = format!(
+                        "{}/#pair={}",
+                        crate::origin::PRODUCTION_WEB_ORIGIN,
+                        nonce.expose()
+                    );
+                    ControlResponse::Paired {
+                        origin: state.origin.origin_header(),
+                        url,
+                    }
+                }
                 Err(_) => ControlResponse::Error {
                     code: "entropy_unavailable".into(),
                 },
@@ -276,10 +285,13 @@ mod tests {
         let response = call(root.path(), &ControlRequest::MintNonce)
             .await
             .expect("mint");
-        let ControlResponse::Paired { origin, url } = response else {
+        let ControlResponse::Paired { origin: _, url } = response else {
             panic!("expected a pairing response, got {response:?}");
         };
-        assert!(url.starts_with(&origin));
+        assert!(
+            url.starts_with(crate::origin::PRODUCTION_WEB_ORIGIN),
+            "hosted UI pair URL must target desktop.grok.me, got {url}"
+        );
         assert!(
             url.contains("/#pair="),
             "the nonce must ride in the fragment so it never reaches the server"

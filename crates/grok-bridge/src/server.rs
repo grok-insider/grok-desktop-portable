@@ -28,14 +28,23 @@ use crate::bounds::{MAX_COMMAND_BODY_BYTES, MAX_WS_FRAME_BYTES};
 use crate::dispatch::{DispatchOutcome, PendingPermission, SessionState, Workspace};
 use crate::journal::{InterruptCause, Journal, ReplayOutcome};
 use crate::lease::ControlLease;
-use crate::origin::{LocalOrigin, RequestKind, sec_fetch_site_is_same_origin};
+use crate::origin::{
+    LocalOrigin, RequestKind, is_allowed_web_origin, sec_fetch_site_is_same_origin,
+};
 use crate::pairing::PairingBroker;
 use crate::picker::{DirectoryPicker, PickerError, UnavailableDirectoryPicker};
 use crate::protocol::{CommandEnvelope, Event, EventEnvelope, PROTOCOL_VERSION, WS_SUBPROTOCOL};
 use crate::workspace::WorkspaceIndex;
 
-/// Name of the pairing cookie.
+/// Name of the pairing cookie (same-origin fallback SPA).
 pub const SESSION_COOKIE: &str = "gl_session";
+
+/// Session token header for hosted cross-origin clients (ADR 0016).
+///
+/// Cross-site `fetch` from `https://desktop.grok.me` to `http://127.0.0.1`
+/// does not send `SameSite=Strict` cookies. The SPA keeps the token from the
+/// pair response and sends it on every API call.
+pub const SESSION_HEADER: &str = "x-gl-session";
 
 /// Header carrying the per-page CSRF token on mutations.
 pub const CSRF_HEADER: &str = "x-grok-light-csrf";
@@ -670,6 +679,8 @@ pub struct PairRequest {
 pub struct PairResponse {
     /// Opaque browser session identifier, safe to display.
     pub session_id: String,
+    /// Secret session token for hosted clients (`x-gl-session` header).
+    pub session_token: String,
     /// CSRF token the page keeps in memory for mutations.
     pub csrf_token: String,
     /// Protocol version the host implements.
@@ -759,6 +770,26 @@ async fn enforce_origin(
     request: Request<Body>,
     next: Next,
 ) -> Response {
+    let host = header_str(request.headers(), header::HOST).map(str::to_owned);
+    let origin = header_str(request.headers(), header::ORIGIN).map(str::to_owned);
+    let host_ref = host.as_deref();
+    let origin_ref = origin.as_deref();
+
+    // CORS preflight from the hosted document — no side effects.
+    if request.method() == Method::OPTIONS {
+        if let Some(ref origin) = origin {
+            if is_allowed_web_origin(origin)
+                && state
+                    .origin
+                    .verify_request(RequestKind::Safe, host_ref, Some(origin.as_str()))
+                    .is_ok()
+            {
+                return cors_preflight_response(origin);
+            }
+        }
+        return rejected();
+    }
+
     // A WebSocket upgrade arrives as a GET but is browser-initiated and always
     // carries Origin, so it is held to mutation strictness. Classifying it here
     // rather than in the handler means the check runs before any extractor.
@@ -769,16 +800,59 @@ async fn enforce_origin(
     } else {
         RequestKind::Mutation
     };
-    let host = header_str(request.headers(), header::HOST);
-    let origin = header_str(request.headers(), header::ORIGIN);
 
-    if state.origin.verify_request(kind, host, origin).is_err() {
+    if state
+        .origin
+        .verify_request(kind, host_ref, origin_ref)
+        .is_err()
+    {
         return rejected();
     }
-    if !sec_fetch_site_is_same_origin(header_str(request.headers(), "sec-fetch-site")) {
+    // Hosted document → loopback is cross-site; allow when Origin is allowlisted.
+    let sec_fetch = header_str(request.headers(), "sec-fetch-site");
+    let hosted = origin.as_deref().is_some_and(is_allowed_web_origin);
+    if !hosted && !sec_fetch_site_is_same_origin(sec_fetch) {
         return rejected();
     }
-    next.run(request).await
+    let mut response = next.run(request).await;
+    if let Some(ref origin) = origin {
+        if is_allowed_web_origin(origin) {
+            apply_cors_headers(response.headers_mut(), origin);
+        }
+    }
+    response
+}
+
+fn cors_preflight_response(origin: &str) -> Response {
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    apply_cors_headers(response.headers_mut(), origin);
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("GET, POST, OPTIONS"),
+    );
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_static("600"),
+    );
+    response
+}
+
+fn apply_cors_headers(headers: &mut HeaderMap, origin: &str) {
+    if let Ok(value) = HeaderValue::from_str(origin) {
+        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
+    }
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
+        HeaderValue::from_static("true"),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("content-type, x-grok-light-csrf, x-gl-session"),
+    );
+    headers.insert(
+        header::VARY,
+        HeaderValue::from_static("Origin"),
+    );
 }
 
 fn header_str<K>(headers: &HeaderMap, key: K) -> Option<&str>
@@ -794,8 +868,24 @@ fn is_websocket_upgrade(headers: &HeaderMap) -> bool {
         .is_some_and(|value| value.eq_ignore_ascii_case("websocket"))
 }
 
-async fn health() -> Response {
-    (StatusCode::OK, "ok").into_response()
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HealthBody {
+    ok: bool,
+    mode: &'static str,
+    protocol_version: u32,
+}
+
+async fn health(State(state): State<Arc<HostState>>) -> Response {
+    let body = HealthBody {
+        ok: true,
+        mode: "bridge",
+        protocol_version: PROTOCOL_VERSION,
+    };
+    // Paired status is intentionally omitted from unauthenticated probe to
+    // avoid leaking whether someone is controlling the host.
+    let _ = state;
+    (StatusCode::OK, axum::Json(body)).into_response()
 }
 
 /// Serve the embedded SPA.
@@ -854,6 +944,7 @@ async fn pair(
 
     let body = PairResponse {
         session_id: paired.session_id,
+        session_token: paired.session_token.expose().to_owned(),
         csrf_token: paired.csrf_token.expose().to_owned(),
         protocol_version: PROTOCOL_VERSION,
     };
@@ -891,6 +982,8 @@ async fn resume(State(state): State<Arc<HostState>>, headers: HeaderMap) -> Resp
         StatusCode::OK,
         axum::Json(PairResponse {
             session_id,
+            // Echo the presented token so hosted clients can rehydrate memory.
+            session_token: token.to_owned(),
             csrf_token: csrf.expose().to_owned(),
             protocol_version: PROTOCOL_VERSION,
         }),
@@ -2040,6 +2133,12 @@ mod bash_wire_tests {
 }
 
 fn session_cookie(headers: &HeaderMap) -> Option<&str> {
+    // Prefer explicit header for hosted cross-origin clients (ADR 0016).
+    if let Some(token) = header_str(headers, SESSION_HEADER) {
+        if !token.is_empty() {
+            return Some(token);
+        }
+    }
     header_str(headers, header::COOKIE)?
         .split(';')
         .filter_map(|pair| pair.trim().split_once('='))
@@ -2085,7 +2184,7 @@ mod tests {
     use crate::origin::LocalOrigin;
     use crate::protocol::PROTOCOL_VERSION;
     use axum::body::Body;
-    use axum::http::{Request, StatusCode, header};
+    use axum::http::{Method, Request, StatusCode, header};
     use std::sync::Arc;
     use tower::ServiceExt as _;
 
@@ -2166,10 +2265,11 @@ mod tests {
 
     #[tokio::test]
     async fn a_foreign_host_header_is_refused() {
+        // Loopback API hosts (127.0.0.1 / localhost) are accepted under ADR 0016;
+        // refuse everything else and wrong ports.
         for host in [
-            "localhost:20001",
-            "127.0.0.1:20001",
             "evil.example",
+            "192.168.1.1:20001",
             "0123456789abcdef0123456789abcdef.grok-light.localhost:20002",
         ] {
             let response = router(state())
@@ -2187,6 +2287,165 @@ mod tests {
                 "host {host} must be refused"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn hosted_origin_preflight_and_healthz_are_accepted() {
+        use crate::origin::PRODUCTION_WEB_ORIGIN;
+        let state = state();
+        let port = state.origin.port();
+        let api_host = format!("127.0.0.1:{port}");
+
+        let preflight = router(Arc::clone(&state))
+            .oneshot(
+                Request::builder()
+                    .method(Method::OPTIONS)
+                    .uri("/command")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, PRODUCTION_WEB_ORIGIN)
+                    .header(header::ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(preflight.status(), StatusCode::NO_CONTENT);
+        assert_eq!(
+            preflight
+                .headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .and_then(|v| v.to_str().ok()),
+            Some(PRODUCTION_WEB_ORIGIN)
+        );
+
+        let health = router(state)
+            .oneshot(
+                Request::get("/healthz")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, PRODUCTION_WEB_ORIGIN)
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(health.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(health.into_body(), 1024)
+            .await
+            .expect("body");
+        let json: serde_json::Value = serde_json::from_slice(&body).expect("json");
+        assert_eq!(json["ok"], true);
+        assert_eq!(json["mode"], "bridge");
+    }
+
+    #[tokio::test]
+    async fn foreign_web_origin_cannot_preflight() {
+        let state = state();
+        let port = state.origin.port();
+        let response = router(state)
+            .oneshot(
+                Request::builder()
+                    .method(Method::OPTIONS)
+                    .uri("/command")
+                    .header(header::HOST, format!("127.0.0.1:{port}"))
+                    .header(header::ORIGIN, "https://evil.example")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn hosted_origin_can_pair_once_and_foreign_cannot() {
+        use crate::origin::PRODUCTION_WEB_ORIGIN;
+        use super::SESSION_HEADER;
+        let state = state();
+        let port = state.origin.port();
+        let api_host = format!("127.0.0.1:{port}");
+        let now = super::now_ms();
+        let nonce = state
+            .pairing
+            .lock()
+            .await
+            .mint_nonce(now)
+            .expect("mint")
+            .expose()
+            .to_owned();
+
+        let pair = router(Arc::clone(&state))
+            .oneshot(
+                Request::post("/pair")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, PRODUCTION_WEB_ORIGIN)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(r#"{{"nonce":"{nonce}"}}"#)))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(pair.status(), StatusCode::OK);
+        assert!(
+            pair.headers()
+                .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+                .is_some()
+        );
+        let body = axum::body::to_bytes(pair.into_body(), 1 << 16)
+            .await
+            .expect("body");
+        let parsed: PairResponse = serde_json::from_slice(&body).expect("json");
+        assert!(!parsed.session_token.is_empty());
+        assert!(!parsed.csrf_token.is_empty());
+
+        // Second redeem fails.
+        let again = router(Arc::clone(&state))
+            .oneshot(
+                Request::post("/pair")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, PRODUCTION_WEB_ORIGIN)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(r#"{{"nonce":"{nonce}"}}"#)))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(again.status(), StatusCode::FORBIDDEN);
+
+        // Foreign origin cannot pair with a fresh nonce.
+        let nonce2 = state
+            .pairing
+            .lock()
+            .await
+            .mint_nonce(now + 1)
+            .expect("mint")
+            .expose()
+            .to_owned();
+        let evil = router(Arc::clone(&state))
+            .oneshot(
+                Request::post("/pair")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, "https://evil.example")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(format!(r#"{{"nonce":"{nonce2}"}}"#)))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(evil.status(), StatusCode::FORBIDDEN);
+
+        // Session header authenticates resume.
+        let resume = router(state)
+            .oneshot(
+                Request::get("/session")
+                    .header(header::HOST, &api_host)
+                    .header(header::ORIGIN, PRODUCTION_WEB_ORIGIN)
+                    .header(SESSION_HEADER, &parsed.session_token)
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(resume.status(), StatusCode::OK);
     }
 
     #[tokio::test]
