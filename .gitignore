@@ -1,10 +1,44 @@
+# Rust
 /target
+
+# Node
 **/node_modules
+.pnpm-store
+node_modules
+
+# SPA build outputs (Vite → public/; legacy dist)
+public/
 apps/web/dist
+
+# Env / local secrets
+.env
+.env.*
+
+# Editors / OS
 .DS_Store
 *.swp
 .idea
 .vscode
-.env
-.env.*
-.pnpm-store
+
+# Bridge runtime state
+.bridge-state/
+**/.bridge-state/
+host.lock
+control.sock
+
+# Local stubs / sandbox-only (App Builder / agent)
+.local/
+.grok/
+.project_id
+AGENTS.project.md
+.node_modules.lock
+.node_modules.tmp.*/
+
+# Logs and QA artifacts
+*.log
+/tmp/
+screenshots/
+scripts/preview-proxy-deps/
+
+# Vercel
+.vercel
