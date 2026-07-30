@@ -39,8 +39,34 @@ rustix = { workspace = true, features = ["process"] }
 # The xdg-desktop-portal FileChooser. Only the picker needs it.
 ashpd = { version = "0.13.12", default-features = false, features = ["tokio", "file_chooser"] }
 
-[lints]
-workspace = true
+[target.'cfg(windows)'.dependencies]
+# Named-pipe DACL (owner-only control plane). Encapsulates Win32 security APIs.
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_System_Memory",
+] }
+
+# Workspace forbids unsafe; this crate needs a tiny Win32 surface for named-pipe
+# DACLs (allowed only in `control/windows.rs`). Mirror workspace clippy policy.
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "allow", priority = -1 }
+collapsible_if = "allow"
+too_many_lines = "allow"
+doc_markdown = "allow"
+unnested_or_patterns = "allow"
+match_same_arms = "allow"
+format_collect = "allow"
+manual_duration = "allow"
+missing_errors_doc = "allow"
 
 [dev-dependencies]
 tempfile = "3.27.0"

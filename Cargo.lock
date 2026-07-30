@@ -491,6 +491,7 @@ dependencies = [
  "tokio-tungstenite",
  "tower",
  "url",
+ "windows-sys 0.59.0",
  "zeroize",
 ]
 
