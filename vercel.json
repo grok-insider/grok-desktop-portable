@@ -4,11 +4,34 @@
   "installCommand": "corepack enable && pnpm install",
   "outputDirectory": "public",
   "framework": null,
+  "headers": [
+    {
+      "source": "/install.sh",
+      "headers": [
+        { "key": "Content-Type", "value": "text/x-shellscript; charset=utf-8" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/install.ps1",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/pair", "destination": "/api/pair" },
     { "source": "/session", "destination": "/api/session" },
     { "source": "/command", "destination": "/api/command" },
     { "source": "/healthz", "destination": "/api/healthz" },
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/demo",
+      "destination": "/demo/index.html"
+    },
+    {
+      "source": "/demo/(.*)",
+      "destination": "/demo/index.html"
+    }
   ]
 }
