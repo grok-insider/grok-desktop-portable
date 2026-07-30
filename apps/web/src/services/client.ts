@@ -66,6 +66,10 @@ export class LightClient {
   /** Update API base after learning the port from a pair URL. */
   setBridgeBaseUrl(base: string): void {
     this.#bridgeBaseUrl = base;
+    const port = portFromBridgeBase(base);
+    if (port !== null) {
+      writeStoredPort(port);
+    }
   }
 
   /** Whether this page has completed a pairing exchange. */
@@ -73,10 +77,31 @@ export class LightClient {
     return this.#csrfToken !== null && this.#sessionToken !== null;
   }
 
-  /** Drop in-memory pairing so a demotion cannot keep sending authed calls. */
-  clearPairing(): void {
+  /**
+   * Drop in-memory pairing. By default also clears the document-origin session
+   * grant but keeps the remembered port (bridge may still be up).
+   */
+  clearPairing(options: { clearPort?: boolean } = {}): void {
     this.#csrfToken = null;
     this.#sessionToken = null;
+    clearStoredSessionGrant();
+    if (options.clearPort) {
+      clearStoredPort();
+    }
+  }
+
+  /** Restore tokens from the document-origin resume store (if still valid). */
+  restoreFromStorage(nowMs: number = Date.now()): boolean {
+    const stored = readStoredSession(nowMs);
+    if (stored === null) {
+      return false;
+    }
+    this.#sessionToken = stored.sessionToken;
+    this.#csrfToken = stored.csrfToken;
+    if (!this.#bridgeBaseUrl) {
+      this.#bridgeBaseUrl = `http://127.0.0.1:${stored.port}`;
+    }
+    return true;
   }
 
   /** API base URL (empty when same-origin). */
@@ -115,6 +140,24 @@ export class LightClient {
     if (value.sessionToken) {
       this.#sessionToken = value.sessionToken;
     }
+    this.#persistGrantIfComplete();
+  }
+
+  #persistGrantIfComplete(): void {
+    if (this.#sessionToken === null || this.#csrfToken === null) {
+      return;
+    }
+    const port = portFromBridgeBase(this.#bridgeBaseUrl) ?? readStoredPort();
+    if (port === null) {
+      return;
+    }
+    writeStoredPort(port);
+    writeStoredSession({
+      port,
+      sessionToken: this.#sessionToken,
+      csrfToken: this.#csrfToken,
+      savedAtMs: Date.now(),
+    });
   }
 
   /**
@@ -280,7 +323,168 @@ export class LightClient {
   }
 }
 
-const BRIDGE_PORT_KEY = "grok-bridge-port";
+/** localStorage / sessionStorage key for the last known loopback port. */
+export const BRIDGE_PORT_KEY = "grok-bridge-port";
+
+/** Document-origin resume grant (session token + CSRF + port). */
+export const BRIDGE_SESSION_KEY = "grok-bridge-session.v1";
+
+/** Soft TTL for the resume grant (7 days). */
+export const SESSION_GRANT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface StoredBridgeSession {
+  port: number;
+  sessionToken: string;
+  csrfToken: string;
+  savedAtMs: number;
+}
+
+function isValidPortString(value: string): boolean {
+  return /^\d{2,5}$/.test(value);
+}
+
+function parsePort(value: string | null): number | null {
+  if (value === null || !isValidPortString(value)) {
+    return null;
+  }
+  const port = Number.parseInt(value, 10);
+  return Number.isFinite(port) && port >= 10 && port <= 65535 ? port : null;
+}
+
+/** Extract port from `http://127.0.0.1:PORT` (or localhost). */
+export function portFromBridgeBase(base: string): number | null {
+  const match = /^https?:\/\/(?:127\.0\.0\.1|localhost):(\d{2,5})$/i.exec(base.trim());
+  if (match === null) {
+    return null;
+  }
+  return parsePort(match[1] ?? null);
+}
+
+/** Read last known loopback port (localStorage, then sessionStorage; promote). */
+export function readStoredPort(): number | null {
+  try {
+    if (typeof localStorage !== "undefined") {
+      const fromLocal = parsePort(localStorage.getItem(BRIDGE_PORT_KEY));
+      if (fromLocal !== null) {
+        return fromLocal;
+      }
+    }
+    if (typeof sessionStorage !== "undefined") {
+      const fromSession = parsePort(sessionStorage.getItem(BRIDGE_PORT_KEY));
+      if (fromSession !== null) {
+        // Promote legacy tab-only port to durable storage.
+        writeStoredPort(fromSession);
+        return fromSession;
+      }
+    }
+  } catch {
+    // Storage may be blocked (private mode).
+  }
+  return null;
+}
+
+/** Persist loopback port for multi-tab / restart discovery. */
+export function writeStoredPort(port: number): void {
+  if (!Number.isFinite(port) || port < 10 || port > 65535) {
+    return;
+  }
+  const value = String(port);
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(BRIDGE_PORT_KEY, value);
+    }
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(BRIDGE_PORT_KEY, value);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/** Forget remembered port (e.g. after confirmed bridge_missing). */
+export function clearStoredPort(): void {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(BRIDGE_PORT_KEY);
+    }
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(BRIDGE_PORT_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/** True when a port has ever been remembered on this profile. */
+export function hasStoredPort(): boolean {
+  return readStoredPort() !== null;
+}
+
+/** Read a non-expired document-origin session grant. */
+export function readStoredSession(nowMs: number = Date.now()): StoredBridgeSession | null {
+  try {
+    if (typeof localStorage === "undefined") {
+      return null;
+    }
+    const raw = localStorage.getItem(BRIDGE_SESSION_KEY);
+    if (raw === null) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<StoredBridgeSession>;
+    if (
+      typeof parsed.port !== "number" ||
+      typeof parsed.sessionToken !== "string" ||
+      typeof parsed.csrfToken !== "string" ||
+      typeof parsed.savedAtMs !== "number" ||
+      parsed.sessionToken.length === 0 ||
+      parsed.csrfToken.length === 0
+    ) {
+      clearStoredSessionGrant();
+      return null;
+    }
+    if (nowMs - parsed.savedAtMs > SESSION_GRANT_TTL_MS) {
+      clearStoredSessionGrant();
+      return null;
+    }
+    const port = parsed.port;
+    if (!Number.isFinite(port) || port < 10 || port > 65535) {
+      clearStoredSessionGrant();
+      return null;
+    }
+    return {
+      port,
+      sessionToken: parsed.sessionToken,
+      csrfToken: parsed.csrfToken,
+      savedAtMs: parsed.savedAtMs,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Persist session grant for silent resume (new tab / browser restart). */
+export function writeStoredSession(session: StoredBridgeSession): void {
+  try {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+    localStorage.setItem(BRIDGE_SESSION_KEY, JSON.stringify(session));
+    writeStoredPort(session.port);
+  } catch {
+    // ignore
+  }
+}
+
+/** Clear session tokens only; keep remembered port. */
+export function clearStoredSessionGrant(): void {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(BRIDGE_SESSION_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Read and immediately clear a pairing nonce (and optional API port) from the
@@ -306,8 +510,8 @@ export function takePairingFragment(): { nonce: string; port: number | null } | 
   const portRaw = match[2];
   const port =
     portRaw !== undefined && portRaw.length > 0 ? Number.parseInt(portRaw, 10) : null;
-  if (port !== null && Number.isFinite(port) && typeof sessionStorage !== "undefined") {
-    sessionStorage.setItem(BRIDGE_PORT_KEY, String(port));
+  if (port !== null && Number.isFinite(port)) {
+    writeStoredPort(port);
   }
   history.replaceState(null, "", location.pathname + location.search);
   return { nonce, port: port !== null && Number.isFinite(port) ? port : null };
@@ -326,7 +530,7 @@ export function isHostedDocumentOrigin(
   return origin === HOSTED_SPA_ORIGIN;
 }
 
-/** Resolve loopback base URL from build env or last pair fragment port. */
+/** Resolve loopback base URL from build env or last remembered port. */
 export function resolveBridgeBaseUrl(explicit?: string): string {
   if (explicit !== undefined) {
     return explicit;
@@ -335,11 +539,9 @@ export function resolveBridgeBaseUrl(explicit?: string): string {
   if (fromEnv) {
     return fromEnv;
   }
-  if (typeof sessionStorage !== "undefined") {
-    const stored = sessionStorage.getItem(BRIDGE_PORT_KEY);
-    if (stored && /^\d{2,5}$/.test(stored)) {
-      return `http://127.0.0.1:${stored}`;
-    }
+  const port = readStoredPort();
+  if (port !== null) {
+    return `http://127.0.0.1:${port}`;
   }
   // Hosted SPA without a known port cannot probe until `open` provides &p=.
   return "";

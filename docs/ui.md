@@ -44,6 +44,21 @@ Before Work is shown, the SPA probes the bridge:
 - Brief reconnect while still under the attempt budget may show a connection
   strip **inside** Work; after the budget is exhausted, demote.
 
+### Resume store (hosted QoL)
+
+- **Port** (`localStorage` key `grok-bridge-port`, mirrored in `sessionStorage`):
+  last known loopback port. Shared across tabs and browser restarts. Not a secret.
+- **Session grant** (`localStorage` key `grok-bridge-session.v1`):
+  `{ port, sessionToken, csrfToken, savedAtMs }` with soft TTL (default 7 days).
+  Enables silent resume without a new `grok-bridge open` URL.
+- **On load:** fragment pair if present → else resolve port → probe → restore
+  grant → `resume`. Never call the public origin as the bridge API.
+- **Clear tokens** on `not_paired` / rejected / demotion of pairing; **clear port**
+  after confirmed healthz failure at that port (`bridge_missing`).
+- **Landing copy:** full install steps when no port ever; emphasize `serve` when
+  a port was known but the host is down; emphasize `open` when the bridge is up
+  but unpaired.
+
 ## Source of truth
 
 1. **Tokens, type, spacing, motion, a11y:** shared design tokens / desktop

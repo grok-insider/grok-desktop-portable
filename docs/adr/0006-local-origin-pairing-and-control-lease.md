@@ -60,9 +60,11 @@ nonce against the **loopback** pair endpoint. The bridge sets a host-only
 `HttpOnly` session cookie on the **loopback** response (first-party to the API
 host). The SPA clears the fragment immediately and uses `credentials: 'include'`
 on subsequent API calls. The host stores only a hash of the browser token and
-supports individual and total revocation. No token appears in a query string,
-`localStorage` as a durable grant, a public bookmark of the raw nonce, a log,
-or a WebSocket URL query.
+supports individual and total revocation. No pairing **nonce** appears in a
+query string, a public bookmark, a log, or a WebSocket URL. Hosted SPA may
+persist the **session token + CSRF** and last loopback **port** on the document
+origin for silent resume across tabs/restarts (see [ADR light 0016](0016-hosted-ui-local-bridge.md));
+that is resume QoL, not a second pairing channel, and is cleared on demotion.
 
 Because the nonce is only obtainable through an owner-only socket, another local
 user can reach the listener but cannot pair.
@@ -96,8 +98,9 @@ by id. The single-controller decision above is unchanged.**
   any other local service using that name.
 - Requiring `Origin` on every request would reject the application's own
   document load, as the Chrome 150 measurement shows.
-- A permanent token in `localStorage` would be readable by any script that
-  achieves execution in the origin.
+- Treating the pairing **nonce** as a permanent bookmark grant remains rejected.
+  A **session** token on the document origin for resume is accepted under ADR
+  0016 with explicit clear rules (XSS on that origin already implies control).
 - Allowing multiple controlling tabs would require conflict resolution for
   approvals, where ambiguity is least acceptable.
 - Rotating the origin on any bind failure would convert a transient race into

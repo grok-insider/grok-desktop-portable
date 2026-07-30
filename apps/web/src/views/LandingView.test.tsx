@@ -37,6 +37,21 @@ describe("LandingView", () => {
     expect(screen.getByRole("heading", { name: /Pair this browser/i })).toBeTruthy();
     expect(screen.getByText(/The bridge is running/i)).toBeTruthy();
     expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge open");
+    expect(screen.getByTestId("landing-install")).not.toHaveTextContent("install.sh");
+  });
+
+  it("emphasizes serve when a port was known but the bridge is down", () => {
+    render(
+      <LandingView
+        probe={{ kind: "bridge_missing" }}
+        onRetry={() => {}}
+        hadPort
+      />,
+    );
+    expect(screen.getByTestId("landing-view")).toHaveAttribute("data-had-port", "1");
+    expect(screen.getByText(/remembers a local bridge port/i)).toBeTruthy();
+    expect(screen.getByTestId("landing-install")).not.toHaveTextContent("install.sh");
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge serve");
   });
 
   it("shows checking state without Work chrome", () => {

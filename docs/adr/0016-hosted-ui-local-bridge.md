@@ -63,9 +63,19 @@ deploy discipline for `desktop.grok.me`.
    (`grok-bridge open` mints a single-use nonce). The hosted SPA redeems the
    nonce against the loopback API. The bridge sets the session cookie on the
    **loopback response** (first-party to `http://127.0.0.1:<port>`). The SPA
-   uses `credentials: 'include'` on API calls. CSRF continues to apply on
-   mutations. Tokens are not stored in `localStorage` as a long-lived power
-   grant.
+   uses `credentials: 'include'` on API calls and, for hosted cross-origin,
+   `x-gl-session` / WebSocket `gls.<token>` (cookies are not reliable
+   cross-site). CSRF continues to apply on mutations.
+
+   **Document-origin resume store (QoL):** the SPA may persist on the **document
+   origin** (`https://desktop.grok.me`) (1) the last known loopback **port**
+   (discovery only) and (2) the bridge **session token + CSRF** solely so a new
+   tab or browser restart can silently resume without a fresh `open` URL. This
+   is not a stronger capability than XSS on that origin already is (a
+   compromised deploy can drive paired bridges until revocation). Clear the
+   grant on demotion / `not_paired` / soft TTL; never put tokens in URLs, logs,
+   or public bookmarks; never store Grok OAuth or API keys. The pairing
+   **nonce** remains single-use and is never durable.
 
 5. **Landing vs Work.** The hosted SPA probes the bridge (`/healthz` or
    equivalent). States include at least: bridge missing, local-network

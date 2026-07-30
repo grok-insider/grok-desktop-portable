@@ -2,10 +2,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CSRF_HEADER,
   PROTOCOL_VERSION,
+  SESSION_HEADER,
   WS_SESSION_PROTOCOL_PREFIX,
   WS_SUBPROTOCOL,
 } from "./protocol";
-import { LightClient, takePairingNonce } from "./client";
+import {
+  LightClient,
+  readStoredPort,
+  readStoredSession,
+  takePairingNonce,
+  writeStoredSession,
+} from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -199,6 +206,58 @@ describe("resume", () => {
     );
     const result = await new LightClient({ bridgeBaseUrl: "http://127.0.0.1:20001" }).resume();
     expect(result).toEqual({ ok: false, failure: { kind: "not_paired" } });
+  });
+
+  it("restores a stored grant and resumes without re-pairing", async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    writeStoredSession({
+      port: 20001,
+      sessionToken: "stored-sess",
+      csrfToken: "stored-csrf",
+      savedAtMs: Date.now(),
+    });
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          sessionId: "bs-1",
+          sessionToken: "stored-sess",
+          csrfToken: "stored-csrf",
+          protocolVersion: PROTOCOL_VERSION,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const client = new LightClient({ bridgeBaseUrl: "" });
+    expect(client.restoreFromStorage()).toBe(true);
+    expect(client.paired).toBe(true);
+    expect(client.bridgeBaseUrl).toBe("http://127.0.0.1:20001");
+
+    const result = await client.resume();
+    expect(result.ok).toBe(true);
+    expect(fetchSpy).toHaveBeenCalled();
+    const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:20001/session");
+    expect((init.headers as Record<string, string>)[SESSION_HEADER]).toBe("stored-sess");
+  });
+
+  it("clearPairing drops the grant but can keep the port", () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    writeStoredSession({
+      port: 20001,
+      sessionToken: "s",
+      csrfToken: "c",
+      savedAtMs: Date.now(),
+    });
+    const client = new LightClient({ bridgeBaseUrl: "http://127.0.0.1:20001" });
+    client.restoreFromStorage();
+    expect(client.paired).toBe(true);
+    client.clearPairing();
+    expect(client.paired).toBe(false);
+    expect(readStoredSession()).toBeNull();
+    expect(readStoredPort()).toBe(20001);
   });
 
   it("opens events with family protocol and gls.session token (no cookie path)", async () => {
