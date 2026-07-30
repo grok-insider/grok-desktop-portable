@@ -1,43 +1,59 @@
-# Grok Light UI
+# Grok Desktop Portable UI
 
-Light shares the **Grok Desktop design system** ([apps/desktop/DESIGN.md](../../apps/desktop/DESIGN.md))
-and deliberately does **not** invent a second visual language. This note records
-what differs because Light is a Work-only browser shell on loopback.
+Portable shares the **Grok Desktop design system** where available and does
+**not** invent a second visual language. This note records what differs because
+production UI is a Work-only shell at **`https://desktop.grok.me`** talking to
+**`grok-bridge` on loopback** (ADR light 0016).
 
 ## Scope
 
 | In scope | Out of scope |
 |----------|----------------|
-| Setup / pairing | Desktop Chat, Research, Guest |
-| Workspaces + session list/resume | Multi-window chrome |
-| Live Work transcript, tool calls, permissions | Desktop's app-shell sidebar |
-| Conversation sidebar, review panel, and prompt queue (light ADR 0011) | Editing a queued message in place |
-| Configured MCP integrations, read-only | Editing any CLI configuration |
-| Recovery banners, review records | Marketing landing |
+| Landing when bridge missing / LNA blocked | Desktop Chat, Research, Guest |
+| Setup / pairing to local bridge | Multi-window chrome |
+| Workspaces + session list/resume | Editing CLI configuration |
+| Live Work transcript, tool calls, permissions | Cloud execution of the CLI |
+| Conversation sidebar, review panel, prompt queue (ADR 0011) | Editing a queued message in place |
+| Configured MCP integrations, read-only projection | |
+| Recovery banners, review records | |
+
+## Probe states (hosted UI)
+
+Before Work is shown, the SPA probes the bridge:
+
+| State | UI |
+|-------|-----|
+| `bridge_missing` | Landing: install + `grok-bridge serve` |
+| `blocked_lna` | Landing: allow local network for this site |
+| `needs_pairing` | Pair instructions; consume `#pair=` from `grok-bridge open` |
+| `ready` | Work shell (home / session / setup routes below) |
+| `error` | Bounded diagnostic; no silent agent actions |
 
 ## Source of truth
 
-1. **Tokens, type, spacing, motion, a11y:** DESIGN.md §2–§8.
-2. **Implementation:** `apps/light/src/styles.css` (duplicated tokens until
-   `packages/design-tokens` extraction), `components/ui.tsx`, views under
-   `apps/light/src/views/`.
+1. **Tokens, type, spacing, motion, a11y:** shared design tokens / desktop
+   DESIGN.md where referenced by the monorepo.
+2. **Implementation:** `apps/web/src/` (`styles.css`, `components/ui.tsx`, views).
 3. **Markdown:** `MarkdownMessage` — GFM, allowlist, `skipHtml`, https-only
-   links, no images (same policy as Desktop’s agent bubbles).
+   links, no images.
 4. **Protocol shapes:** [protocol.md](protocol.md). Anything the browser
-   renders arrives through it, already bounded by the host.
+   renders arrives through it, already bounded by the bridge.
 
 ## URL model
 
-Light is a SPA on one loopback origin (ADR light 0002). The path still names
-**which surface** is open so refresh and share work:
+**Document origin (production):** `https://desktop.grok.me`.  
+**API origin:** `http://127.0.0.1:<port>` (or `localhost`).
+
+Client paths name **which surface** is open (refresh/share):
 
 | Path | Surface |
 |------|---------|
-| `/` | Home (projects + sessions) |
+| `/` | Landing **or** Home (projects + sessions) when `ready` |
 | `/s/:sessionId` | Open conversation (opaque agent id only) |
 | `/setup` | Setup (optional deep link) |
 
-Never a filesystem path. The host serves `index.html` for these client routes
+Never a filesystem path. The **site** (or fallback bridge) serves `index.html`
+for these client routes
 so a hard refresh does not 404. History API keeps the bar in sync with the
 active `sessionId`.
 

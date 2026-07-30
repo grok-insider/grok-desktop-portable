@@ -4,38 +4,50 @@
 > still say “Grok Light” / `light.local.v1` / `grok-light` in places; those are
 > protocol-stable names in v0, not the product name.
 
-Grok Desktop Portable is a **local web interface for the Grok Build CLI the user
-already installed and authenticated**. A local **bridge** (`grok-bridge`) serves
-the interface over loopback; the user opens a stable URL in their own browser
-and works from it. Scope is Work only. The only shipped binary is the bridge
-(GitHub Releases + `https://desktop.grok.me/install.sh`).
+Grok Desktop Portable lets a browser tab at **`https://desktop.grok.me`** drive
+the **Grok Build CLI** the user already installed and authenticated, through a
+local **`grok-bridge`**. Scope is Work only.
 
-Portable is a sibling of Grok Desktop (Electron), not a Desktop surface. Read
-[ADR light 0001](adr/0001-work-only-sibling-product.md) before assuming a
-Desktop invariant applies here.
+```text
+https://desktop.grok.me     Work SPA / landing (public)
+        │  fetch + WebSocket → loopback
+        ▼
+  grok-bridge               closed light.local.v1 API
+        │  ACP stdio
+        ▼
+  grok                      user's CLI + GROK_HOME + config
+```
+
+- **No bridge / no pairing** → site shows **landing** (install, start bridge).
+- **Bridge + pairing** → **Work UI** against the local CLI.
+- The only shipped **binary** is the bridge (GitHub Releases + install scripts).
+- The cloud never runs the CLI and never holds OAuth/API secrets.
+
+Architecture decision: [ADR light 0016](adr/0016-hosted-ui-local-bridge.md).
+Portable is a sibling of Grok Desktop (Electron), not a Desktop surface
+([ADR light 0001](adr/0001-work-only-sibling-product.md)).
 
 | Document | Purpose |
 |----------|---------|
-| [light-website-plan.md](light-website-plan.md) | Full program plan and phases |
-| [protocol.md](protocol.md) | `light.local.v1` draft |
+| [protocol.md](protocol.md) | `light.local.v1` |
 | [threat-model.md](threat-model.md) | Trust boundaries, accepted risks, non-claims |
-| [ui.md](ui.md) | Work UI shell vs Desktop DESIGN.md |
-| [adr/](adr/) | Light architecture decisions |
-| [hosted-demo.md](hosted-demo.md) | Optional preview/Vercel demo host (not the product) |
+| [ui.md](ui.md) | Landing vs Work; probe states |
+| [adr/](adr/) | Architecture decisions (0016 = hosted UI) |
+| [hosted-demo.md](hosted-demo.md) | Stub preview host only (not production) |
 
 ## Naming
 
 | Thing | Name | Note |
 |-------|------|------|
 | Product | Grok Desktop Portable | Marketing / repo name |
-| Bridge binary | `grok-bridge` | Only artifact on GitHub Releases |
-| App package | `@grok-desktop-portable/web` | Workspace scope only |
-| App path | `apps/web` | SPA, embedded and versioned with the bridge |
-| Host crate | `crates/grok-bridge` | Binary and composition root |
-| User CLI | `grok-bridge` | `serve`, `open`, `status`, `doctor`, `stop`, `repair` |
-| Local protocol | `light.local.v1` | Browser to host. Not ACP (name kept in v0) |
-| ACP client identifier | `grok-light` | Passed via `GROK_CLIENT_NAME`; resolves to `ClientType::Generic` |
-| Landing | `https://desktop.grok.me` | Install + docs only; never the Work SPA |
+| Bridge binary | `grok-bridge` | Only native artifact on GitHub Releases |
+| Production UI | `https://desktop.grok.me` | Hosted Work SPA + landing (ADR 0016) |
+| App package | `@grok-desktop-portable/web` | Built for site deploy; also embeddable for fallback |
+| App path | `apps/web` | SPA source |
+| Host crate | `crates/grok-bridge` | Loopback API + ACP composition root |
+| User CLI (bridge) | `grok-bridge` | `serve`, `open`, `status`, `doctor`, `stop`, `repair` |
+| Local protocol | `light.local.v1` | Browser ↔ bridge (not ACP) |
+| ACP client identifier | `grok-light` | Via `GROK_CLIENT_NAME` → `ClientType::Generic` |
 | Docs root | `docs/` | ADRs under `docs/adr/` |
 
 The `@grok-desktop/` npm scope reflects the workspace, not the product. Anything
