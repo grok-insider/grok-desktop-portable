@@ -3,13 +3,14 @@
 Local **Work** UI for the [Grok Build](https://grok.com) CLI you already installed
 and authenticated. A small native **bridge** serves the interface on loopback;
 you open it in Chromium or Firefox. There is no cloud backend and no CDN-hosted
-app.
+**product** app.
 
 | Piece | Role |
 |-------|------|
 | `grok-bridge` | Only shipped binary (GitHub Releases) |
-| Work SPA | Embedded in the bridge; never published as a website |
+| Work SPA | Embedded in the bridge; never the production website |
 | `https://desktop.grok.me` | Landing + `install.sh` only |
+| `server.mjs` (optional) | **Hosted demo** host for previews / Vercel — not the product path |
 
 This product is **not** Grok Desktop (the Electron app). It does not use the
 Desktop daemon, vault, or managed `GROK_HOME`.
@@ -53,7 +54,7 @@ grok-bridge workspace add /path/to/project
 
 ```sh
 pnpm install
-pnpm build:web
+pnpm build:web          # → public/ (and prepares static HTML)
 cargo test -p grok-bridge
 cargo run -p grok-bridge -- serve
 ```
@@ -64,6 +65,29 @@ Environment overrides:
 |----------|---------|
 | `GROK_BRIDGE_STATE_DIR` | Host state directory |
 | `GROK_BRIDGE_AGENT` | Path to the `grok` binary (default: `grok` on `PATH`) |
+
+## Hosted demo (preview / Vercel)
+
+The product remains loopback-only. For App Builder previews and static hosting
+checks, this repo also ships a **demo host** that is explicitly not the
+production bridge:
+
+| Path | Role |
+|------|------|
+| [`server.mjs`](server.mjs) | Node entrypoint: serves `public/` + mock `light.local.v1` |
+| [`api/`](api/) | Vercel serverless routes for `/pair`, `/session`, `/command`, `/healthz` |
+| [`vercel.json`](vercel.json) | `outputDirectory: public`, API rewrites |
+| [`scripts/prepare-public.mjs`](scripts/prepare-public.mjs) | Post-build HTML patch (CSP / demo banner) |
+
+```sh
+pnpm install
+pnpm build              # builds Work SPA into public/
+npm start               # node server.mjs on 0.0.0.0:8080
+```
+
+The demo auto-pairs the browser, exposes a sample project, and streams stub
+replies. It does **not** run your Grok Build CLI or honour production origin /
+pairing threat-model guarantees. See [docs/hosted-demo.md](docs/hosted-demo.md).
 
 ## Non-claims
 

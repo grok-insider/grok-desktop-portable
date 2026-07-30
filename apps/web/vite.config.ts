@@ -54,7 +54,8 @@ export default defineConfig(({ command }) => ({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
-    outDir: "dist",
+    outDir: "../../public",
+    emptyOutDir: true,
     sourcemap: false,
   },
   server: {

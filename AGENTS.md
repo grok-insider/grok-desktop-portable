@@ -30,6 +30,7 @@ Read this before changing the repository.
 | `site/` | Landing for desktop.grok.me |
 | `install/` | `install.sh` / `install.ps1` sources |
 | `docs/` | ADRs, protocol, threat model, UI |
+| `server.mjs` / `api/` | Optional **hosted demo** only — not the product bridge (see docs/hosted-demo.md) |
 
 ## Commands
 
