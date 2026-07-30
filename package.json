@@ -13,9 +13,10 @@
     "dev": "node server.mjs",
     "test:web": "pnpm --filter @grok-desktop-portable/web test",
     "test:public": "node scripts/prepare-public.test.mjs",
+    "test:embed": "sh scripts/assert-spa-embedded.test.sh",
     "typecheck:web": "pnpm --filter @grok-desktop-portable/web typecheck",
     "build:bridge": "pnpm build:web:dist && cargo build -p grok-bridge --release",
-    "test": "pnpm test:web && pnpm test:public && cargo test -p grok-bridge"
+    "test": "pnpm test:web && pnpm test:public && pnpm test:embed && cargo test -p grok-bridge"
   },
   "packageManager": "pnpm@10.33.2",
   "engines": {
