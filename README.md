@@ -1,53 +1,52 @@
 # Grok Desktop Portable
 
-Local **Work** UI for the [Grok Build](https://grok.com) CLI you already installed
-and authenticated. A small native **bridge** serves the interface on loopback;
-you open it in Chromium or Firefox. There is no cloud backend and no CDN-hosted
-**product** app.
+Drive the [Grok Build](https://grok.com) CLI you already installed from
+**`https://desktop.grok.me`**, through a small local **`grok-bridge`**.
+
+```text
+https://desktop.grok.me  →  grok-bridge (127.0.0.1)  →  grok CLI
+```
 
 | Piece | Role |
 |-------|------|
-| `grok-bridge` | Only shipped binary (GitHub Releases) |
-| Work SPA | Embedded in the bridge; never the production website |
-| `https://desktop.grok.me` | Landing + `install.sh` only |
-| `server.mjs` (optional) | **Hosted demo** host for previews / Vercel — not the product path |
+| `https://desktop.grok.me` | Production Work UI + landing |
+| `grok-bridge` | Only shipped native binary; loopback API + ACP to your CLI |
+| `server.mjs` | Optional **stub** demo without a real CLI ([docs/hosted-demo.md](docs/hosted-demo.md)) |
 
-This product is **not** Grok Desktop (the Electron app). It does not use the
-Desktop daemon, vault, or managed `GROK_HOME`.
+This is **not** Grok Desktop (the Electron app). No Desktop daemon, vault, or
+managed `GROK_HOME`. Architecture: [docs/adr/0016-hosted-ui-local-bridge.md](docs/adr/0016-hosted-ui-local-bridge.md).
 
 ## Requirements
 
 - Grok Build CLI installed and authenticated (`grok`), version **≥ 0.2.115**
-- Chromium or Firefox 84+ (Safari / WebKit are unsupported)
-- Linux, Windows, or macOS
+- Chromium or Firefox 84+ (Safari / WebKit unsupported)
+- Linux (primary); macOS bridge binary available; Windows bridge not in beta yet
+- For hosted UI: allow **local network** access when the browser asks
 
-## Install (beta)
+## Install bridge (beta)
 
 ```sh
 curl -fsSL https://desktop.grok.me/install.sh | sh
 ```
 
-Or download a binary from
+Or download from
 [GitHub Releases](https://github.com/grok-insider/grok-desktop-portable/releases)
-and verify the SHA-256 in `checksums.txt`.
+and verify `checksums.txt`. Unsigned FOSS builds.
 
-**v0.1.0-beta.1 assets:** `grok-bridge-linux-x64` and `grok-bridge-darwin-arm64`
-(Windows is not shipped yet — the control socket is still Unix-only).
-
-Builds are **unsigned** FOSS artifacts. Prefer verifying the checksum and the
-tag source over platform “smart screen” prompts.
+**v0.1.0-beta.1:** `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`.
 
 ## First run
 
 ```sh
-grok-bridge doctor   # CLI + state dir
-grok-bridge serve    # leave running
-# other terminal:
-grok-bridge open     # prints a one-time pairing URL
+grok-bridge doctor
+grok-bridge serve          # leave running
+grok-bridge open           # prints https://desktop.grok.me/#pair=… (once implemented)
 ```
 
-On Windows/macOS without a native folder picker yet, enrol a workspace from the
-CLI:
+Then open **https://desktop.grok.me**, allow local network if prompted, complete
+pairing, and work. Without a running bridge the site shows **landing only**.
+
+Enrol a workspace if needed:
 
 ```sh
 grok-bridge workspace add /path/to/project
@@ -57,52 +56,23 @@ grok-bridge workspace add /path/to/project
 
 ```sh
 pnpm install
-pnpm build:web          # → public/ (and prepares static HTML)
+pnpm test
+pnpm build:web:dist        # SPA for bridge embed / site pipeline
 cargo test -p grok-bridge
 cargo run -p grok-bridge -- serve
 ```
 
-Environment overrides:
-
 | Variable | Purpose |
 |----------|---------|
 | `GROK_BRIDGE_STATE_DIR` | Host state directory |
-| `GROK_BRIDGE_AGENT` | Path to the `grok` binary (default: `grok` on `PATH`) |
-
-## Hosted demo (preview / Vercel)
-
-The product remains loopback-only. For App Builder previews and static hosting
-checks, this repo also ships a **demo host** that is explicitly not the
-production bridge:
-
-| Path | Role |
-|------|------|
-| [`server.mjs`](server.mjs) | Node entrypoint (`package.json` `main`/`start`): serves `public/` + mock `light.local.v1` |
-| [`api/`](api/) | Vercel serverless routes for `/pair`, `/session`, `/command`, `/healthz` (import handler from `server.mjs`) |
-| [`vercel.json`](vercel.json) | `outputDirectory: public`, API rewrites |
-| [`scripts/prepare-public.mjs`](scripts/prepare-public.mjs) | Post-build HTML patch (CSP / demo banner) |
-| [`docs/hosted-demo.md`](docs/hosted-demo.md) | Full demo contract and non-claims |
-
-```sh
-pnpm install
-pnpm build              # builds Work SPA into public/ (gitignored)
-npm start               # node server.mjs on 0.0.0.0:8080
-```
-
-Vercel: `pnpm build` must emit `public/`; do not commit that directory. Without
-`server.mjs` on the branch, the Node entrypoint and serverless API routes fail.
-
-The demo auto-pairs the browser, exposes a sample project, and streams stub
-replies. It does **not** run your Grok Build CLI or honour production origin /
-pairing threat-model guarantees.
+| `GROK_BRIDGE_AGENT` | Path to `grok` (default: `grok` on `PATH`) |
 
 ## Non-claims
 
-Portable is a control surface for **your** CLI and configuration. It is not a
-sandbox, does not guarantee Grok-only tools/MCP/hooks, and does not contain
-malicious model output. Read `docs/threat-model.md`.
+Portable is a control surface, not a sandbox. Your CLI config (plugins, hooks,
+MCP) remains authoritative. See [docs/threat-model.md](docs/threat-model.md).
 
 ## License
 
-Dual-licensed: AGPL-3.0-or-later or a commercial license from Grok Insider.
-See `LICENSE` and `LICENSES/`.
+Dual-licensed: AGPL-3.0-or-later or commercial terms from Grok Insider. See
+`LICENSE` and `LICENSES/`.

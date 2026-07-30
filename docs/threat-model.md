@@ -1,21 +1,22 @@
-# Grok Light threat model (baseline)
+# Grok Desktop Portable threat model
 
-Status: baseline for Phase 0. Revised at the Phase 6 hardening gate and before
-any platform gate.
+Status: revised 2026-07-30 for ADR light 0016 (hosted UI + local bridge).
 
-Scope: `grok-light-host`, the locally served SPA, the `light.local.v1` protocol,
-and the supervised Grok Build child process. Grok Desktop, its daemon, its
-vault, and the Isolated Guest are out of scope and unaffected.
+Scope: `grok-bridge`, the Work SPA at `https://desktop.grok.me`, optional
+loopback fallback SPA, the `light.local.v1` protocol, and the supervised Grok
+Build child process. Grok Desktop (Electron), its daemon, vault, and Isolated
+Guest are out of scope.
 
-## 1. What Light is
+## 1. What Portable is
 
-Light is a **control surface** for an agent that already runs with the user's
+Portable is a **control surface** for an agent that already runs with the user's
 own authority. It is not a sandbox, not a containment boundary, and not a policy
 layer over the CLI.
 
-The honest one-line description: Light gives a local browser tab the ability to
-drive the Grok Build CLI that the user installed and authenticated, with the
-same authority that CLI already has.
+The honest one-line description: Portable gives a browser tab at
+`https://desktop.grok.me` the ability to drive the Grok Build CLI that the user
+installed and authenticated, via a local `grok-bridge`, with the same authority
+that CLI already has.
 
 Pairing and approvals improve user control. They do not create containment.
 
@@ -33,33 +34,43 @@ Pairing and approvals improve user control. They do not create containment.
 
 ## 3. Trust boundaries
 
-1. **Browser to host.** The browser is untrusted. Every command crosses a closed
-   operation surface with schema, bounds, cookie, exact `Host`, `Origin` policy,
-   CSRF token, and controller epoch checks.
+1. **Public document origin to bridge.** The Work SPA is hosted at
+   `https://desktop.grok.me` (ADR light 0016). That origin is **trusted as
+   product code only after deploy controls**; compromise of the site or XSS is
+   critical (see 4.1). The browser is still untrusted as a general process:
+   every command crosses a closed operation surface with schema, bounds,
+   session cookie on the **loopback API host**, exact `Host` for the API,
+   allowlisted `Origin`, CSRF token, and controller epoch checks.
 2. **Host to CLI child.** The child is a separate process with the user's
    authority. The host supervises lifecycle and bounds, and does not attempt to
    constrain what the CLI may do.
-3. **CLI to the world.** Out of Light's control by design (ADR light 0004). The
-   CLI reaches whatever the user's configuration allows.
+3. **CLI to the world.** Out of Portable's control by design (ADR light 0004).
+   The CLI reaches whatever the user's configuration allows.
 4. **Local machine.** Loopback is a machine boundary, not an account boundary.
 
 ## 4. Adversaries and defences
 
 ### 4.1 A malicious or compromised web page
 
-Cannot read or mutate the host. The application is served from the loopback
-origin (ADR light 0002), so there is no remote origin to compromise. A page from
-any other origin fails the exact `Host` check, fails the `Origin` check on any
-mutation, has no paired cookie, has no CSRF token, and is additionally subject
-to the browser's own Local Network Access permission for loopback connections.
-No CORS is configured.
+**Non-allowlisted origin** (any site other than the product allowlist): cannot
+read or mutate the host. Failures: `Origin` check on mutations/WS, no paired
+cookie on loopback, no CSRF, CORS not granted, and Chromium Local Network
+Access may still prompt and can be denied.
 
-Safe methods tolerate an absent `Origin`, because browsers do not send one on
-same-origin `GET`. A present but mismatched `Origin` is always rejected, so a
-cross-origin `GET` gains nothing.
+**Compromised `https://desktop.grok.me` (or XSS / DNS hijack of that name):**
+**accepted critical residual risk** under ADR 0016. That origin is allowlisted
+and, after pairing, can drive the bridge like a first-party client. Mitigations
+are pairing TTL/revocation, no always-approve, no credentials in the browser,
+strict allowlist (never `*`), deploy discipline, and user-visible pairing.
 
-DNS rebinding is covered by exact `Host` matching against the canonical hostname
-and port, plus rejection of non-loopback peers.
+**Loopback fallback SPA** (optional): same-origin to the API; no public document
+origin in that mode (legacy ADR 0002 path).
+
+Probe `GET`s from the allowlisted origin may run before pairing; they return
+only non-secret status. A mismatched `Origin` on any request is rejected.
+
+DNS rebinding against the API is covered by loopback bind, exact `Host` for the
+API host, and rejection of non-loopback peers.
 
 ### 4.2 Another local user on a shared machine
 
@@ -116,7 +127,8 @@ strictly smaller opening.
 - Pending permissions are denied when the controlling tab or the child is lost,
   using the single-use rejection and never a persistent one.
 - Every boundary bounds size, queue depth, concurrency, output, and retention.
-- The host originates no outbound network traffic.
+- The host originates no outbound network traffic of its own (the user's CLI may).
+- Only allowlisted document origins receive CORS; credentials never use `*`.
 
 ## 6. Accepted risks
 
@@ -160,9 +172,22 @@ them in tool output or diffs, which the browser then renders. The guarantee is
 about authentication credentials, not about session content. Logs and
 diagnostics redact; the session view necessarily does not.
 
+### 6.5 Compromised production web origin
+
+Under ADR 0016 the production document origin is public. A bad deploy, XSS, or
+DNS hijack of `desktop.grok.me` can control paired bridges until the user
+revokes pairing or stops the bridge. Local Network Access permission is **not**
+a defence against a compromised allowlisted origin. Users must treat site
+integrity like client-binary integrity.
+
+### 6.6 Local Network Access prompt
+
+Chromium may require an explicit grant for public→loopback. Denial leaves the
+user on landing only. That is availability UX, not a security claim.
+
 ## 7. Explicit non-claims
 
-Light does not claim:
+Portable does not claim:
 
 - that the effective CLI configuration is Grok-only;
 - that every tool, hook, plugin, or MCP call requests permission;

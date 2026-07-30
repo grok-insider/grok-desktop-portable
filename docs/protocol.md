@@ -1,53 +1,73 @@
-# `light.local.v1` — Grok Light local protocol (draft)
+# `light.local.v1` — Grok Desktop Portable local protocol
 
-Status: Phase 0 draft, partially implemented and tested in
-`crates/grok-light-host`. Numeric bounds are fixed in Phase 3.
+Status: draft aligned with ADR light 0016 (hosted UI + local bridge).
+Implementation: `crates/grok-bridge`.
 
-Scope: the protocol between the locally served SPA and `grok-light-host`. It is
-not ACP. The browser never sends or receives ACP; the host translates.
+Scope: protocol between the browser client and `grok-bridge`. It is **not** ACP.
+The browser never sends or receives ACP; the bridge translates.
 
 ## 1. Transport
 
-Two channels, one loopback origin (ADR light 0002, ADR light 0006).
+### 1.1 Roles of origins (ADR 0016, ADR 0006)
+
+| Role | Typical value |
+|------|----------------|
+| Document (production) | `https://desktop.grok.me` |
+| API | `http://127.0.0.1:<port>` (loopback bind only) |
+| Document (fallback) | `http://<install-id>.grok-light.localhost:<port>` served by the bridge |
 
 | Channel | Use |
 |---------|-----|
 | HTTP | Commands. Mutations use `POST`, `PUT`, or `DELETE` with bounded JSON. No mutation on `GET` |
 | WebSocket | Server-to-client events, and the binding for the control lease |
 
-Every request requires the paired cookie and an exact `Host`.
+### 1.2 Hosted document → loopback API
 
-`Origin` handling depends on the method, because browsers do not attach
-`Origin` to same-origin safe requests. Measured against Chrome 150:
+Production SPA is cross-origin to the API:
 
-| Request | `Origin` | `Sec-Fetch-Site` |
-|---------|----------|------------------|
-| Document navigation | absent | `none` |
-| Same-origin `GET` | absent | `same-origin` |
-| `POST` | exact | `same-origin` |
-| `DELETE` | exact | `same-origin` |
+1. SPA uses `credentials: 'include'` so the **loopback** session cookie is sent.
+2. Mutations send CSRF header (e.g. `x-grok-light-csrf`) from page memory.
+3. `Host` must match the API host (`127.0.0.1:<port>` or `localhost:<port>`).
+4. `Origin` on mutations and WebSocket upgrades must be an **allowlisted** web
+   origin (default `https://desktop.grok.me`). Unknown origins are rejected.
+5. CORS: for allowlisted `Origin` only, responses include exact
+   `Access-Control-Allow-Origin` (never `*`), `Access-Control-Allow-Credentials:
+   true`, and the needed `Allow-Headers`. Preflight `OPTIONS` is answered
+   without side effects.
+6. Probe `GET /healthz` (name may match implementation) returns non-secret
+   status for discovery; it must not mint pairing or run agent effects.
 
-Therefore:
+Allowlisted origins are a closed set in the bridge (constant such as
+`ALLOWED_WEB_ORIGINS`). Release builds do not include arbitrary dev origins
+unless explicitly configured.
 
-- Safe methods accept an absent `Origin`; a present but mismatched value is
-  always rejected, so a cross-origin `GET` gains nothing.
-- Mutations and the WebSocket upgrade require `Origin` exactly.
+### 1.3 Fallback same-origin (loopback SPA)
 
-Requiring `Origin` unconditionally would reject the application's own document
-load. Mutations additionally require an unpredictable CSRF token held in page
-memory. `Sec-Fetch-Site` is validated when present but is never the only
-control. The WebSocket upgrade additionally requires an exact versioned
-subprotocol.
+When the document is the bridge-served SPA, same-origin rules apply: safe
+methods may omit `Origin`; mutations require exact loopback document origin;
+CORS is unused.
+
+### 1.4 Pairing
+
+`grok-bridge open` mints a single-use nonce (owner-only control socket) and
+prints a URL for the **document** origin, e.g.
+`https://desktop.grok.me/#pair=<nonce>`. The SPA redeems the nonce on the
+loopback pair endpoint; the bridge sets `HttpOnly` cookie on that loopback
+response; the SPA clears the fragment.
+
+### 1.5 Rejection
 
 Rejection is silent and uniform. The host does not act as an oracle for which
-check failed.
+check failed. Mutations require CSRF. WebSocket upgrades require the versioned
+subprotocol and allowlisted (or fallback) `Origin`.
 
 ## 2. Versioning
 
 `protocolVersion` is an integer carried in every envelope. A mismatch fails
 closed with a local diagnostic; there is no negotiation and no compatibility
-shim. The SPA ships inside the host binary, so the only way to see a mismatch
-is a tab left open across an upgrade.
+shim. Production SPA is deployed on `desktop.grok.me` and may advance
+independently of a bridge release only within compatible protocol versions; a
+mismatch shows a reload/upgrade diagnostic.
 
 **The version is read before the body is understood.** An operation whose shape
 changed does not deserialise under the older version, so a version checked
