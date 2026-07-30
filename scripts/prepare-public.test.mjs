@@ -58,6 +58,14 @@ assert.ok(
   installSh.includes("grok-bridge") || installSh.includes("GROK_BRIDGE"),
   "install.sh must mention grok-bridge",
 );
+assert.ok(
+  !installSh.includes("releases/latest/download"),
+  "install.sh must not use /releases/latest/download (skips prereleases)",
+);
+assert.ok(
+  installSh.includes("api.github.com/repos/") && installSh.includes("/releases"),
+  "install.sh must resolve latest via GitHub releases API (includes prereleases)",
+);
 
 const installPs1 = read(path.join(pub, "install.ps1"));
 assert.ok(
@@ -66,6 +74,10 @@ assert.ok(
 );
 assert.ok(!/^\s*</.test(installPs1), "install.ps1 must not start like HTML");
 assert.ok(!installPs1.includes("<!DOCTYPE"), "install.ps1 must not be HTML");
+assert.ok(
+  !installPs1.includes("releases/latest/download"),
+  "install.ps1 must not use /releases/latest/download",
+);
 
 // --- product landing is marketing HTML, not the Work SPA alone ---
 const landing = read(path.join(pub, "index.html"));

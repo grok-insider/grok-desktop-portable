@@ -3,10 +3,16 @@
 # Usage:
 #   curl -fsSL https://desktop.grok.me/install.sh | sh
 #   VERSION=v0.1.0-beta.1 curl -fsSL https://desktop.grok.me/install.sh | sh
+#
+# VERSION=latest (default) resolves the newest GitHub release *including
+# prereleases* via the API. GitHub's /releases/latest URL skips prereleases
+# and 404s when only betas are published.
 set -eu
 
 REPO="${GROK_BRIDGE_REPO:-grok-insider/grok-desktop-portable}"
 VERSION="${VERSION:-latest}"
+# Used when VERSION=latest and the API is unreachable.
+FALLBACK_TAG="${GROK_BRIDGE_FALLBACK_TAG:-v0.1.0-beta.1}"
 INSTALL_DIR="${GROK_BRIDGE_INSTALL_DIR:-${HOME}/.local/bin}"
 BIN_NAME="grok-bridge"
 
@@ -34,10 +40,46 @@ case "$arch" in
 esac
 
 asset="${BIN_NAME}-${platform}-${arch}"
-if [ "$VERSION" = "latest" ]; then
-  base="https://github.com/${REPO}/releases/latest/download"
-else
-  base="https://github.com/${REPO}/releases/download/${VERSION}"
+
+# Resolve VERSION=latest to a concrete tag (prereleases included).
+resolve_tag() {
+  want=$1
+  if [ "$want" != "latest" ]; then
+    printf '%s\n' "$want"
+    return 0
+  fi
+  # releases?per_page lists newest first and includes prereleases.
+  # Avoid /releases/latest — that endpoint ignores prerelease-only channels.
+  api="https://api.github.com/repos/${REPO}/releases?per_page=20"
+  json=$(curl -fsSL -H "Accept: application/vnd.github+json" "$api" 2>/dev/null || true)
+  tag=""
+  if [ -n "$json" ]; then
+    tag=$(
+      printf '%s' "$json" \
+        | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' \
+        | head -n1 \
+        | sed 's/.*"\([^"]*\)"$/\1/'
+    )
+  fi
+  if [ -z "$tag" ]; then
+    echo "warning: could not resolve latest release via API; using ${FALLBACK_TAG}" >&2
+    tag=$FALLBACK_TAG
+  fi
+  printf '%s\n' "$tag"
+}
+
+VERSION=$(resolve_tag "$VERSION")
+base="https://github.com/${REPO}/releases/download/${VERSION}"
+
+# Dry-run: prove URL resolution without writing to the user install dir.
+if [ "${INSTALL_DRY_RUN:-0}" = "1" ]; then
+  echo "RESOLVED_TAG=${VERSION}"
+  echo "DOWNLOAD_URL=${base}/${asset}"
+  echo "CHECKSUMS_URL=${base}/checksums.txt"
+  curl -fsSIL "${base}/${asset}" >/dev/null
+  curl -fsSIL "${base}/checksums.txt" >/dev/null
+  echo "DRY_RUN_OK"
+  exit 0
 fi
 
 tmpdir=$(mktemp -d)
