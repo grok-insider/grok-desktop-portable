@@ -857,10 +857,7 @@ fn apply_cors_headers(headers: &mut HeaderMap, origin: &str) {
         header::ACCESS_CONTROL_ALLOW_HEADERS,
         HeaderValue::from_static("content-type, x-grok-light-csrf, x-gl-session"),
     );
-    headers.insert(
-        header::VARY,
-        HeaderValue::from_static("Origin"),
-    );
+    headers.insert(header::VARY, HeaderValue::from_static("Origin"));
 }
 
 fn header_str<K>(headers: &HeaderMap, key: K) -> Option<&str>
@@ -2383,8 +2380,8 @@ mod tests {
 
     #[tokio::test]
     async fn hosted_origin_can_pair_once_and_foreign_cannot() {
-        use crate::origin::PRODUCTION_WEB_ORIGIN;
         use super::SESSION_HEADER;
+        use crate::origin::PRODUCTION_WEB_ORIGIN;
         let state = state();
         let port = state.origin.port();
         let api_host = format!("127.0.0.1:{port}");
@@ -2509,8 +2506,8 @@ mod tests {
         // Auth rides in Sec-WebSocket-Protocol as gls.<token> (ADR 0016).
         // oneshot cannot complete a real 101 upgrade; we drive the shipped
         // session_token() + verify_session path the events handler uses.
-        use crate::origin::PRODUCTION_WEB_ORIGIN;
         use super::{WS_SESSION_PROTOCOL_PREFIX, session_token};
+        use crate::origin::PRODUCTION_WEB_ORIGIN;
         use axum::http::HeaderValue;
 
         let state = state();
