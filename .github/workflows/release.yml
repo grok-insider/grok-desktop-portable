@@ -19,14 +19,10 @@ jobs:
         include:
           - os: ubuntu-latest
             asset: grok-bridge-linux-x64
-            bin: grok-bridge
           - os: windows-latest
             asset: grok-bridge-windows-x64.exe
-            bin: grok-bridge.exe
           - os: macos-latest
             asset: grok-bridge-darwin-arm64
-            bin: grok-bridge
-          # Intel macOS (optional second job if needed later)
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -38,46 +34,38 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build:web
+      # SPA must land in apps/web/dist for crates/grok-bridge/build.rs embed.
+      - name: Build Work SPA for embed
+        run: pnpm build:web:dist
       - name: Release build
         run: cargo build -p grok-bridge --release
-      - name: Assert SPA embedded
+      - name: Assert SPA embedded (fail closed)
         shell: bash
         run: |
           set -euo pipefail
-          # Fail closed: release artifacts must include the Work SPA.
-          cargo test -p grok-bridge embed_bundle -- --ignored 2>/dev/null || true
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             BIN="target/release/grok-bridge.exe"
           else
             BIN="target/release/grok-bridge"
           fi
-          # The placeholder page is tiny; a real bundle grows the binary a lot
-          # and must contain a Vite marker. Prefer string scan over size alone.
-          if ! strings "$BIN" | grep -q "index.html\|/assets/"; then
-            # strings may be missing on Windows; fall back to file size check
-            SIZE=$(wc -c < "$BIN" | tr -d ' ')
-            if [[ "$SIZE" -lt 5000000 ]]; then
-              echo "binary looks like it lacks an embedded SPA (size=$SIZE)" >&2
-              exit 1
-            fi
-          fi
+          bash scripts/assert-spa-embedded.sh "$BIN"
       - name: Stage asset
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
+          mkdir -p dist-release
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp "target/release/grok-bridge.exe" "dist/${{ matrix.asset }}"
+            cp "target/release/grok-bridge.exe" "dist-release/${{ matrix.asset }}"
           else
-            cp "target/release/grok-bridge" "dist/${{ matrix.asset }}"
-            chmod +x "dist/${{ matrix.asset }}"
-            strip "dist/${{ matrix.asset }}" || true
+            cp "target/release/grok-bridge" "dist-release/${{ matrix.asset }}"
+            chmod +x "dist-release/${{ matrix.asset }}"
+            strip "dist-release/${{ matrix.asset }}" || true
+            bash scripts/assert-spa-embedded.sh "dist-release/${{ matrix.asset }}"
           fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: dist/${{ matrix.asset }}
+          path: dist-release/${{ matrix.asset }}
 
   publish:
     needs: build
@@ -95,6 +83,11 @@ jobs:
           done
           cd release
           sha256sum * | tee checksums.txt
+          test -s checksums.txt
+          # Expected asset names for the beta matrix.
+          for a in grok-bridge-linux-x64 grok-bridge-windows-x64.exe grok-bridge-darwin-arm64; do
+            test -f "$a"
+          done
           ls -la
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
