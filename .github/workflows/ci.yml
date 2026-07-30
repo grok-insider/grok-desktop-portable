@@ -22,6 +22,8 @@ jobs:
       - run: pnpm typecheck:web
       - run: pnpm test:web
       - run: pnpm build:web
+      - run: pnpm test:public
+      - run: pnpm test:embed
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist

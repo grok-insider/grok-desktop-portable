@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use grok_bridge::acp::{AgentCommand, AgentHandle};
 use grok_bridge::control::{self, ControlRequest, ControlResponse};
-use grok_bridge::instance::{InstanceLock, ensure_private_directory};
+use grok_bridge::instance::{InstanceError, InstanceLock, ensure_private_directory};
 use grok_bridge::server::{HostState, bind, serve};
 use grok_bridge::state;
 use grok_bridge::workspace;
@@ -260,6 +260,12 @@ async fn run_doctor() -> Result<(), String> {
     println!("state dir  {}", directory.display());
     if let Err(error) = ensure_private_directory(&directory) {
         println!("state dir  unusable: {error}");
+        if matches!(error, InstanceError::ForeignOwner) {
+            println!(
+                "           Fix: chmod 700 '{}'  (state must be owner-only)",
+                directory.display()
+            );
+        }
     }
 
     match state::load_or_create(&directory) {

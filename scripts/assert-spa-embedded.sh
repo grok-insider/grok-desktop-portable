@@ -10,25 +10,17 @@ if [ -z "$BIN" ] || [ ! -f "$BIN" ]; then
 fi
 
 SIZE=$(wc -c <"$BIN" | tr -d ' ')
-# Unstripped debug with SPA is ~100MB; release with SPA is typically >> 5MB.
-# Placeholder host without SPA is much smaller.
-MIN_SIZE="${GROK_BRIDGE_MIN_BYTES:-5000000}"
+# Release with SPA is typically ~5–10MB after strip; placeholder is much smaller.
+# Darwin arm64 release can land just under 5MB after strip — keep the floor
+# low enough that a real embed passes, high enough that empty embeds fail.
+MIN_SIZE="${GROK_BRIDGE_MIN_BYTES:-3500000}"
 
-found=0
+markers=0
 if command -v strings >/dev/null 2>&1; then
-  if strings "$BIN" | grep -E -q 'index\.html|/assets/|ibm-plex|text/html; charset=utf-8'; then
-    found=1
+  # strings can fail on some toolchains (flush errors); never treat that as OK alone.
+  if strings "$BIN" 2>/dev/null | grep -E -q 'index\.html|/assets/|ibm-plex|text/html; charset=utf-8'; then
+    markers=1
   fi
-else
-  # Windows CI may lack strings; fall back to size only when marker scan unavailable.
-  if [ "$SIZE" -ge "$MIN_SIZE" ]; then
-    found=1
-  fi
-fi
-
-if [ "$found" -ne 1 ]; then
-  echo "assert-spa-embedded: SPA markers not found in $BIN (size=$SIZE)" >&2
-  exit 1
 fi
 
 if [ "$SIZE" -lt "$MIN_SIZE" ]; then
@@ -36,4 +28,12 @@ if [ "$SIZE" -lt "$MIN_SIZE" ]; then
   exit 1
 fi
 
-echo "assert-spa-embedded: ok size=$SIZE path=$BIN"
+if [ "$markers" -ne 1 ]; then
+  # Size alone is a weak signal; require markers when strings works.
+  if command -v strings >/dev/null 2>&1; then
+    echo "assert-spa-embedded: SPA markers not found in $BIN (size=$SIZE)" >&2
+    exit 1
+  fi
+fi
+
+echo "assert-spa-embedded: ok size=$SIZE markers=$markers path=$BIN"
