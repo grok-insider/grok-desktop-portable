@@ -74,20 +74,24 @@ production bridge:
 
 | Path | Role |
 |------|------|
-| [`server.mjs`](server.mjs) | Node entrypoint: serves `public/` + mock `light.local.v1` |
-| [`api/`](api/) | Vercel serverless routes for `/pair`, `/session`, `/command`, `/healthz` |
+| [`server.mjs`](server.mjs) | Node entrypoint (`package.json` `main`/`start`): serves `public/` + mock `light.local.v1` |
+| [`api/`](api/) | Vercel serverless routes for `/pair`, `/session`, `/command`, `/healthz` (import handler from `server.mjs`) |
 | [`vercel.json`](vercel.json) | `outputDirectory: public`, API rewrites |
 | [`scripts/prepare-public.mjs`](scripts/prepare-public.mjs) | Post-build HTML patch (CSP / demo banner) |
+| [`docs/hosted-demo.md`](docs/hosted-demo.md) | Full demo contract and non-claims |
 
 ```sh
 pnpm install
-pnpm build              # builds Work SPA into public/
+pnpm build              # builds Work SPA into public/ (gitignored)
 npm start               # node server.mjs on 0.0.0.0:8080
 ```
 
+Vercel: `pnpm build` must emit `public/`; do not commit that directory. Without
+`server.mjs` on the branch, the Node entrypoint and serverless API routes fail.
+
 The demo auto-pairs the browser, exposes a sample project, and streams stub
 replies. It does **not** run your Grok Build CLI or honour production origin /
-pairing threat-model guarantees. See [docs/hosted-demo.md](docs/hosted-demo.md).
+pairing threat-model guarantees.
 
 ## Non-claims
 

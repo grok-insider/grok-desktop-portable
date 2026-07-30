@@ -16,13 +16,18 @@ reviewers exercise the Work UI shell without a local CLI.
 
 | Component | Role |
 |-----------|------|
-| `server.mjs` | Long-lived Node process: static files + HTTP API + WebSocket `/events` |
+| `server.mjs` | **Required** demo entry: static files + HTTP API + WebSocket `/events` |
 | `index.mjs` | Alternate entry that re-exports / listens like `server.mjs` |
-| `api/*.mjs` | Vercel serverless wrappers for the same HTTP API |
+| `api/*.mjs` | Vercel serverless wrappers (import the handler from `server.mjs`) |
 | `lib/vercel-api.mjs` | Path rewrite helper for serverless routes |
 | `public/` | Build output of `apps/web` (gitignored; produced by `pnpm build`) |
 | `vercel.json` | `outputDirectory: public` + rewrites to `/api/*` |
 | `scripts/prepare-public.mjs` | Softens CSP meta, injects demo banner |
+| `startup.sh` | Idempotent preview revive (`node server.mjs` when down) |
+
+Root `package.json` sets `"main": "server.mjs"` and `"start": "node server.mjs"`.
+Without `server.mjs` on the branch, Vercel has no Node entrypoint and the
+serverless `api/*` routes cannot load the shared handler.
 
 ## Protocol coverage
 
@@ -40,9 +45,21 @@ Prompt replies are **stubbed text**. There is no ACP session and no
 ```sh
 pnpm install
 pnpm build          # apps/web → public/ + prepare-public
-npm start           # node server.mjs  (PORT/HOST overridable)
+npm start           # node server.mjs  (PORT/HOST overridable; default 0.0.0.0:8080)
 curl -s localhost:8080/healthz
 ```
+
+## Vercel
+
+| Setting | Value |
+|---------|-------|
+| Install | `corepack enable && pnpm install` (see `vercel.json`) |
+| Build | `pnpm build` → writes `public/` |
+| Output Directory | `public` |
+| Serverless API | `api/pair`, `api/session`, `api/command`, `api/healthz` |
+| WebSocket `/events` | Not available on serverless; use local `npm start` for that |
+
+Do not commit `public/` (gitignored). The platform build must produce it.
 
 ## Non-claims (demo)
 
