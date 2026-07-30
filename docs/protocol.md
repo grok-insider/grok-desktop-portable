@@ -391,3 +391,17 @@ enforced.
 - Whether schemas are generated or hand-written with validators on both sides.
 - Exact overflow semantics when an event queue saturates.
 - Golden fixture format for contract tests.
+
+## Allowlisted web origins (closed set)
+
+Release bridges accept document `Origin` values only from a closed list. Default:
+
+| Origin | Role |
+|--------|------|
+| `https://desktop.grok.me` | Production hosted UI |
+
+Development may add loopback Vite origins via **explicit non-default config**,
+never silently in release builds. The constant name in code is expected to be
+along the lines of `ALLOWED_WEB_ORIGINS` (exact identifier is implementation).
+
+Changing the allowlist is a security-sensitive release.
