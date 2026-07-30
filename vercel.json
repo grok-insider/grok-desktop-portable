@@ -25,13 +25,9 @@
     { "source": "/session", "destination": "/api/session" },
     { "source": "/command", "destination": "/api/command" },
     { "source": "/healthz", "destination": "/api/healthz" },
-    {
-      "source": "/demo",
-      "destination": "/demo/index.html"
-    },
-    {
-      "source": "/demo/(.*)",
-      "destination": "/demo/index.html"
-    }
+    { "source": "/s/:sessionId", "destination": "/index.html" },
+    { "source": "/setup", "destination": "/index.html" },
+    { "source": "/demo", "destination": "/demo/index.html" },
+    { "source": "/demo/(.*)", "destination": "/demo/index.html" }
   ]
 }
