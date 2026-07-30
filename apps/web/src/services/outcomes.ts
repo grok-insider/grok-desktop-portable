@@ -655,9 +655,9 @@ export function failureMessage(failure: ClientFailure, fallback: string): string
     case "protocol_mismatch":
       return `This page speaks protocol ${PROTOCOL_VERSION} and the host speaks ${failure.hostVersion}. Reload to pick up the host's version.`;
     case "not_paired":
-      return "This browser is no longer paired. Run `grok-light open` to pair it again.";
+      return "This browser is no longer paired. Run `grok-bridge open` to pair it again.";
     case "unreachable":
-      return "The local host stopped responding. Start it with `grok-light serve`.";
+      return "The local host stopped responding. Start it with `grok-bridge serve`.";
     default:
       return fallback;
   }

@@ -286,3 +286,116 @@
   }
 }
 
+/* Hosted welcome landing (ADR 0016) — non-ready probe states only. */
+.landing {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.landing-card {
+  width: min(32rem, 100%);
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06);
+  padding: 1.75rem 1.5rem 1.5rem;
+}
+
+.landing-kicker {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.landing h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.landing-body {
+  margin: 0 0 1.25rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.landing-steps-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.landing-install {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.5rem;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.landing-steps {
+  margin: 0 0 1.25rem;
+  padding-left: 1.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.landing-steps code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.landing-hint {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  line-height: 1.45;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.landing-retry {
+  appearance: none;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+}
+
+.landing-retry:hover {
+  background: var(--primary-hover);
+}
+
+.landing-trust {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--subtle-foreground, var(--muted-foreground));
+}
+

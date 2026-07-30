@@ -73,6 +73,12 @@ export class LightClient {
     return this.#csrfToken !== null && this.#sessionToken !== null;
   }
 
+  /** Drop in-memory pairing so a demotion cannot keep sending authed calls. */
+  clearPairing(): void {
+    this.#csrfToken = null;
+    this.#sessionToken = null;
+  }
+
   /** API base URL (empty when same-origin). */
   get bridgeBaseUrl(): string {
     return this.#bridgeBaseUrl;

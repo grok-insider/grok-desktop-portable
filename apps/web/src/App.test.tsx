@@ -41,15 +41,26 @@ function fakeHost() {
     },
   ];
 
+  let paired = true;
+  /** When true, every send fails as not_paired (demotion path). */
+  let failAllAsNotPaired = false;
+
   const client = {
     get paired() {
-      return true;
+      return paired;
+    },
+    clearPairing() {
+      paired = false;
     },
     get bridgeBaseUrl() {
       // Same-origin test host: skip hosted landing probe.
       return "";
     },
+    setBridgeBaseUrl() {},
     async resume() {
+      if (!paired) {
+        return { ok: false as const, failure: { kind: "not_paired" as const } };
+      }
       return {
         ok: true as const,
         value: {
@@ -73,6 +84,12 @@ function fakeHost() {
     },
     async send(operation: Sent["operation"]) {
       sent.push({ operation });
+      if (failAllAsNotPaired) {
+        return {
+          ok: false as const,
+          failure: { kind: "not_paired" as const },
+        };
+      }
       if (operation.kind === "bootstrap" || operation.kind === "listWorkspaces") {
         return {
           ok: true as const,
@@ -183,10 +200,41 @@ function fakeHost() {
   return {
     client,
     sent,
+    /** Subsequent send() calls fail with not_paired (demotion path). */
+    failAllAsNotPaired() {
+      failAllAsNotPaired = true;
+    },
     emit(event: EventEnvelope["event"], sequence = 1) {
       emit?.({ protocolVersion: 2, eventSequence: sequence, event });
     },
   };
+}
+
+/** Hosted-style client that never pairs (landing must win). */
+function unpairedHost() {
+  const client = {
+    get paired() {
+      return false;
+    },
+    clearPairing() {},
+    get bridgeBaseUrl() {
+      return "";
+    },
+    setBridgeBaseUrl() {},
+    async resume() {
+      return { ok: false as const, failure: { kind: "not_paired" as const } };
+    },
+    async pair() {
+      return { ok: false as const, failure: { kind: "rejected" as const } };
+    },
+    async send() {
+      return { ok: false as const, failure: { kind: "not_paired" as const } };
+    },
+    openEvents() {
+      return null;
+    },
+  } as unknown as LightClient;
+  return client;
 }
 
 async function openWork(host: ReturnType<typeof fakeHost>) {
@@ -230,6 +278,46 @@ beforeEach(() => {
   vi.stubGlobal("crypto", { randomUUID: () => "k-1" });
   // URL routing syncs to history; reset so a prior test cannot seed /s/:id.
   window.history.replaceState(null, "", "/");
+});
+
+describe("landing gate and demotion", () => {
+  it("shows landing only when the browser is not paired", async () => {
+    render(
+      <ThemeProvider>
+        <App client={unpairedHost()} />
+      </ThemeProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-view")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pick a project/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("landing-view")).toHaveAttribute(
+      "data-probe-kind",
+      "bridge_missing",
+    );
+  });
+
+  it("demotes to landing when a command reports not_paired", async () => {
+    const host = fakeHost();
+    await openWork(host);
+    expect(screen.queryByTestId("landing-view")).not.toBeInTheDocument();
+
+    host.failAllAsNotPaired();
+    await switchToRow(0);
+    await userEvent.type(composer(), "still here");
+    await userEvent.click(screen.getByRole("button", { name: /^send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-view")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("landing-view")).toHaveAttribute(
+      "data-probe-kind",
+      "needs_pairing",
+    );
+    expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pick a project/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("restored session configuration", () => {

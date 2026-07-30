@@ -13,7 +13,7 @@ describe("SetupView", () => {
   it("explains unpaired setup without treating it as an error", () => {
     renderSetup(<SetupView />);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getAllByText(/grok-light open/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/grok-bridge open/i).length).toBeGreaterThan(0);
   });
 
   it("explains an expired pairing link", () => {

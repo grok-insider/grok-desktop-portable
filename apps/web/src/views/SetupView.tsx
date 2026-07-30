@@ -42,15 +42,15 @@ function failureTitle(failure: ClientFailure): string {
 function failureMessage(failure: ClientFailure): string {
   switch (failure.kind) {
     case "rejected":
-      return "That pairing link was already used or has expired. Run `grok-light open` again for a fresh one.";
+      return "That pairing link was already used or has expired. Run `grok-bridge open` again for a fresh one.";
     case "protocol_mismatch":
       return `This page speaks protocol ${PROTOCOL_VERSION} and the host speaks ${failure.hostVersion}. Reload after rebuilding or restarting the host.`;
     case "unreachable":
-      return "The local host stopped responding. Start it with `grok-light serve`, then open a fresh pairing link.";
+      return "The local host stopped responding. Start it with `grok-bridge serve`, then open a fresh pairing link.";
     case "refused":
     case "not_paired":
     case "bad_request":
-      return "The host refused the request. If you expected to be paired, run `grok-light open` again.";
+      return "The host refused the request. If you expected to be paired, run `grok-bridge open` again.";
   }
 }
 
@@ -58,24 +58,24 @@ function failureSteps(failure: ClientFailure): string[] {
   switch (failure.kind) {
     case "unreachable":
       return [
-        "In the account that owns Light, run: grok-light serve",
-        "Then run: grok-light open",
+        "In the account that owns the host, run: grok-bridge serve",
+        "Then run: grok-bridge open",
         "Open the new URL in this browser (Chromium or Firefox 84+).",
       ];
     case "protocol_mismatch":
       return [
-        "Update or rebuild grok-light so SPA and host match.",
-        "Restart with: grok-light serve",
+        "Update or rebuild grok-bridge so SPA and host match.",
+        "Restart with: grok-bridge serve",
         "Hard-reload this page (or open a new pairing URL).",
       ];
     case "rejected":
       return [
-        "Run: grok-light open",
+        "Run: grok-bridge open",
         "Use the new single-use link once; do not bookmark the #pair= fragment.",
       ];
     default:
       return [
-        "Run: grok-light open",
+        "Run: grok-bridge open",
         "Open the printed URL once to pair this browser.",
       ];
   }
@@ -100,12 +100,12 @@ export function SetupView({
     mode.kind === "unsupported_browser"
       ? [
           "Install Chromium or Firefox 84+ on this machine.",
-          "Run grok-light open and open the URL in that browser.",
+          "Run grok-bridge open and open the URL in that browser.",
         ]
       : mode.kind === "failure"
         ? failureSteps(mode.failure)
         : [
-            "Run this in a terminal, in the account that owns the host: grok-light open",
+            "Run this in a terminal, in the account that owns the host: grok-bridge open",
             "Open the URL it prints. It pairs this browser once, then clears the fragment.",
           ];
 
@@ -172,8 +172,8 @@ export function SetupView({
                 {index === 0 && mode.kind !== "unsupported_browser" ? (
                   <pre className="mt-2 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">
                     {mode.kind === "failure" && mode.failure.kind === "unreachable"
-                      ? "grok-light serve\ngrok-light open"
-                      : "grok-light open"}
+                      ? "grok-bridge serve\ngrok-bridge open"
+                      : "grok-bridge open"}
                   </pre>
                 ) : null}
               </div>
@@ -190,7 +190,7 @@ export function SetupView({
 
       <p className="text-body-sm text-subtle-foreground">
         Opening this page cannot start a stopped host. Only{" "}
-        <span className="font-mono">grok-light serve</span> can.
+        <span className="font-mono">grok-bridge serve</span> can.
       </p>
     </main>
   );

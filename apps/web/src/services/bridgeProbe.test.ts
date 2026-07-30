@@ -66,7 +66,7 @@ describe("probeBridge", () => {
     });
     expect(state).toEqual({ kind: "needs_pairing" });
     expect(fetchImpl).toHaveBeenCalled();
-    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:20001/healthz");
     expect(init.credentials).toBe("include");
   });
