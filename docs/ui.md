@@ -72,13 +72,17 @@ Before Work is shown, the SPA probes the bridge:
 4. **Protocol shapes:** [protocol.md](protocol.md). Anything the browser
    renders arrives through it, already bounded by the bridge.
 
-### Host feedback: toast vs banner
+### Host feedback: navigate vs toast vs banner
 
-- **Ephemeral refusals** (e.g. conversation already open, picker already open,
-  queue full): **toast** via `sonner` (`HostToaster` / `showHostToast`). Auto-
-  dismiss; no layout shift; do not survive Home ↔ session navigation.
-- **Sticky / actionable state**: full-width banners (reviews, history diagnosis
-  repair, connection strip under reconnect budget) or demotion to landing.
+| Intent | UX |
+|--------|-----|
+| Reopen a conversation that is already open | **Navigate to that tab** — no error, no toast. Host `loadSession` is idempotent. |
+| Session gone from catalog (`unknown_session`) | Toast + refresh session list |
+| Situational refuse (queue full, picker open, …) | **Toast** (`sonner` / `showHostToast`) — auto-dismiss, no layout shift |
+| Sticky / actionable (reviews, history repair) | Full-width banners |
+| Pairing / host gone | Demotion to landing |
+
+Do not pin full-width alert banners for messages that should only notify or navigate.
 
 ## URL model
 

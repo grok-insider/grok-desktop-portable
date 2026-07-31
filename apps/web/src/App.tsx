@@ -41,6 +41,7 @@ import {
   asHostStatus,
   asModels,
   asSessionChanges,
+  asSessionCreated,
   asSessionDiagnosis,
   asSessionInspector,
   asSessionRepair,
@@ -248,6 +249,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     (failure: ClientFailure, fallback: string) => {
       if (shouldDemoteFromWork(failure)) {
         demoteToLanding(probeAfterSessionLoss(failure));
+        return;
+      }
+      // Already-open is a navigate intent; callers focus the tab. Never toast.
+      if (
+        failure.kind === "refused" &&
+        failure.code === "session_already_active"
+      ) {
         return;
       }
       const message = failureMessage(failure, fallback);
@@ -718,27 +726,33 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setBusy(false);
           setSessionLoading(false);
           if (result.ok) {
+            const created = asSessionCreated(result.value);
+            if (created !== null) {
+              setSessionId(created.sessionId);
+            }
             refreshWorkspaces();
             return;
           }
           reportClientFailure(result.failure, "The host could not start a session.");
         });
     },
-    [client, refreshWorkspaces],
+    [client, refreshWorkspaces, reportClientFailure],
   );
 
   const resumeSession = useCallback(
     (workspaceId: string, agentSessionId: string) => {
-      // Already on a tab: focus it instead of a sticky error banner.
+      setRefusal(undefined);
+      // Already live in this host: navigate to that tab — never error/toast.
       if (openSessions.some((session) => session.sessionId === agentSessionId)) {
-        setRefusal(undefined);
         setSessionId(agentSessionId);
-        showHostToast("That conversation is already open.");
+        return;
+      }
+      // Already viewing it (e.g. home list lag vs shell tabs).
+      if (sessionId === agentSessionId) {
         return;
       }
       setBusy(true);
       setSessionLoading(true);
-      setRefusal(undefined);
       // Same loading rule as start: diagnosis is per settled conversation id.
       void client
         .send(
@@ -749,24 +763,45 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setBusy(false);
           setSessionLoading(false);
           if (result.ok) {
+            const created = asSessionCreated(result.value);
+            setSessionId(created?.sessionId ?? agentSessionId);
             refreshWorkspaces();
             return;
           }
-          // Host says the conversation is already active (e.g. race with another
-          // tab): focus that id and toast — do not pin a layout-shifting banner.
+          // Older hosts may still refuse load of an already-open session.
+          // Treat as navigate, not an error.
           if (
             result.failure.kind === "refused" &&
             result.failure.code === "session_already_active"
           ) {
             setSessionId(agentSessionId);
-            showHostToast(failureMessage(result.failure, "That conversation is already open."));
+            refreshWorkspaces();
+            return;
+          }
+          // Gone from catalog: refresh the list so the row disappears.
+          if (
+            result.failure.kind === "refused" &&
+            result.failure.code === "unknown_session"
+          ) {
+            showHostToast(failureMessage(result.failure, "That conversation is no longer open."));
+            if (selectedWorkspaceId !== null) {
+              refreshSessions(selectedWorkspaceId);
+            }
             refreshWorkspaces();
             return;
           }
           reportClientFailure(result.failure, "The host could not resume that session.");
         });
     },
-    [client, openSessions, refreshWorkspaces],
+    [
+      client,
+      openSessions,
+      refreshSessions,
+      refreshWorkspaces,
+      reportClientFailure,
+      selectedWorkspaceId,
+      sessionId,
+    ],
   );
 
   /**

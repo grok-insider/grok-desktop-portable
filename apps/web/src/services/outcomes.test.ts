@@ -3,6 +3,7 @@ import {
   asSessionChanges,
   asSessionInspector,
   failureMessage,
+  asSessionCreated,
   isEphemeralFailure,
   isEphemeralRefusal,
   refusalMessage,
@@ -112,17 +113,25 @@ describe("concurrency limits", () => {
   });
 
   it("classifies situational refusals as ephemeral toasts", () => {
-    expect(isEphemeralRefusal("session_already_active")).toBe(true);
     expect(isEphemeralRefusal("picker_already_open")).toBe(true);
     expect(isEphemeralRefusal("queue_full")).toBe(true);
+    expect(isEphemeralRefusal("unknown_session")).toBe(true);
+    // Navigate-only (not toast): already-open is handled by focusing the tab.
+    expect(isEphemeralRefusal("session_already_active")).toBe(false);
     // Sticky / page-level: keep banners or demotion, not toast-only.
     expect(isEphemeralRefusal("agent_failed")).toBe(false);
     expect(isEphemeralRefusal("unsupported")).toBe(false);
-    expect(isEphemeralRefusal("unknown_session")).toBe(false);
-    expect(isEphemeralFailure({ kind: "refused", code: "session_already_active" })).toBe(
-      true,
-    );
+    expect(isEphemeralFailure({ kind: "refused", code: "queue_full" })).toBe(true);
     expect(isEphemeralFailure({ kind: "unreachable" })).toBe(false);
+  });
+
+  it("narrows sessionCreated outcomes", () => {
+    expect(asSessionCreated({ outcome: "sessionCreated", sessionId: "s-1" })).toEqual({
+      outcome: "sessionCreated",
+      sessionId: "s-1",
+    });
+    expect(asSessionCreated({ outcome: "ok" })).toBeNull();
+    expect(asSessionCreated({ outcome: "sessionCreated", sessionId: "" })).toBeNull();
   });
 });
 

@@ -1486,12 +1486,14 @@ async fn open_session(
 
     let workspace = {
         let session = session.lock().await;
-        // Resuming a conversation that is already open would show the same
-        // transcript twice, so it is refused rather than duplicated.
+        // Already live in this browser host: return success so the client can
+        // focus that tab instead of treating reopen as an error.
         if let Some(id) = resume
             && session.sessions.contains_key(id)
         {
-            return Err(DispatchError::SessionAlreadyActive);
+            return Ok(crate::dispatch::DispatchOutcome::SessionCreated {
+                session_id: id.to_owned(),
+            });
         }
         if session.sessions.len() >= crate::bounds::MAX_LIVE_SESSIONS {
             return Err(DispatchError::TooManySessions);

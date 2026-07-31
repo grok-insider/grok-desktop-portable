@@ -369,6 +369,21 @@ export function asSessions(
   return null;
 }
 
+/** New or already-open conversation after createSession / loadSession. */
+export function asSessionCreated(
+  value: unknown,
+): Extract<DispatchOutcome, { outcome: "sessionCreated" }> | null {
+  if (
+    !isRecord(value) ||
+    value.outcome !== "sessionCreated" ||
+    typeof value.sessionId !== "string" ||
+    value.sessionId.length === 0
+  ) {
+    return null;
+  }
+  return value as Extract<DispatchOutcome, { outcome: "sessionCreated" }>;
+}
+
 /** Narrow an unknown response to a models list. */
 export function asModels(
   value: unknown,
@@ -712,10 +727,11 @@ export function refusalMessage(code: string): string {
  */
 export function isEphemeralRefusal(code: string): boolean {
   switch (code) {
-    case "session_already_active":
+    // session_already_active: navigate to the tab (no toast) — handled in App.
     case "too_many_sessions":
     case "queue_full":
     case "unknown_queue_entry":
+    case "unknown_session":
     case "unknown_review_record":
     case "already_completed":
     case "picker_already_open":

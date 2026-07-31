@@ -1234,11 +1234,12 @@ async fn load_session(
     state: &mut SessionState,
     agent: Option<&Arc<AgentHandle>>,
 ) -> Result<DispatchOutcome, DispatchError> {
-    // Resuming a session that is already open is a no-op the browser can
-    // reach by double-clicking a row, so it is refused rather than opening a
-    // second copy of the same conversation.
+    // Already open: treat as success (focus, do not duplicate). Double-clicking
+    // a row or reopening a tab is a navigate intent, not an error.
     if state.sessions.contains_key(session_id) {
-        return Err(DispatchError::SessionAlreadyActive);
+        return Ok(DispatchOutcome::SessionCreated {
+            session_id: session_id.to_owned(),
+        });
     }
     let workspace = state
         .workspaces
