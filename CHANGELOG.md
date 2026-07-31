@@ -4,6 +4,12 @@ All notable, user-facing changes to Grok Desktop Portable are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-07-31
+
+- docs: Portable UI, auto dry-run diagnosis, and CLI surface gaps
+- feat(web): Portable Work chrome, composer, thinking, and auto diagnosis
+- ci(release): publish CHANGELOG notes to GitHub Releases via shared action
+
 ## [0.1.1] - 2026-07-31
 
 - style: rustfmt events_socket test
