@@ -90,11 +90,13 @@ try {
 
   Write-Host ''
   Write-Host 'Next:'
-  Write-Host '  1. Install and authenticate the Grok Build CLI (grok).'
-  Write-Host '  2. grok-bridge doctor'
-  Write-Host '  3. grok-bridge serve'
-  Write-Host '  4. grok-bridge open   # open the URL in Chrome/Firefox (not Safari)'
+  Write-Host '  1. Install and authenticate the Grok Build CLI (grok) separately — version ≥ 0.2.115.'
+  Write-Host '     Portable does not install grok; PATH for grok comes from that CLI installer.'
+  Write-Host '  2. Open a new shell so User PATH includes this install dir, then: grok-bridge doctor'
+  Write-Host '  3. grok-bridge serve   # leave running (no autostart in this beta)'
+  Write-Host '  4. grok-bridge open   # open the URL in Chrome, Firefox 84+, or Edge (not Safari)'
   Write-Host ''
+  Write-Host 'Assets: grok-bridge-linux-x64, grok-bridge-darwin-arm64, grok-bridge-windows-x64.exe'
   Write-Host 'Unsigned FOSS build — prefer verifying checksums and source tags.'
   Write-Host 'Windows SmartScreen may warn; use More info → Run anyway after verifying.'
 } finally {
