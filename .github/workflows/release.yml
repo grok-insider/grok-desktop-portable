@@ -123,14 +123,7 @@ jobs:
           range: v${{ steps.decide.outputs.current }}..HEAD
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
           project-description: "Local grok-bridge for Grok Desktop Portable: Work UI over loopback to the user's Grok Build CLI"
-
-      - name: Normalize the changelog heading (Keep a Changelog)
-        if: ${{ steps.decide.outputs.skip == 'false' }}
-        env:
-          NEXT: ${{ steps.decide.outputs.next }}
-        run: |
-          set -euo pipefail
-          sed -i -E "0,/^##[[:space:]]+\[?${NEXT}\]?([[:space:]].*)?$/s//## [${NEXT}] - $(date -u +%F)/" CHANGELOG.md
+          # Keep a Changelog headings are the action default (no post-sed needed).
 
       - name: Open or update the release PR
         if: ${{ steps.decide.outputs.skip == 'false' }}
@@ -320,47 +313,25 @@ jobs:
           gh release upload "$TAG" checksums.txt -R "$GH_REPO" --clobber
           ls -la
 
-  release-notes-blurb:
-    name: append install blurb
+  release-notes:
+    name: publish release notes
     needs: [release-plz-release, resolve, checksums]
     if: needs.release-plz-release.outputs.releases_created == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      TAG: ${{ needs.resolve.outputs.tag }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GH_REPO: ${{ github.repository }}
     steps:
-      - name: Ensure install section on release body
-        run: |
-          set -euo pipefail
-          body="$(gh release view "$TAG" -R "$GH_REPO" --json body --jq .body)"
-          blurb="$(cat <<'EOF'
-
-          ---
-
-          **Install**
-
-          ```sh
-          curl -fsSL https://desktop.grok.me/install.sh | sh
-          ```
-
-          Windows: `irm https://desktop.grok.me/install.ps1 | iex`
-
-          Verify SHA-256 against `checksums.txt`. Builds are unsigned FOSS.
-
-          Requirements: Grok Build CLI ≥ 0.2.115 (install and auth separately — Portable does not install `grok`), Chromium or Firefox 84+ (Edge OK on Windows).
-          Safari/WebKit is unsupported. No autostart: run `grok-bridge serve` yourself. Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`,
-          `grok-bridge-windows-x64.exe`. Native Windows (named pipes); not WSL-primary.
-          EOF
-          )"
-          # Strip leading spaces from heredoc indent for cleaner body.
-          blurb="$(printf '%s\n' "$blurb" | sed 's/^          //')"
-          if printf '%s' "$body" | grep -q 'desktop.grok.me/install.sh'; then
-            echo "Install blurb already present."
-            exit 0
-          fi
-          tmp="$(mktemp)"
-          printf '%s\n%s\n' "$body" "$blurb" > "$tmp"
-          gh release edit "$TAG" -R "$GH_REPO" --notes-file "$tmp"
+      - name: Checkout the released tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+      # Extract CHANGELOG section for this version + install footer → GH Release body.
+      - name: Publish CHANGELOG section to GitHub Release
+        uses: grok-insider/release-changelog-action@v1
+        with:
+          version: ${{ needs.resolve.outputs.version }}
+          skip-generate: true
+          publish-github-release: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.resolve.outputs.tag }}
+          notes-footer-file: site/release-footer.md
