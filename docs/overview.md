@@ -50,13 +50,15 @@ Portable is a sibling of Grok Desktop (Electron), not a Desktop surface
 | ACP client identifier | `grok-light` | Via `GROK_CLIENT_NAME` → `ClientType::Generic` |
 | Docs root | `docs/` | ADRs under `docs/adr/` |
 
-The `@grok-desktop/` npm scope reflects the workspace, not the product. Anything
-user-facing says Grok Light and never implies it is the desktop application.
+The `@grok-desktop/` npm scope reflects the workspace, not the product.
+User-facing copy says **Grok Desktop Portable** and never implies it is the
+Electron Grok Desktop application. Wire names (`light.local.v1`, `grok-light`)
+stay protocol-stable in v0.
 
 ## Positioning
 
-| Dimension | Grok Desktop | Grok Light |
-|-----------|--------------|------------|
+| Dimension | Grok Desktop | Grok Desktop Portable |
+|-----------|--------------|------------------------|
 | Surfaces | Chat, Research, Work, library, automations, integrations | Work only |
 | Presentation | Electron renderer | User's browser against a local origin |
 | Executor | Rust daemon, pinned ACP component, managed policy | The user's Grok Build CLI |
@@ -66,15 +68,15 @@ user-facing says Grok Light and never implies it is the desktop application.
 
 ## Claims
 
-Light may state:
+Portable may state:
 
-- The Light UI and host run locally; the application is served from the
-  installed binary, not from a website.
-- Light speaks only the ACP contract of the qualified Grok Build CLI.
+- The Portable UI is served from `desktop.grok.me` (or the bridge embed
+  fallback); the bridge and CLI run locally on the user's machine.
+- Portable speaks only the ACP contract of the qualified Grok Build CLI.
 - The browser never receives authentication credentials (OAuth tokens, refresh
   tokens, API keys, `auth.json`) or raw ACP.
-- Light does not modify Grok configuration from the web surface.
-- Light cannot create a persistent permission grant.
+- Portable does not modify Grok configuration from the web surface.
+- Portable cannot create a persistent permission grant.
 
 ## Non-claims
 
@@ -127,7 +129,7 @@ authenticate and produce responses.
 | HTTP and WebSocket server | Implemented in `crates/grok-light-host` |
 | SPA (`apps/light`) | Implemented Work shell: Home, Session, Setup, tools, composer, review |
 | ACP session-update projection | Pure module `projection` → `light.local.v1` events (tools, plan, commands) |
-| Session history repair (`x.ai/session/repair`) | Implemented: `DiagnoseSession` / `RepairSession`, ADR 0015, SPA opt-in banner |
+| Session history repair (`x.ai/session/repair`) | Implemented: auto dry-run diagnose + opt-in `RepairSession` apply (ADR 0015) |
 | Packaging | GitHub Releases multi-OS + `install.sh` / `install.ps1` (unsigned FOSS) |
 | User service / autostart | Not started (manual `serve` for beta) |
 

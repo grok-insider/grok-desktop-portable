@@ -121,9 +121,10 @@ strictly smaller opening.
   ambiguous outcome.
 - An ambiguous non-idempotent effect terminates in `interrupted_needs_review`
   and is never retried by Light.
-- Session history repair (`DiagnoseSession` / `RepairSession`) is user opt-in
-  only, never auto on load, and never a substitute for reviewing interrupted
-  side effects (light ADR 0015).
+- Session history **repair apply** (`RepairSession` with `dryRun: false`) is
+  user opt-in only, never auto on load, and never a substitute for reviewing
+  interrupted side effects. Dry-run diagnose may run automatically for
+  discoverability; it does not mutate history (light ADR 0015).
 - Pending permissions are denied when the controlling tab or the child is lost,
   using the single-use rejection and never a persistent one.
 - Every boundary bounds size, queue depth, concurrency, output, and retention.
