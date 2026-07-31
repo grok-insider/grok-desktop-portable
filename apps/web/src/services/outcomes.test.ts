@@ -104,7 +104,7 @@ describe("concurrency limits", () => {
     expect(refusalMessage("unknown_session")).toMatch(/no longer open/i);
   });
 
-  it("no longer claims Grok Light runs one conversation at a time", () => {
+  it("no longer claims Portable runs one conversation at a time", () => {
     // That wording predates light ADR 0011 and is now false.
     expect(refusalMessage("session_already_active")).not.toMatch(/one at a time/i);
   });

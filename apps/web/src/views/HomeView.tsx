@@ -321,8 +321,8 @@ export function HomeView({
 
             <div className="shrink-0">
               <Disclosure>
-                Grok Light runs the agent with your own authority and your own
-                Grok configuration. It is a control surface, not a sandbox.
+                Grok Desktop Portable runs the agent with your own authority and
+                your own Grok configuration. It is a control surface, not a sandbox.
               </Disclosure>
             </div>
           </aside>

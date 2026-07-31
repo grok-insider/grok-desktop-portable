@@ -11,6 +11,7 @@ import type { EventEnvelope, PlanEntryProjection } from "./protocol";
 import type {
   ReviewRecord,
   SessionPhase,
+  ThoughtEntry,
   ToolEntry,
   TranscriptEntry,
 } from "../views/SessionView";
@@ -19,6 +20,8 @@ import type {
 export interface Projection {
   transcript: TranscriptEntry[];
   tools: ToolEntry[];
+  /** Streaming reasoning blocks (`thoughtDelta`); never mixed into agent text. */
+  thoughts: ThoughtEntry[];
   reviews: ReviewRecord[];
   phase: SessionPhase;
   /** Latest agent plan for this conversation, or empty when none published. */
@@ -29,6 +32,7 @@ export interface Projection {
 export const EMPTY_PROJECTION: Projection = {
   transcript: [],
   tools: [],
+  thoughts: [],
   reviews: [],
   phase: "idle",
   plan: [],
@@ -37,13 +41,49 @@ export const EMPTY_PROJECTION: Projection = {
 /**
  * Fold one event into the projection.
  *
- * Thoughts are intentionally ignored here: they must not land in the agent
- * bubble (host classifies them as `thoughtDelta`). Tools and interruptions
- * accumulate until the user or a later command clears them.
+ * Thoughts stay in their own channel (`thoughtDelta`) so they never glue onto
+ * the agent bubble. Tools and interruptions accumulate until the user or a
+ * later command clears them.
  */
 function projectOne(current: Projection, envelope: EventEnvelope): Projection {
   const event = envelope.event;
   switch (event.kind) {
+    case "thoughtDelta": {
+      // Continue the open thought block only while it is still the latest
+      // timeline item. A message or tool after it starts a new thought block
+      // later in the turn (CLI: thinking → tools → more thinking → answer).
+      const last = current.thoughts.at(-1);
+      const latestOther = Math.max(
+        current.transcript.at(-1)?.seq ?? -1,
+        current.tools.at(-1)?.seq ?? -1,
+      );
+      if (
+        last !== undefined &&
+        current.phase === "streaming" &&
+        last.seq >= latestOther
+      ) {
+        return {
+          ...current,
+          phase: "streaming",
+          thoughts: [
+            ...current.thoughts.slice(0, -1),
+            { ...last, text: last.text + event.text },
+          ],
+        };
+      }
+      return {
+        ...current,
+        phase: "streaming",
+        thoughts: [
+          ...current.thoughts,
+          {
+            id: `th-${envelope.eventSequence}`,
+            text: event.text,
+            seq: envelope.eventSequence,
+          },
+        ],
+      };
+    }
     case "messageDelta": {
       const last = current.transcript.at(-1);
       // Only a turn still in flight continues the previous bubble. Once the
@@ -211,6 +251,8 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
               ? tool.seq + fallbackBase
               : restored.length + index + fallbackBase,
         })),
+        // Thoughts are live-only: history rehydrate drops them (ADR 0010).
+        thoughts: [],
         reviews: current.reviews,
         phase: "idle",
         // Plan is live ACP state, not rehydrated from the transcript snapshot.
@@ -227,7 +269,6 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
     case "queueChanged":
     case "workspacesChanged":
     case "hostStatus":
-    case "thoughtDelta":
     case "permissionRequest":
     case "error":
       return current;
@@ -248,6 +289,9 @@ export function nextLocalSeq(projection: Projection): number {
   }
   for (const tool of projection.tools) {
     highest = Math.max(highest, tool.seq);
+  }
+  for (const thought of projection.thoughts) {
+    highest = Math.max(highest, thought.seq);
   }
   return highest + 1;
 }

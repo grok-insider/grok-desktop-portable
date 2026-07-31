@@ -693,7 +693,7 @@ export function refusalMessage(code: string): string {
     case "not_replayable":
       return "That action was interrupted and will not be retried automatically.";
     case "permission_not_answerable":
-      return "Grok Light cannot answer that permission option.";
+      return "Grok Desktop Portable cannot answer that permission option.";
     case "picker_already_open":
       return "A directory picker is already open. Finish or close it first.";
     case "unknown_permission":

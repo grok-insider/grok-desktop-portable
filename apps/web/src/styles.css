@@ -1,5 +1,5 @@
 /*
- * Grok Light renderer styles.
+ * Grok Desktop Portable renderer styles.
  *
  * The tokens below are the Grok Desktop design system, defined by
  * apps/desktop/DESIGN.md. Read DESIGN.md before any UI work here: Light is a
@@ -69,6 +69,11 @@
   --shadow-raised: 0 1px 2px rgb(24 33 28 / 5%);
   --shadow-overlay: 0 4px 16px rgb(28 38 33 / 6%);
   --shadow-dialog: 0 24px 70px rgb(25 35 30 / 18%), 0 3px 14px rgb(25 35 30 / 10%);
+  /* Composer card: soft multi-layer ring (OpenCode-style, no hard border). */
+  --shadow-composer:
+    0 2px 4px rgb(24 33 28 / 4%),
+    0 1px 2px -1px rgb(24 33 28 / 8%),
+    0 0 0 0.5px rgb(24 33 28 / 12%);
   --ease: 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
   color-scheme: light;
 }
@@ -122,6 +127,10 @@
   --shadow-raised: 0 1px 2px rgb(0 0 0 / 30%);
   --shadow-overlay: 0 4px 16px rgb(0 0 0 / 40%);
   --shadow-dialog: 0 24px 70px rgb(0 0 0 / 55%), 0 3px 14px rgb(0 0 0 / 35%);
+  --shadow-composer:
+    0 2px 4px rgb(0 0 0 / 20%),
+    0 1px 2px -1px rgb(0 0 0 / 28%),
+    0 0 0 0.5px rgb(255 255 255 / 8%);
   color-scheme: dark;
 }
 
@@ -198,6 +207,7 @@
   --shadow-raised: var(--shadow-raised);
   --shadow-overlay: var(--shadow-overlay);
   --shadow-dialog: var(--shadow-dialog);
+  --shadow-composer: var(--shadow-composer);
   --color-scrim: var(--scrim);
 }
 
@@ -288,6 +298,7 @@
 
 /* Hosted welcome landing (ADR 0016) — non-ready probe states only. */
 .landing {
+  position: relative;
   min-height: 100dvh;
   display: flex;
   align-items: center;
@@ -397,5 +408,41 @@
   font-size: 0.75rem;
   line-height: 1.4;
   color: var(--subtle-foreground, var(--muted-foreground));
+}
+
+/* Viewport-corner social links (X left, GitHub right); outside the card. */
+.landing-social {
+  position: fixed;
+  z-index: 1;
+  inset-inline: max(1rem, env(safe-area-inset-left, 0px))
+    max(1rem, env(safe-area-inset-right, 0px));
+  bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.landing-social-link {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.landing-social-link:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.landing-social-icon {
+  display: block;
+  flex-shrink: 0;
 }
 
