@@ -56,7 +56,6 @@ impl Running {
     }
 }
 
-
 async fn start() -> Running {
     let port = free_port();
     let origin = LocalOrigin::new(INSTALL, port).expect("origin");
@@ -97,10 +96,7 @@ async fn connect(
 > {
     let mut request = running.events_url().into_client_request().expect("request");
     let headers = request.headers_mut();
-    headers.insert(
-        header::HOST,
-        running.host().parse().expect("host header"),
-    );
+    headers.insert(header::HOST, running.host().parse().expect("host header"));
     headers.insert(
         header::ORIGIN,
         running.origin().parse().expect("origin header"),
