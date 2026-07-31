@@ -471,7 +471,7 @@ dependencies = [
 
 [[package]]
 name = "grok-bridge"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "ashpd",
  "async-trait",
