@@ -83,9 +83,11 @@ No npm app publish, no crates.io, no code signing.
 |-------|----------|
 | `grok-bridge-linux-x64` | Linux x86_64 (glibc) |
 | `grok-bridge-darwin-arm64` | macOS Apple Silicon |
+| `grok-bridge-windows-x64.exe` | Windows x86_64 (native named-pipe control plane) |
 | `checksums.txt` | SHA-256 of the above |
 
-Windows is not a release target until the control plane uses named pipes.
+Windows is **native** (not WSL-primary): control plane is an owner-only named
+pipe; state uses owner-only DACLs; agent process tree uses a Job Object.
 
 **Pipeline:** merge to `master` → (optional) patch Release PR with
 `grok-insider/release-changelog-action@v1` → merge Release PR →

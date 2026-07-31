@@ -75,4 +75,6 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo clippy -p grok-bridge --all-targets -- -D warnings
       - name: cargo test
-        run: cargo test -p grok-bridge
+        run: |
+          cargo build -p grok-bridge --example fake_agent
+          cargo test -p grok-bridge

@@ -50,7 +50,9 @@ impl Running {
     }
 
     fn events_url(&self) -> String {
-        format!("ws://{}/events", self.host())
+        // Connect via 127.0.0.1: Windows CI does not resolve `*.localhost` to
+        // loopback (WSAHOST_NOT_FOUND). Host header still carries the origin.
+        format!("ws://127.0.0.1:{}/events", self.port)
     }
 }
 
@@ -94,6 +96,7 @@ async fn connect(
 > {
     let mut request = running.events_url().into_client_request().expect("request");
     let headers = request.headers_mut();
+    headers.insert(header::HOST, running.host().parse().expect("host header"));
     headers.insert(
         header::ORIGIN,
         running.origin().parse().expect("origin header"),

@@ -230,6 +230,9 @@ pub struct AgentHandle {
     pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Value>>>>,
     next_id: AtomicU64,
     child: Mutex<Child>,
+    /// Windows: job object that kills the agent process tree when dropped.
+    #[cfg(windows)]
+    _job: Option<crate::win_job::KillOnDropJob>,
 }
 
 impl AgentHandle {
@@ -264,6 +267,10 @@ impl AgentHandle {
         builder.process_group(0);
 
         let mut child = builder.spawn().map_err(AcpError::Spawn)?;
+        #[cfg(windows)]
+        let job = child
+            .id()
+            .and_then(|pid| crate::win_job::KillOnDropJob::for_pid(pid).ok());
         let stdin = child.stdin.take().ok_or(AcpError::Pipe)?;
         let stdout = child.stdout.take().ok_or(AcpError::Pipe)?;
 
@@ -276,6 +283,8 @@ impl AgentHandle {
             pending: Arc::clone(&pending),
             next_id: AtomicU64::new(0),
             child: Mutex::new(child),
+            #[cfg(windows)]
+            _job: job,
         });
 
         tokio::spawn(read_loop(stdout, pending, events_tx));
@@ -573,6 +582,9 @@ pub struct AgentSession {
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     next_id: u64,
+    /// Windows: job object that kills the agent process tree when dropped.
+    #[cfg(windows)]
+    _job: Option<crate::win_job::KillOnDropJob>,
 }
 
 impl AgentSession {
@@ -606,6 +618,10 @@ impl AgentSession {
         builder.process_group(0);
 
         let mut child = builder.spawn().map_err(AcpError::Spawn)?;
+        #[cfg(windows)]
+        let job = child
+            .id()
+            .and_then(|pid| crate::win_job::KillOnDropJob::for_pid(pid).ok());
         let stdin = child.stdin.take().ok_or(AcpError::Pipe)?;
         let stdout = child.stdout.take().ok_or(AcpError::Pipe)?;
         Ok(Self {
@@ -613,6 +629,8 @@ impl AgentSession {
             stdin,
             stdout: BufReader::new(stdout),
             next_id: 0,
+            #[cfg(windows)]
+            _job: job,
         })
     }
 
