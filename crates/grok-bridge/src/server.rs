@@ -2119,7 +2119,7 @@ mod bash_wire_tests {
     #[test]
     fn emit_bash_output_is_output_only_not_prompt_sent() {
         // Structural contract: only MessageDelta inside the helper body.
-        let source = include_str!("server.rs");
+        let source = include_str!("server.rs").replace("\r\n", "\n");
         let start = source
             .find("async fn emit_bash_output")
             .expect("emit_bash_output present");

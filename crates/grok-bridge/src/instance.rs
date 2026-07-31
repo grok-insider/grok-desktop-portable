@@ -58,7 +58,11 @@ impl InstanceLock {
         let path = directory.join(LOCK_FILE_NAME);
         let file = private_file(&path)?;
         file.try_lock_exclusive().map_err(|error| {
-            if error.kind() == std::io::ErrorKind::WouldBlock {
+            // Unix: WouldBlock. Windows fs2 often surfaces ERROR_LOCK_VIOLATION
+            // (33) or ERROR_SHARING_VIOLATION (32) as Uncategorized.
+            let locked = error.kind() == std::io::ErrorKind::WouldBlock
+                || matches!(error.raw_os_error(), Some(32 | 33));
+            if locked {
                 InstanceError::AlreadyRunning
             } else {
                 InstanceError::Lock(error)
