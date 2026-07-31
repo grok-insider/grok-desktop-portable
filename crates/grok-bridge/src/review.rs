@@ -1255,7 +1255,10 @@ fn absolute_workspace_relative(root: &Path, path: &Path) -> Option<String> {
         return None;
     }
     let root = root.canonicalize().ok()?;
-    let relative = path.strip_prefix(root).ok()?;
+    // Canonicalise the file when it exists so Windows `\\?\` prefixes match
+    // the root; fall back to the given path for new files still being written.
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let relative = path.strip_prefix(&root).ok()?;
     let path = relative_components(relative)?;
     (path.len() <= crate::bounds::MAX_CONTEXT_PATH_BYTES).then_some(path)
 }

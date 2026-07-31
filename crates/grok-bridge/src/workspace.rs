@@ -77,10 +77,16 @@ impl FilesystemIdentity {
         }
         #[cfg(not(unix))]
         {
-            // Windows identity lands with its own platform gate.
+            // Windows does not expose a portable inode pair on stable Metadata.
+            // Hash the canonical path so distinct directories stay distinct for
+            // enrolment bounds and swap detection until a richer ID lands.
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            path.hash(&mut hasher);
             Ok(Self {
                 device: 0,
-                inode: 0,
+                inode: hasher.finish(),
             })
         }
     }
