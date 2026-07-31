@@ -95,8 +95,13 @@ active `sessionId`.
 - Content sits on a raised surface inset from the canvas (`rounded-xl`, hairline
   border, Level-1 shadow), so the app reads as one sheet of paper on a
   workspace rather than a page running to the window edge.
-- Chrome is a thin 44px topbar on that surface: product label **Work**, optional
-  workspace **display name** (never a path), status chips, theme control.
+- Chrome is a thin 44px topbar on that surface, browser-tab style:
+  - **Home** (left) returns to the project + session catalogue.
+  - A hairline divider, then **open conversations as tabs** (title from the
+    opening message, workspace display name in the tooltip only — never a
+    path). Order never reshuffles with activity (same rule as ADR 0011).
+  - **+** returns to Home to start or resume another conversation.
+  - Trailing: optional review-panel control, status chips, theme control.
 - Content measure: `min(760px, 100%)` centered (DESIGN §6 chat measure).
 - Status is **never colour alone**: whenever a chip is drawn it carries a text
   label (DESIGN §2).
@@ -124,9 +129,9 @@ conveyed by colour alone.
 
 ### Theme (light / dark / system)
 
-Light ships both themes. Preference is browser-local only
-(`localStorage` key `grok-light.theme`: `system` | `light` | `dark`). It is
-not host state and never crosses the protocol.
+Portable ships both themes. Preference is browser-local only
+(`localStorage` key `grok-light.theme`: `system` | `light` | `dark` — wire key
+unchanged). It is not host state and never crosses the protocol.
 
 | Preference | Behaviour |
 |------------|-----------|
@@ -143,24 +148,26 @@ not host state and never crosses the protocol.
   hex in components. Token table: `apps/light/src/styles.css` (`.dark` block).
 - Desktop remains light-first until it adopts the same remaps.
 
-### Conversation sidebar
+### Open conversation tabs
 
-Sessions run concurrently (light ADR 0011), so Work has a left panel listing
-the open ones. It is a work inbox, not a chat history, and two rules carry that:
+Sessions run concurrently (light ADR 0011), so Work lists the open ones as
+**top-bar tabs** (not a left history rail). It is a work inbox, not a chat
+history, and two rules carry that:
 
-1. **Order never changes with activity.** Rows are ordered by when the session
+1. **Order never changes with activity.** Tabs are ordered by when the session
    opened and hold their place until closed. A conversation that starts working
-   says so *in* its row; it does not move. A list that reshuffles on every
+   says so *in* its tab; it does not move. A list that reshuffles on every
    token is a feed the user cannot point at.
 2. **State is colour and a label**, never colour alone (DESIGN §2).
 
-Rows are titled by the conversation's opening message, because several
+Tabs are titled by the conversation's opening message, because several
 conversations commonly run in one workspace and would otherwise be identical.
+The workspace display name is tooltip-only.
 
-The model is adapted from T3 Code's Sidebar V2 (MIT). Branch, pull request, and
-diff columns are **not** put in every conversation row: the selected session's
-bounded review data belongs in the right panel described below. Settle/snooze
-is not adopted either — Light closes conversations rather than parking them.
+Branch, pull request, and diff columns are **not** put on every tab: the
+selected session's bounded review data belongs in the right panel described
+below. Settle/snooze is not adopted either — Portable closes conversations
+rather than parking them.
 
 ## Screens
 
@@ -168,7 +175,7 @@ is not adopted either — Light closes conversations rather than parking them.
 |--------|------|
 | Setup | Unpaired, expired pair, host down, protocol mismatch, WebKit block (ADR 0008) |
 | Home | Projects rail (ADR 0014) beside the selected project's sessions (ADR 0010). **No** integrations strip on this surface |
-| Session | Sidebar of open conversations, transcript with inline tool calls, composer with queue, Changes / Context panel, review banner |
+| Session | Top-bar tabs of open conversations, transcript with thinking blocks + inline tool calls + plan, composer with queue, Changes / Context panel, review banner |
 | Permission dialog | `allow-once`, `reject-once`, `allow-edits-session` only (ADR 0007) |
 
 ### Home
@@ -210,7 +217,7 @@ Refresh and Add are icon buttons in the section headers.
 
 The composer is a docked raised card (OpenCode-inspired layout, Grok tokens)
 at the bottom of the transcript column. Implementation:
-`apps/light/src/views/composer/`.
+`apps/web/src/views/composer/`.
 
 The workspace display name remains in shell chrome and conversation titles stay
 in the sidebar. The composer does not repeat either label above the input.
@@ -220,15 +227,14 @@ Pressing Enter mid-turn used to do nothing and say nothing about why.
 
 | Control | Rendered as | Meaning |
 |---------|-------------|---------|
-| Queue (Enter) | filled button | Waits for the turn in flight, then sends |
+| Send / Queue (Enter) | 28×28 icon-only primary (`ArrowUp`; shell uses return-key icon) | Sends, or waits for the turn in flight then sends |
 | Send now (`Ctrl+Enter`) | icon button | Cancels the running turn so this goes next |
 | Stop | icon button | Cancels the turn and sends nothing |
 
-`Send now` and `Stop` are icon-only because they are *modifiers* on the one
-action the user came to take; as three equal filled buttons they outweighed the
-message being written. Their meaning is carried by `title` as well as the
-accessible name — an icon alone does not explain itself, and DESIGN §5 keeps
-disabled buttons hoverable precisely so the tooltip can.
+Send, `Send now`, and `Stop` are icon-only so the toolbar stays OpenCode-dense.
+Meaning is carried by `title` as well as the accessible name — an icon alone
+does not explain itself, and DESIGN §5 keeps disabled buttons hoverable
+precisely so the tooltip can.
 
 Waiting messages are listed above the composer card and can be taken back out
 before they run. The queue lives in the host — it is the side that knows when a
@@ -243,15 +249,22 @@ held in one place followed the user across a switch and could be sent to a
 conversation they were not looking at when they wrote it.
 
 Authority remains disclosed in setup and the empty session state. It is not
-repeated as a persistent composer footnote. Light is still a control surface,
+repeated as a persistent composer footnote. Portable is still a control surface,
 not a sandbox — do not word the UI as confinement or full path mediation.
+
+**Card chrome:** soft multi-layer ring (`shadow-composer`), no hard border,
+~96px idle height (`min-h` input 60px + 44px toolbar). Placeholders:
+
+| Mode | Placeholder |
+|------|-------------|
+| Prompt | `Ask anything, / for commands, @ for context…` |
+| Shell | `Enter shell command… git status` (mono) |
 
 **Model + reasoning:** a 44px control bar along the bottom of the card selects
 host-projected **Grok-only** models and, when supported, reasoning effort
-levels. Changes call `setSessionModel`. Both are native `<select>` styled as
-ghost pills: a hand-rolled menu would need a popover primitive Light does not
-have, and would have to re-earn the keyboard and screen-reader behaviour the
-platform control already has.
+levels. Changes call `setSessionModel`. Both use custom listbox popovers
+(raised surface, selected check, outside-click / Escape dismiss) so the control
+matches the rest of the shell instead of the browser’s bare `<select>`.
 
 ### Completion menu (`@` and `/`)
 
@@ -290,16 +303,35 @@ cwd (not as agent chat) and streams the capture back. Exit matches the Grok
 Build pager: **empty body + Backspace** (also Esc / Ctrl+W / U / C) returns to
 normal prompt mode.
 
+OpenCode-style transition (no layout jump): the left toolbar (`+`, model,
+effort) **stays mounted** and fades (`opacity: 0`, `pointer-events: none`,
+`inert`); the input becomes monospace; the send icon switches to a return-key
+glyph. There is no bash banner, bang gutter, or footer footnote.
+
+**Thinking:** when the qualified CLI streams `agent_thought_chunk`, the bridge
+emits `thoughtDelta` and the SPA shows a collapsible **Thinking…** block in the
+transcript (separate from the agent answer). Live while the turn streams;
+collapsed when finished (expandable). Thoughts are live-only — history rehydrate
+does not restore them (same as ADR 0010 history filter).
+
 **MCP control** sits **outside** the raised composer card (to its left). It is
 ambient context for the conversation, not a prompt control. The menu lists
 deduplicated host-projected MCP **names** and config state only (enabled → green
 `on`, disabled → red `off`; never color alone). Skills are not repeated in the
-session UI. The menu closes on outside click and Escape. Light does not probe
+session UI. The menu closes on outside click and Escape. Portable does not probe
 runtime health of MCP servers.
 
-**Composer toolbar** (inside the card): a **+** control inserts `@` so the
-workspace-file mention menu opens (never a browser file path — light ADR 0013),
-then model / effort / send.
+**Composer toolbar** (inside the card): a **+** menu with:
+
+| Item | Action |
+|------|--------|
+| Images and files (`Ctrl+U`) | Browser file picker; content is inlined into the draft as text/base64 (the protocol has no binary channel). Paths are never sent (ADR 0013). |
+| Commands (`/`) | Inserts `/` so the slash-command menu opens |
+| Context (`@`) | Inserts `@` so the workspace-file mention menu opens |
+| Shell command (`!`) | Enters bash mode |
+
+Then model / effort / send. Bash mode **fades** the left toolbar rather than
+unmounting it so entering `!` does not resize or reflow the card.
 
 ### Transcript navigation
 
@@ -363,11 +395,15 @@ semantics, not append — so dropped steps disappear. Content is agent text only
 
 ### History repair
 
-`Check history` runs `DiagnoseSession` (dry-run). Corrupt pairing shows
-`SessionRepairBanner` with an explicit **Repair history** action
-(`RepairSession` apply). Copy states this rewrites agent history only — not
+When a conversation settles on screen (and again if a prompt is refused), the
+SPA runs `DiagnoseSession` automatically (dry-run only). **Corrupt** pairing
+shows `SessionRepairBanner` with an explicit **Repair history** action
+(`RepairSession` apply). Healthy results stay silent — there is no permanent
+Check history control. Copy states repair rewrites agent history only — not
 filesystem undo and not retry of `interrupted_needs_review`. Unsupported CLI
-versions get an honest banner without a repair button (light ADR 0015).
+versions stay silent in-session (setup/doctor reports the CLI floor); a manual
+**Check again** from an existing banner can still surface unsupported honestly
+(light ADR 0015).
 
 ### Tool calls
 

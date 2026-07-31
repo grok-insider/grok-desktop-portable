@@ -90,4 +90,20 @@ describe("LandingView", () => {
     expect(screen.getAllByText(/Grok Desktop Portable/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/not a sandbox/i)).toBeTruthy();
   });
+
+  it("exposes X and GitHub links in the bottom corners", () => {
+    render(<LandingView probe={{ kind: "bridge_missing" }} onRetry={() => {}} />);
+    const x = screen.getByRole("link", { name: /GrokInsider on X/i });
+    expect(x).toHaveAttribute("href", "https://x.com/GrokInsider");
+    expect(x).toHaveAttribute("target", "_blank");
+    expect(x.getAttribute("rel") ?? "").toMatch(/noopener/);
+
+    const github = screen.getByRole("link", { name: /Source on GitHub/i });
+    expect(github).toHaveAttribute(
+      "href",
+      "https://github.com/grok-insider/grok-desktop-portable",
+    );
+    expect(github).toHaveAttribute("target", "_blank");
+    expect(github.getAttribute("rel") ?? "").toMatch(/noopener/);
+  });
 });

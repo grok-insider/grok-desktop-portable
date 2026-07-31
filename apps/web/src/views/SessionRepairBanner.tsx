@@ -1,8 +1,9 @@
 /**
  * Opt-in recovery for tool-pairing history that may be bricked.
  *
- * Never auto-runs. Never offers retry of interrupted side effects. Copy must
- * not claim filesystem undo — only agent history pairing repair (ADR 0015).
+ * Dry-run may be automatic when a conversation settles; **apply** never is.
+ * Never offers retry of interrupted side effects. Copy must not claim
+ * filesystem undo — only agent history pairing repair (ADR 0015).
  */
 
 import { AlertTriangle, Wrench } from "lucide-react";

@@ -1,5 +1,5 @@
 /**
- * Grok Light application shell.
+ * Grok Desktop Portable application shell.
  *
  * Pairs on first load if the launcher put a nonce in the fragment, opens the
  * event channel, and projects host events into the session view. All durable
@@ -63,6 +63,7 @@ import {
   canApplyRepair,
   diagnosisForSession,
   retainDiagnoses,
+  shouldSurfaceAutoDiagnosis,
   storeDiagnosis,
 } from "./services/sessionDiagnosis";
 import {
@@ -197,6 +198,14 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const contextTicket = useRef(0);
   const inspectorTickets = useRef<Record<string, number>>({});
   const changesTickets = useRef<Record<string, number>>({});
+  /**
+   * Sessions that already received an automatic history dry-run this page life.
+   * Prevents re-nagging after dismiss and avoids diagnose spam on every
+   * listWorkspaces refresh. Force (prompt failure / Check again) bypasses.
+   */
+  const autoDiagnosedRef = useRef<Set<string>>(new Set());
+  /** In-flight dry-runs keyed by conversation — de-dupe concurrent triggers. */
+  const diagnoseInFlightRef = useRef<Set<string>>(new Set());
   const browserSupport = detectBrowserSupport();
   const activeChangeMode = sessionId === null ? "git" : (changeModes[sessionId] ?? "git");
   const activeInspector = sessionId === null ? undefined : inspectors[sessionId];
@@ -529,6 +538,18 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         // A conversation the host no longer holds leaves nothing behind: its
         // draft and any request it raised go with it.
         const live = new Set(open.map((session) => session.sessionId));
+        // Closed sessions may reopen later with a new id, or the same id after
+        // a host rebuild — drop auto-diagnose marks so recovery can run again.
+        for (const id of [...autoDiagnosedRef.current]) {
+          if (!live.has(id)) {
+            autoDiagnosedRef.current.delete(id);
+          }
+        }
+        for (const id of [...diagnoseInFlightRef.current]) {
+          if (!live.has(id)) {
+            diagnoseInFlightRef.current.delete(id);
+          }
+        }
         setDrafts((current) =>
           Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id))),
         );
@@ -715,34 +736,87 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     [client, refreshWorkspaces],
   );
 
+  /**
+   * Dry-run history pairing for one conversation (light ADR 0015).
+   *
+   * - Automatic: silent unless corrupt (banner + opt-in Repair).
+   * - Manual (`surfaceAll`): store every status so "Check again" can report healthy.
+   * - Capture target at send time so a late response cannot paint another tab.
+   */
+  const runDiagnose = useCallback(
+    (
+      target: string,
+      options: { force?: boolean; surfaceAll?: boolean; reportFailure?: boolean } = {},
+    ) => {
+      const force = options.force === true;
+      const surfaceAll = options.surfaceAll === true;
+      const reportFailure = options.reportFailure === true;
+      if (!force && autoDiagnosedRef.current.has(target)) {
+        return;
+      }
+      if (diagnoseInFlightRef.current.has(target)) {
+        return;
+      }
+      autoDiagnosedRef.current.add(target);
+      diagnoseInFlightRef.current.add(target);
+      setRepairBusyBySession((held) => ({ ...held, [target]: true }));
+      if (surfaceAll) {
+        setRefusal(undefined);
+      }
+      void client
+        .send(
+          { kind: "diagnoseSession", sessionId: target },
+          { controllerEpoch: 1 },
+        )
+        .then((result) => {
+          diagnoseInFlightRef.current.delete(target);
+          setRepairBusyBySession((held) => ({ ...held, [target]: false }));
+          if (!result.ok) {
+            // Allow a later settle / prompt-failure to retry automatic dry-run.
+            autoDiagnosedRef.current.delete(target);
+            if (reportFailure) {
+              reportClientFailure(
+                result.failure,
+                "The host could not diagnose this conversation's history.",
+              );
+            }
+            return;
+          }
+          const diagnosis = asSessionDiagnosis(result.value);
+          if (diagnosis === null) {
+            return;
+          }
+          if (!surfaceAll && !shouldSurfaceAutoDiagnosis(diagnosis.diagnosis)) {
+            return;
+          }
+          setDiagnoses((held) =>
+            storeDiagnosis(held, target, diagnosis.diagnosis),
+          );
+        });
+    },
+    [client],
+  );
+
+  /** Banner "Check again" — user-initiated dry-run; surfaces healthy/unsupported too. */
   const diagnoseSession = useCallback(() => {
     if (sessionId === null) {
       return;
     }
-    // Capture the target at send time so a late response cannot paint another
-    // conversation the user switched to while the dry-run was in flight.
-    const target = sessionId;
-    setRepairBusyBySession((held) => ({ ...held, [target]: true }));
-    setRefusal(undefined);
-    void client
-      .send(
-        { kind: "diagnoseSession", sessionId: target },
-        { controllerEpoch: 1 },
-      )
-      .then((result) => {
-        setRepairBusyBySession((held) => ({ ...held, [target]: false }));
-        if (!result.ok) {
-          reportClientFailure(result.failure, "The host could not diagnose this conversation's history.");
-          return;
-        }
-        const diagnosis = asSessionDiagnosis(result.value);
-        if (diagnosis !== null) {
-          setDiagnoses((held) =>
-            storeDiagnosis(held, target, diagnosis.diagnosis),
-          );
-        }
-      });
-  }, [client, sessionId]);
+    runDiagnose(sessionId, {
+      force: true,
+      surfaceAll: true,
+      reportFailure: true,
+    });
+  }, [runDiagnose, sessionId]);
+
+  // Discoverability: when a conversation settles on screen, dry-run once.
+  // Apply is never automatic (ADR 0015).
+  useEffect(() => {
+    if (!paired || sessionId === null || sessionLoading) {
+      return;
+    }
+    runDiagnose(sessionId);
+  }, [paired, runDiagnose, sessionId, sessionLoading]);
 
   const repairSession = useCallback(() => {
     if (sessionId === null) {
@@ -1034,10 +1108,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             // A refused prompt used to vanish: the composer simply re-enabled
             // and the user was left guessing whether the agent had heard them.
             reportClientFailure(result.failure, "The host did not accept that prompt.");
+            // Pairing corruption often bricks every subsequent prompt (HTTP 400).
+            // Re-run dry-run only; apply stays opt-in if the banner appears.
+            runDiagnose(target, { force: true });
           }
         });
     },
-    [client, refreshWorkspaces, reportClientFailure, sessionId],
+    [client, refreshWorkspaces, reportClientFailure, runDiagnose, sessionId],
   );
 
   const closeSession = useCallback(
@@ -1121,16 +1198,39 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     />
   ) : null;
 
+  // Open conversations stay in the top bar on Home and Session (browser tabs).
+  // Host `running` only updates when the list is re-read; merge live phase so a
+  // turn this page started still shows Working on its tab.
+  const awaitingDecision = new Set(Object.keys(prompts));
+  const sessionsWithActivity = openSessions.map((session) => ({
+    ...session,
+    running:
+      session.running || projections[session.sessionId]?.phase === "streaming",
+    awaitingDecision: awaitingDecision.has(session.sessionId),
+  }));
+  const titles = sessionTitles(projections);
+  const shellTabs = sessionsWithActivity.map((session) => ({
+    sessionId: session.sessionId,
+    title: titles[session.sessionId] ?? "New conversation",
+    workspaceName: session.workspaceName,
+    running: session.running,
+    awaitingDecision: session.awaitingDecision,
+  }));
+
   // A session must exist before the composer means anything, so an unpaired
   // browser sees setup, a paired one without a session picks a workspace (and
   // optionally resumes), and only then does the Work view appear.
   if (sessionId === null) {
     return (
       <WorkShell
+        surface="home"
         connected={connected}
-        workspaceName={
-          selectedWorkspaceId === null ? undefined : workspaceName
-        }
+        tabs={shellTabs}
+        activeTabId={null}
+        onGoHome={() => setSessionId(null)}
+        onSelectTab={(id) => setSessionId(id)}
+        onCloseTab={closeSession}
+        onNewTab={() => setSessionId(null)}
       >
         {connectionStrip}
         <HomeView
@@ -1172,36 +1272,25 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   }
 
   // Only the conversation on screen may raise a modal. One that arrives for a
-  // different conversation is announced in its sidebar row instead: a dialog
-  // for something the user is not looking at is a hijack, and with several
-  // running they would fight for the screen.
-  const prompt = sessionId === null ? null : (prompts[sessionId] ?? null);
-  const awaitingDecision = new Set(Object.keys(prompts));
+  // different conversation is announced on its tab instead: a dialog for
+  // something the user is not looking at is a hijack, and with several running
+  // they would fight for the screen.
+  const prompt = prompts[sessionId] ?? null;
   const shown = projectionFor(projections, sessionId);
   const current = openSessions.find((session) => session.sessionId === sessionId);
-  // The host only reports `running` when the list is re-read, which is not
-  // during a turn. The live signal is the conversation's own phase, so the two
-  // are merged: the host covers a turn this page did not start (a reload
-  // mid-turn), the phase covers the one it did.
-  const sessionsWithActivity = openSessions.map((session) => ({
-    ...session,
-    running:
-      session.running || projections[session.sessionId]?.phase === "streaming",
-    awaitingDecision: awaitingDecision.has(session.sessionId),
-  }));
   const activeDiagnosis = diagnosisForSession(
     diagnoses,
     sessionId,
     sessionLoading,
   );
-  const repairBusy =
-    sessionId === null ? false : (repairBusyBySession[sessionId] ?? false);
+  const repairBusy = repairBusyBySession[sessionId] ?? false;
 
   return (
     <>
       <SessionView
         transcript={shown.transcript}
         tools={shown.tools}
+        thoughts={shown.thoughts}
         // The host is the only source: it knows the operation and the cause,
         // and a live interruption refreshes it. Rendering the id alone would
         // tell the user something was interrupted but not what.
@@ -1353,7 +1442,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setDrafts((held) => ({ ...held, [sessionId]: text }));
         }}
         activeSessionId={sessionId}
-        sessionTitles={sessionTitles(projections)}
+        sessionTitles={titles}
         onSelectSession={(id) => {
           setSessionId(id);
         }}

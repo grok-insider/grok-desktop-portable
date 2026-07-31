@@ -115,7 +115,7 @@ export function SetupView({
         <ThemeToggle />
       </div>
       <header className="flex flex-col gap-2">
-        <h1 className="text-title-lg font-semibold text-foreground">Grok Light</h1>
+        <h1 className="text-title-lg font-semibold text-foreground">Grok Desktop Portable</h1>
         <p className="text-body-lg text-muted-foreground">
           A local interface for the Grok Build CLI you already installed and
           authenticated.
@@ -183,8 +183,8 @@ export function SetupView({
       </Card>
 
       <Disclosure>
-        Grok Light runs the agent with your own authority, using your own Grok
-        configuration. It is a control surface, not a sandbox. Supported
+        Grok Desktop Portable runs the agent with your own authority, using your
+        own Grok configuration. It is a control surface, not a sandbox. Supported
         browsers: Chromium and Firefox 84+. WebKit is not supported.
       </Disclosure>
 

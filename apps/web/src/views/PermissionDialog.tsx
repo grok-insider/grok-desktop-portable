@@ -65,8 +65,8 @@ export function PermissionDialog({
               The agent is asking permission
             </h2>
             <p id="permission-body" className="text-body text-muted-foreground">
-              This decision applies to this request only. Grok Light cannot grant
-              standing permission.
+              This decision applies to this request only. Grok Desktop Portable
+              cannot grant standing permission.
             </p>
           </div>
         </div>
@@ -96,8 +96,8 @@ export function PermissionDialog({
           <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4">
             <Disclosure>
               This version of the Grok Build CLI offered only options that create a
-              standing grant, which Grok Light does not present. Answer this
-              request in the Grok Build CLI itself.
+              standing grant, which Grok Desktop Portable does not present.
+              Answer this request in the Grok Build CLI itself.
             </Disclosure>
             <p className="font-mono text-body-sm text-subtle-foreground">
               offered: {prompt.options.join(", ") || "none"}

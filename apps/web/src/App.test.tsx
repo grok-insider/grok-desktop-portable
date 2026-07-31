@@ -157,21 +157,15 @@ function fakeHost() {
         };
       }
       if (operation.kind === "diagnoseSession") {
+        // Default healthy so ordinary tests do not get a repair banner from
+        // automatic dry-run when a conversation settles.
         return {
           ok: true as const,
           value: {
             outcome: "sessionDiagnosis",
             diagnosis: {
               sessionId: operation.sessionId,
-              status: "corrupt",
-              report: {
-                repaired: true,
-                dryRun: true,
-                resident: true,
-                duplicatesRemoved: 1,
-                syntheticResultsInserted: 0,
-                strippedToolResultIds: ["t-1"],
-              },
+              status: "healthy",
             },
           },
         };
@@ -254,9 +248,9 @@ async function openWork(host: ReturnType<typeof fakeHost>) {
       <App client={host.client} />
     </ThemeProvider>,
   );
-  // Two conversations are open, so the Work surface is what appears.
+  // Two conversations are open as top-bar tabs; bootstrap restores the latest.
   await waitFor(() => {
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
   });
 }
 
@@ -265,24 +259,20 @@ function composer() {
 }
 
 /**
- * Pick a conversation by its position in the sidebar.
+ * Pick a conversation by its position in the top-bar tab list.
  *
- * Rows are titled by their first user message, and these tests exercise
+ * Tabs are titled by their first user message, and these tests exercise
  * conversations that have not been prompted yet, so position is the stable
  * handle. Order is the host's and never changes with activity, which is what
  * makes it stable.
  */
 async function switchToRow(index: number) {
-  const rows = screen.getAllByRole("listitem");
-  const row = rows[index];
-  if (row === undefined) {
-    throw new Error(`no conversation at position ${index}`);
+  const tabs = screen.getAllByRole("tab");
+  const tab = tabs[index];
+  if (tab === undefined) {
+    throw new Error(`no conversation tab at position ${index}`);
   }
-  const select = row.querySelector("button");
-  if (select === null) {
-    throw new Error("conversation row has no selector");
-  }
-  await userEvent.click(select);
+  await userEvent.click(tab);
 }
 
 beforeEach(() => {
@@ -537,32 +527,89 @@ describe("transcripts belong to their conversation", () => {
 });
 
 describe("history diagnosis belongs to its conversation", () => {
-  it("does not apply repair to another conversation after a dry-run", async () => {
-    // Dry-run of s-1 must never authorize apply on s-2 after a sidebar switch.
+  function withCorruptDiagnose(host: ReturnType<typeof fakeHost>) {
+    const originalSend = host.client.send.bind(host.client) as LightClient["send"];
+    (host.client as { send: LightClient["send"] }).send = async (operation, options) => {
+      if (operation.kind === "diagnoseSession") {
+        host.sent.push({ operation: operation as Sent["operation"] });
+        return {
+          ok: true as const,
+          value: {
+            outcome: "sessionDiagnosis",
+            diagnosis: {
+              sessionId: operation.sessionId,
+              status: "corrupt",
+              report: {
+                repaired: true,
+                dryRun: true,
+                resident: true,
+                duplicatesRemoved: 1,
+                syntheticResultsInserted: 0,
+                strippedToolResultIds: ["t-1"],
+              },
+            },
+          },
+        };
+      }
+      return originalSend(operation, options);
+    };
+  }
+
+  it("auto-diagnoses when a conversation settles and offers repair only for corrupt", async () => {
     const host = fakeHost();
+    withCorruptDiagnose(host);
+    await openWork(host);
+
+    // Bootstrap restores the latest tab (s-2); dry-run is automatic.
+    await waitFor(() => {
+      expect(
+        host.sent.some(
+          (call) =>
+            call.operation.kind === "diagnoseSession" &&
+            call.operation.sessionId === "s-2",
+        ),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /repair history/i })).toBeInTheDocument();
+    });
+    // No permanent Check history control.
+    expect(
+      screen.queryByRole("button", { name: /check conversation history pairing/i }),
+    ).not.toBeInTheDocument();
+    // Apply is never automatic.
+    expect(
+      host.sent.filter((call) => call.operation.kind === "repairSession"),
+    ).toHaveLength(0);
+  });
+
+  it("does not apply repair to another conversation after a dry-run", async () => {
+    // Dry-run of s-1 must never authorize apply on s-2 after a tab switch.
+    const host = fakeHost();
+    withCorruptDiagnose(host);
     await openWork(host);
     host.emit({ kind: "messageDelta", sessionId: "s-1", text: "first" });
     host.emit({ kind: "messageDelta", sessionId: "s-2", text: "second" }, 2);
 
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /repair history/i })).toBeInTheDocument();
+    });
+
     await switchToRow(0);
-    await userEvent.click(
-      screen.getByRole("button", { name: /check conversation history pairing/i }),
-    );
+    await waitFor(() => {
+      expect(
+        host.sent.some(
+          (call) =>
+            call.operation.kind === "diagnoseSession" &&
+            call.operation.sessionId === "s-1",
+        ),
+      ).toBe(true);
+    });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /repair history/i })).toBeInTheDocument();
     });
 
     await switchToRow(1);
-    // s-2 has no dry-run of its own: no repair banner and no apply button.
-    expect(screen.queryByRole("button", { name: /repair history/i })).not.toBeInTheDocument();
-    expect(
-      host.sent.filter((call) => call.operation.kind === "repairSession"),
-    ).toHaveLength(0);
-
-    // Check history on s-2 only diagnoses s-2.
-    await userEvent.click(
-      screen.getByRole("button", { name: /check conversation history pairing/i }),
-    );
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /repair history/i })).toBeInTheDocument();
     });
@@ -580,13 +627,17 @@ describe("history diagnosis belongs to its conversation", () => {
     const diagnoseGate = new Promise<void>((resolve) => {
       releaseDiagnose = resolve;
     });
+    /** First open settles on s-2; hold only s-1 so we can race a late reply. */
+    let holdS1 = false;
 
     const host = fakeHost();
     const originalSend = host.client.send.bind(host.client) as LightClient["send"];
     (host.client as { send: LightClient["send"] }).send = async (operation, options) => {
       if (operation.kind === "diagnoseSession") {
         host.sent.push({ operation: operation as Sent["operation"] });
-        await diagnoseGate;
+        if (holdS1 && operation.sessionId === "s-1") {
+          await diagnoseGate;
+        }
         return {
           ok: true as const,
           value: {
@@ -610,18 +661,22 @@ describe("history diagnosis belongs to its conversation", () => {
     };
 
     await openWork(host);
+    // s-2 auto-diagnose completes and may show a banner; dismiss is not required
+    // for the race — we switch to s-1 and hold that dry-run.
+    await waitFor(() => {
+      expect(
+        host.sent.some(
+          (call) =>
+            call.operation.kind === "diagnoseSession" &&
+            call.operation.sessionId === "s-2",
+        ),
+      ).toBe(true);
+    });
     host.emit({ kind: "messageDelta", sessionId: "s-1", text: "first" });
     host.emit({ kind: "messageDelta", sessionId: "s-2", text: "second" }, 2);
 
+    holdS1 = true;
     await switchToRow(0);
-    await userEvent.click(
-      screen.getByRole("button", { name: /check conversation history pairing/i }),
-    );
-    // User switches away before dry-run returns.
-    await switchToRow(1);
-    releaseDiagnose?.();
-
-    // Still on s-2: the late s-1 diagnosis must not paint s-2.
     await waitFor(() => {
       expect(
         host.sent.some(
@@ -631,13 +686,30 @@ describe("history diagnosis belongs to its conversation", () => {
         ),
       ).toBe(true);
     });
-    expect(screen.queryByRole("button", { name: /repair history/i })).not.toBeInTheDocument();
+    // User switches away before s-1 dry-run returns.
+    await switchToRow(1);
+    releaseDiagnose?.();
 
-    // Returning to s-1 shows the diagnosis that belongs to s-1.
+    // Still on s-2: s-2's own prior diagnosis may show Repair; that is fine.
+    // Returning to s-1 must show the diagnosis that belongs to s-1 (not lost).
     await switchToRow(0);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /repair history/i })).toBeInTheDocument();
     });
+  });
+
+  it("stays silent when automatic dry-run reports healthy", async () => {
+    const host = fakeHost();
+    await openWork(host);
+    await waitFor(() => {
+      expect(
+        host.sent.some((call) => call.operation.kind === "diagnoseSession"),
+      ).toBe(true);
+    });
+    expect(screen.queryByRole("button", { name: /repair history/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /check conversation history pairing/i }),
+    ).not.toBeInTheDocument();
   });
 });
 

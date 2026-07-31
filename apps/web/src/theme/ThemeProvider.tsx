@@ -1,5 +1,5 @@
 /**
- * Theme context for Grok Light. Preference is local; resolved theme drives
+ * Theme context for Grok Desktop Portable. Preference is local; resolved theme drives
  * the `.dark` class on <html>.
  */
 

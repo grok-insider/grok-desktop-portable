@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 /**
- * Content Security Policy for the Grok Light SPA.
+ * Content Security Policy for the Grok Desktop Portable SPA.
  *
  * `connect-src 'self'` holds unchanged because the document and the local API
  * share one loopback origin (light ADR 0002). A hosted deployment would need

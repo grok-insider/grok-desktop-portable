@@ -4,6 +4,7 @@ import {
   canApplyRepair,
   diagnosisForSession,
   retainDiagnoses,
+  shouldSurfaceAutoDiagnosis,
   storeDiagnosis,
 } from "./sessionDiagnosis";
 
@@ -41,6 +42,16 @@ describe("diagnosisForSession", () => {
     // A mis-keyed record must not authorize recovery for the wrong conversation.
     const map = { "s-b": corruptA };
     expect(diagnosisForSession(map, "s-b", false)).toBeNull();
+  });
+});
+
+describe("shouldSurfaceAutoDiagnosis", () => {
+  it("surfaces only corrupt pairing from automatic dry-runs", () => {
+    expect(shouldSurfaceAutoDiagnosis(corruptA)).toBe(true);
+    expect(shouldSurfaceAutoDiagnosis(healthyB)).toBe(false);
+    expect(
+      shouldSurfaceAutoDiagnosis({ sessionId: "s-u", status: "unsupported" }),
+    ).toBe(false);
   });
 });
 

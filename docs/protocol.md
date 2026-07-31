@@ -161,7 +161,8 @@ prompt shown in another.
 | `RevokeBrowserPairing` | no | yes |
 
 `DiagnoseSession` / `RepairSession` map to ACP `x.ai/session/repair` (light
-ADR 0015). Apply is user opt-in and journaled; never auto on load.
+ADR 0015). Apply is user opt-in and journaled; never auto on load. Dry-run
+diagnose may be invoked automatically by the SPA when a session settles.
 
 `DecidePermission` accepts only option ids the host recorded as offered and
 still active for that request, restricted to the set in ADR light 0007.
