@@ -1,10 +1,11 @@
-//! Owner-only control socket.
+//! Owner-only control plane (Unix domain socket or Windows named pipe).
 //!
 //! This is the boundary that makes ADR light 0006 hold on a shared machine.
 //! Loopback is a machine boundary, not an account boundary: another local user
 //! can reach the HTTP listener. They cannot pair, because the pairing nonce is
-//! only ever minted here, and here is a Unix socket inside a `0700` directory
-//! with `0600` permissions, guarded by a peer credential check.
+//! only ever minted here, and here is an owner-only IPC channel (UDS in a
+//! `0700` directory with `0600` permissions and peer credentials on Linux;
+//! a named pipe with a restrictive DACL on Windows).
 //!
 //! The surface is deliberately tiny: mint a nonce, report status, ask the host
 //! to stop. It never executes anything and never accepts a path.
@@ -13,24 +14,42 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{UnixListener, UnixStream};
+use sha2::{Digest, Sha256};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 
+use crate::now_ms;
 use crate::server::HostState;
 
-/// Socket file inside the owner-only state directory.
+#[cfg(unix)]
+mod unix;
+#[cfg(windows)]
+mod windows;
+
+#[cfg(unix)]
+pub use unix::{ControlListener, bind, serve};
+
+#[cfg(windows)]
+pub use windows::{ControlListener, bind, serve};
+
+/// Marker / socket file name inside the owner-only state directory (Unix).
+///
+/// On Windows the control endpoint is a named pipe; this name is still used for
+/// a small sidecar file that records the pipe path for diagnostics.
 pub const CONTROL_SOCKET_NAME: &str = "control.sock";
+
+/// Sidecar file written on Windows with the active named-pipe path.
+pub const CONTROL_PIPE_NAME_FILE: &str = "control.pipe";
 
 /// Maximum accepted control request, in bytes.
 pub const MAX_CONTROL_REQUEST_BYTES: usize = 4096;
 
-/// Errors produced by the control socket.
+/// Errors produced by the control plane.
 #[derive(Debug, thiserror::Error)]
 pub enum ControlError {
-    /// The socket could not be created or connected.
+    /// The endpoint could not be created or connected.
     #[error("control socket is unusable: {0}")]
     Io(#[source] std::io::Error),
-    /// No host is listening on the socket.
+    /// No host is listening.
     #[error("no running host")]
     NotRunning,
     /// The peer is not the owning user.
@@ -86,69 +105,53 @@ pub enum ControlResponse {
     },
 }
 
-/// Bind the owner-only control socket inside the state directory.
+/// Derive a stable, unguessable Windows named-pipe path from the state directory.
 ///
-/// A stale socket from a crashed host is replaced; the instance lock is what
-/// guarantees no live host owns it.
+/// Callers still enforce owner-only access with a DACL; the hash stops other
+/// users from attaching to a predictable name like `\\.\pipe\grok-bridge`.
+#[must_use]
+pub fn named_pipe_path_for(directory: &Path) -> String {
+    let key = directory
+        .canonicalize()
+        .unwrap_or_else(|_| directory.to_path_buf());
+    let digest = Sha256::digest(key.to_string_lossy().as_bytes());
+    let mut hex = String::with_capacity(32);
+    for byte in digest.iter().take(16) {
+        use std::fmt::Write as _;
+        let _ = write!(hex, "{byte:02x}");
+    }
+    format!(r"\\.\pipe\grok-bridge-{hex}")
+}
+
+/// Send one request to a running host and read its answer.
 ///
 /// # Errors
 ///
-/// Returns [`ControlError::Io`] when the socket cannot be created.
-pub fn bind(directory: &Path) -> Result<UnixListener, ControlError> {
-    let path = directory.join(CONTROL_SOCKET_NAME);
-    if path.exists() {
-        std::fs::remove_file(&path).map_err(ControlError::Io)?;
-    }
-    let listener = UnixListener::bind(&path).map_err(ControlError::Io)?;
+/// Returns [`ControlError::NotRunning`] when no host owns the endpoint, and
+/// [`ControlError::Malformed`] when the answer cannot be parsed.
+pub async fn call(
+    directory: &Path,
+    request: &ControlRequest,
+) -> Result<ControlResponse, ControlError> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt as _;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
-            .map_err(ControlError::Io)?;
+        unix::call(directory, request).await
     }
-    Ok(listener)
-}
-
-/// Serve control requests until the listener fails.
-///
-/// Every connection is checked against the owning uid before it is read.
-pub async fn serve(listener: UnixListener, state: Arc<HostState>) {
-    loop {
-        let Ok((stream, _)) = listener.accept().await else {
-            break;
-        };
-        if !peer_is_owner(&stream) {
-            // Another local user reached the socket. Drop without answering.
-            continue;
-        }
-        let state = Arc::clone(&state);
-        tokio::spawn(async move {
-            let _ = handle(stream, state).await;
-        });
-    }
-}
-
-/// Whether the connected peer runs as the owning user.
-///
-/// Defence in depth: the socket already lives in a `0700` directory, so a
-/// foreign peer should not be able to reach it at all.
-fn peer_is_owner(stream: &UnixStream) -> bool {
-    #[cfg(target_os = "linux")]
+    #[cfg(windows)]
     {
-        match stream.peer_cred() {
-            Ok(credentials) => credentials.uid() == rustix::process::geteuid().as_raw(),
-            Err(_) => false,
-        }
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = stream;
-        true
+        windows::call(directory, request).await
     }
 }
 
-async fn handle(stream: UnixStream, state: Arc<HostState>) -> Result<(), ControlError> {
-    let (reader, mut writer) = stream.into_split();
+/// Shared request handling once a control connection is open.
+pub(crate) async fn handle_connection<S>(
+    stream: S,
+    state: Arc<HostState>,
+) -> Result<(), ControlError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
     let read = reader
@@ -175,7 +178,7 @@ async fn handle(stream: UnixStream, state: Arc<HostState>) -> Result<(), Control
     writer.flush().await.map_err(ControlError::Io)
 }
 
-async fn execute(request: ControlRequest, state: &Arc<HostState>) -> ControlResponse {
+pub(crate) async fn execute(request: ControlRequest, state: &Arc<HostState>) -> ControlResponse {
     let now = now_ms();
     match request {
         ControlRequest::MintNonce => {
@@ -213,51 +216,23 @@ async fn execute(request: ControlRequest, state: &Arc<HostState>) -> ControlResp
         }
         ControlRequest::Stop => {
             // Answer first, then stand down: the caller needs the reply on a
-            // socket this host still owns.
+            // channel this host still owns.
             state.request_shutdown();
             ControlResponse::Stopping
         }
     }
 }
 
-/// Send one request to a running host and read its answer.
-///
-/// # Errors
-///
-/// Returns [`ControlError::NotRunning`] when no host owns the socket, and
-/// [`ControlError::Malformed`] when the answer cannot be parsed.
-pub async fn call(
-    directory: &Path,
-    request: &ControlRequest,
-) -> Result<ControlResponse, ControlError> {
-    let path: PathBuf = directory.join(CONTROL_SOCKET_NAME);
-    let stream = UnixStream::connect(&path)
-        .await
-        .map_err(|_| ControlError::NotRunning)?;
-    let (reader, mut writer) = stream.into_split();
-
-    let mut encoded = serde_json::to_string(request).map_err(|_| ControlError::Malformed)?;
-    encoded.push('\n');
-    writer
-        .write_all(encoded.as_bytes())
-        .await
-        .map_err(ControlError::Io)?;
-    writer.flush().await.map_err(ControlError::Io)?;
-
-    let mut line = String::new();
-    BufReader::new(reader)
-        .read_line(&mut line)
-        .await
-        .map_err(ControlError::Io)?;
-    serde_json::from_str(line.trim()).map_err(|_| ControlError::Malformed)
+/// Path of the Unix control socket (or Windows diagnostic marker).
+#[must_use]
+pub fn control_path(directory: &Path) -> PathBuf {
+    directory.join(CONTROL_SOCKET_NAME)
 }
-
-use crate::now_ms;
 
 #[cfg(test)]
 mod tests {
     use super::{
-        CONTROL_SOCKET_NAME, ControlError, ControlRequest, ControlResponse, bind, call, serve,
+        ControlError, ControlRequest, ControlResponse, bind, call, named_pipe_path_for, serve,
     };
     use crate::origin::LocalOrigin;
     use crate::server::HostState;
@@ -276,8 +251,25 @@ mod tests {
         let listener = bind(directory).expect("bind");
         let served = Arc::clone(&state);
         tokio::spawn(async move { serve(listener, served).await });
-        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         state
+    }
+
+    #[test]
+    fn named_pipe_path_is_stable_and_namespaced() {
+        let dir = std::path::Path::new("/tmp/grok-bridge-state-example");
+        let a = named_pipe_path_for(dir);
+        let b = named_pipe_path_for(dir);
+        assert_eq!(a, b);
+        assert!(a.starts_with(r"\\.\pipe\grok-bridge-"));
+        assert_eq!(a.len(), r"\\.\pipe\grok-bridge-".len() + 32);
+    }
+
+    #[test]
+    fn different_state_dirs_get_different_pipe_names() {
+        let a = named_pipe_path_for(std::path::Path::new("/tmp/state-a"));
+        let b = named_pipe_path_for(std::path::Path::new("/tmp/state-b"));
+        assert_ne!(a, b);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -323,7 +315,7 @@ mod tests {
             .expect("nonce")
             .to_owned();
 
-        let now = super::now_ms();
+        let now = crate::now_ms();
         let mut broker = state.pairing.lock().await;
         assert!(broker.redeem_nonce(&nonce, now).is_ok());
         assert!(
@@ -351,6 +343,17 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn stop_is_accepted_by_a_running_host() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let _state = running(root.path()).await;
+
+        let response = call(root.path(), &ControlRequest::Stop)
+            .await
+            .expect("stop");
+        assert_eq!(response, ControlResponse::Stopping);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn calling_without_a_running_host_reports_not_running() {
         let root = tempfile::tempdir().expect("tempdir");
         let result = call(root.path(), &ControlRequest::Status).await;
@@ -362,34 +365,38 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_malformed_request_is_answered_without_crashing_the_socket() {
-        use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
         let root = tempfile::tempdir().expect("tempdir");
         let _state = running(root.path()).await;
 
-        let stream = tokio::net::UnixStream::connect(root.path().join(CONTROL_SOCKET_NAME))
-            .await
-            .expect("connect");
-        let (reader, mut writer) = stream.into_split();
-        writer
-            .write_all(b"{\"command\":\"rmRf\"}\n")
-            .await
-            .expect("write");
-        writer.flush().await.expect("flush");
+        #[cfg(unix)]
+        {
+            use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader};
+            let stream =
+                tokio::net::UnixStream::connect(root.path().join(super::CONTROL_SOCKET_NAME))
+                    .await
+                    .expect("connect");
+            let (reader, mut writer) = stream.into_split();
+            writer
+                .write_all(b"{\"command\":\"rmRf\"}\n")
+                .await
+                .expect("write");
+            writer.flush().await.expect("flush");
 
-        let mut line = String::new();
-        BufReader::new(reader)
-            .read_line(&mut line)
-            .await
-            .expect("read");
-        let response: ControlResponse = serde_json::from_str(line.trim()).expect("json");
-        assert_eq!(
-            response,
-            ControlResponse::Error {
-                code: "malformed_request".into()
-            }
-        );
+            let mut line = String::new();
+            BufReader::new(reader)
+                .read_line(&mut line)
+                .await
+                .expect("read");
+            let response: ControlResponse = serde_json::from_str(line.trim()).expect("json");
+            assert_eq!(
+                response,
+                ControlResponse::Error {
+                    code: "malformed_request".into()
+                }
+            );
+        }
 
-        // The socket still serves the next caller.
+        // The endpoint still serves the next caller.
         let next = call(root.path(), &ControlRequest::Status).await;
         assert!(next.is_ok(), "one bad request must not kill the socket");
     }
@@ -400,7 +407,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt as _;
         let root = tempfile::tempdir().expect("tempdir");
         let _state = running(root.path()).await;
-        let mode = std::fs::metadata(root.path().join(CONTROL_SOCKET_NAME))
+        let mode = std::fs::metadata(root.path().join(super::CONTROL_SOCKET_NAME))
             .expect("metadata")
             .permissions()
             .mode();
@@ -414,7 +421,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_stale_socket_is_replaced() {
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::write(root.path().join(CONTROL_SOCKET_NAME), b"stale").expect("stale file");
+        std::fs::write(root.path().join(super::CONTROL_SOCKET_NAME), b"stale").expect("stale file");
         let _state = running(root.path()).await;
         let response = call(root.path(), &ControlRequest::Status).await;
         assert!(

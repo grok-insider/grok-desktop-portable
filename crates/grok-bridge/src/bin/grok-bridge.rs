@@ -261,8 +261,15 @@ async fn run_doctor() -> Result<(), String> {
     if let Err(error) = ensure_private_directory(&directory) {
         println!("state dir  unusable: {error}");
         if matches!(error, InstanceError::ForeignOwner) {
+            #[cfg(unix)]
             println!(
                 "           Fix: chmod 700 '{}'  (state must be owner-only)",
+                directory.display()
+            );
+            #[cfg(windows)]
+            println!(
+                "           Fix: remove '{}' and re-run so the host can recreate \
+                 an owner-only DACL",
                 directory.display()
             );
         }

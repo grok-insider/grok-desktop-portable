@@ -77,10 +77,16 @@ impl FilesystemIdentity {
         }
         #[cfg(not(unix))]
         {
-            // Windows identity lands with its own platform gate.
+            // Windows does not expose a portable inode pair on stable Metadata.
+            // Hash the canonical path so distinct directories stay distinct for
+            // enrolment bounds and swap detection until a richer ID lands.
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            path.hash(&mut hasher);
             Ok(Self {
                 device: 0,
-                inode: 0,
+                inode: hasher.finish(),
             })
         }
     }
@@ -273,7 +279,16 @@ pub fn persist(directory: &Path, index: &WorkspaceIndex) -> Result<(), Workspace
     file.write_all(encoded.as_bytes())
         .map_err(|_| WorkspaceError::Storage)?;
     file.sync_all().map_err(|_| WorkspaceError::Storage)?;
-    std::fs::rename(&temporary, &path).map_err(|_| WorkspaceError::Storage)
+    #[cfg(windows)]
+    {
+        crate::win_acl::set_owner_only(&temporary).map_err(|_| WorkspaceError::Storage)?;
+    }
+    std::fs::rename(&temporary, &path).map_err(|_| WorkspaceError::Storage)?;
+    #[cfg(windows)]
+    {
+        let _ = crate::win_acl::set_owner_only(&path);
+    }
+    Ok(())
 }
 
 #[cfg(test)]

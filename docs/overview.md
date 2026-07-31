@@ -100,12 +100,16 @@ with the same authority that CLI already has.
 
 ## Requirements
 
-- Grok Build CLI, installed and authenticated by the user, at a qualified version.
+- Grok Build CLI (**≥ 0.2.115**), installed and authenticated by the user.
+  Portable does **not** install `grok`; that is a separate product/installer.
 - A conforming browser: Chromium, or Firefox 84 or later. WebKit, including
   Safari, is unsupported — see
-  [ADR light 0008](adr/0008-supported-browser-engines.md).
-- Linux is the first qualification platform. Windows and macOS follow their own
-  gates.
+  [ADR light 0008](adr/0008-supported-browser-engines.md). Edge is fine on Windows.
+- Release assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`,
+  `grok-bridge-windows-x64.exe` (native named-pipe control plane on Windows;
+  not WSL-primary). Install via `install.sh` / `install.ps1` from the site or
+  GitHub Releases.
+- Beta lifecycle: run `grok-bridge serve` manually (no user-service autostart).
 
 Light is not an offline product: Grok Build needs its configured services to
 authenticate and produce responses.

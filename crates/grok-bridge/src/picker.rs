@@ -149,6 +149,8 @@ pub enum PickOutcome {
 mod tests {
     use super::{PickerError, uri_to_directory};
 
+    // Unix absolute `file:///` shapes; Windows `url::to_file_path` rejects them.
+    #[cfg(unix)]
     #[test]
     fn a_plain_local_file_uri_becomes_a_path() {
         assert_eq!(
@@ -157,6 +159,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn an_explicit_localhost_is_this_machine() {
         assert_eq!(
@@ -165,6 +168,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn percent_encoding_is_decoded() {
         assert_eq!(
@@ -175,6 +179,14 @@ mod tests {
             uri_to_directory("file:///tmp/caf%C3%A9").expect("path"),
             std::path::PathBuf::from("/tmp/café")
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_windows_file_uri_becomes_a_path() {
+        let path = uri_to_directory("file:///C:/Users/friend/project").expect("path");
+        assert!(path.is_absolute());
+        assert!(path.to_string_lossy().contains("project"));
     }
 
     #[test]
@@ -222,6 +234,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_scheme_relative_file_uri_normalises_to_an_absolute_path() {
         // `url` resolves `file:relative` to `/relative` rather than rejecting
@@ -233,6 +246,7 @@ mod tests {
         assert!(path.is_absolute());
     }
 
+    #[cfg(unix)]
     #[test]
     fn traversal_inside_the_uri_is_resolved_before_it_is_used() {
         // Enrolment canonicalises afterwards, but the path handed on must

@@ -14,10 +14,19 @@ fn fake_agent() -> std::path::PathBuf {
     path.pop(); // deps/
     path.pop(); // debug/
     path.push("examples");
-    path.push("fake_agent");
+    path.push(format!("fake_agent{}", std::env::consts::EXE_SUFFIX));
+    if !path.exists() {
+        // Cargo may not have built examples yet for this profile; compile once.
+        let status = std::process::Command::new(env!("CARGO"))
+            .args(["build", "-p", "grok-bridge", "--example", "fake_agent"])
+            .status()
+            .expect("spawn cargo");
+        assert!(status.success(), "cargo build --example fake_agent failed");
+    }
     assert!(
         path.exists(),
-        "build the fixture first: cargo build -p grok-bridge --example fake_agent"
+        "missing {}; run: cargo build -p grok-bridge --example fake_agent",
+        path.display()
     );
     path
 }
