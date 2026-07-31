@@ -160,9 +160,11 @@ describe("HomeView projects rail", () => {
     expect(screen.queryByText("alpha")).not.toBeInTheDocument();
   });
 
-  it("surfaces a refusal from the host", () => {
-    renderView({ error: "A session is already open." });
-    expect(screen.getByRole("alert")).toHaveTextContent(/already open/i);
+  it("surfaces a sticky host error above the project grid", () => {
+    // Ephemeral refusals (e.g. already open) use toasts; sticky errors still
+    // use this full-width alert when App passes them as `error`.
+    renderView({ error: "The Grok Build CLI stopped responding." });
+    expect(screen.getByRole("alert")).toHaveTextContent(/stopped responding/i);
   });
 
   it("disables actions while a command is in flight", () => {

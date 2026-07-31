@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { showHostToast } from "./components/HostToaster";
 import { detectBrowserSupport } from "./services/browser";
 import {
   type BridgeProbeState,
@@ -47,6 +48,7 @@ import {
   asTools,
   asWorkspaces,
   failureMessage,
+  isEphemeralFailure,
   type ContextEntry,
   type ProjectProjection,
   type ReviewProjection,
@@ -121,6 +123,11 @@ function hostErrorMessage(code: string): string {
     default:
       return `The host reported an error (${code}).`;
   }
+}
+
+/** Host WS error codes that should toast rather than pin a sticky banner. */
+function isEphemeralHostError(code: string): boolean {
+  return code === "picker_already_open" || code === "queued_prompt_failed";
 }
 
 
@@ -233,6 +240,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   /**
    * Soft error inside Work, or demote when the failure means we are no longer
    * a live paired session (ADR 0016 / docs/ui.md demotion rule).
+   *
+   * Ephemeral refusals (already open, queue full, …) are toasts: sticky
+   * banners shift layout and survive Home ↔ session navigation.
    */
   const reportClientFailure = useCallback(
     (failure: ClientFailure, fallback: string) => {
@@ -240,7 +250,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         demoteToLanding(probeAfterSessionLoss(failure));
         return;
       }
-      setRefusal(failureMessage(failure, fallback));
+      const message = failureMessage(failure, fallback);
+      if (isEphemeralFailure(failure)) {
+        showHostToast(message);
+        return;
+      }
+      setRefusal(message);
     },
     [demoteToLanding],
   );
@@ -714,6 +729,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
 
   const resumeSession = useCallback(
     (workspaceId: string, agentSessionId: string) => {
+      // Already on a tab: focus it instead of a sticky error banner.
+      if (openSessions.some((session) => session.sessionId === agentSessionId)) {
+        setRefusal(undefined);
+        setSessionId(agentSessionId);
+        showHostToast("That conversation is already open.");
+        return;
+      }
       setBusy(true);
       setSessionLoading(true);
       setRefusal(undefined);
@@ -730,10 +752,21 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             refreshWorkspaces();
             return;
           }
+          // Host says the conversation is already active (e.g. race with another
+          // tab): focus that id and toast — do not pin a layout-shifting banner.
+          if (
+            result.failure.kind === "refused" &&
+            result.failure.code === "session_already_active"
+          ) {
+            setSessionId(agentSessionId);
+            showHostToast(failureMessage(result.failure, "That conversation is already open."));
+            refreshWorkspaces();
+            return;
+          }
           reportClientFailure(result.failure, "The host could not resume that session.");
         });
     },
-    [client, refreshWorkspaces],
+    [client, openSessions, refreshWorkspaces],
   );
 
   /**
@@ -941,7 +974,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     if (envelope.event.kind === "error") {
       // A host error names no session, so every conversation that was
       // streaming is released rather than leaving one stuck showing Stop.
-      setRefusal(hostErrorMessage(envelope.event.code));
+      const hostCode = envelope.event.code;
+      const hostMessage = hostErrorMessage(hostCode);
+      if (isEphemeralHostError(hostCode)) {
+        showHostToast(hostMessage);
+      } else {
+        setRefusal(hostMessage);
+      }
       setProjections((current) =>
         Object.fromEntries(
           Object.entries(current).map(([id, value]) => [
@@ -1227,10 +1266,19 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         connected={connected}
         tabs={shellTabs}
         activeTabId={null}
-        onGoHome={() => setSessionId(null)}
-        onSelectTab={(id) => setSessionId(id)}
+        onGoHome={() => {
+          setRefusal(undefined);
+          setSessionId(null);
+        }}
+        onSelectTab={(id) => {
+          setRefusal(undefined);
+          setSessionId(id);
+        }}
         onCloseTab={closeSession}
-        onNewTab={() => setSessionId(null)}
+        onNewTab={() => {
+          setRefusal(undefined);
+          setSessionId(null);
+        }}
       >
         {connectionStrip}
         <HomeView
@@ -1444,10 +1492,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         activeSessionId={sessionId}
         sessionTitles={titles}
         onSelectSession={(id) => {
+          setRefusal(undefined);
           setSessionId(id);
         }}
         onCloseSession={closeSession}
         onLeaveSession={() => {
+          setRefusal(undefined);
           setSessionId(null);
         }}
         connectionBanner={connectionStrip}

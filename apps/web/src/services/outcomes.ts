@@ -702,3 +702,33 @@ export function refusalMessage(code: string): string {
       return "The host refused the request.";
   }
 }
+
+/**
+ * Refusals that are situational feedback, not page-level sticky errors.
+ *
+ * These must not live as full-width banners that survive Home ↔ session
+ * navigation (they break layout and show on the wrong surface). Surface them
+ * as short-lived toasts instead.
+ */
+export function isEphemeralRefusal(code: string): boolean {
+  switch (code) {
+    case "session_already_active":
+    case "too_many_sessions":
+    case "queue_full":
+    case "unknown_queue_entry":
+    case "unknown_review_record":
+    case "already_completed":
+    case "picker_already_open":
+    case "permission_not_answerable":
+    case "unknown_permission":
+    case "no_session":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** True when a client failure should be a toast, not a sticky Work banner. */
+export function isEphemeralFailure(failure: ClientFailure): boolean {
+  return failure.kind === "refused" && isEphemeralRefusal(failure.code);
+}

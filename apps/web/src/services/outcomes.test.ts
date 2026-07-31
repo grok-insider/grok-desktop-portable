@@ -3,6 +3,8 @@ import {
   asSessionChanges,
   asSessionInspector,
   failureMessage,
+  isEphemeralFailure,
+  isEphemeralRefusal,
   refusalMessage,
 } from "./outcomes";
 
@@ -107,6 +109,20 @@ describe("concurrency limits", () => {
   it("no longer claims Portable runs one conversation at a time", () => {
     // That wording predates light ADR 0011 and is now false.
     expect(refusalMessage("session_already_active")).not.toMatch(/one at a time/i);
+  });
+
+  it("classifies situational refusals as ephemeral toasts", () => {
+    expect(isEphemeralRefusal("session_already_active")).toBe(true);
+    expect(isEphemeralRefusal("picker_already_open")).toBe(true);
+    expect(isEphemeralRefusal("queue_full")).toBe(true);
+    // Sticky / page-level: keep banners or demotion, not toast-only.
+    expect(isEphemeralRefusal("agent_failed")).toBe(false);
+    expect(isEphemeralRefusal("unsupported")).toBe(false);
+    expect(isEphemeralRefusal("unknown_session")).toBe(false);
+    expect(isEphemeralFailure({ kind: "refused", code: "session_already_active" })).toBe(
+      true,
+    );
+    expect(isEphemeralFailure({ kind: "unreachable" })).toBe(false);
   });
 });
 

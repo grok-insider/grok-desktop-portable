@@ -10,6 +10,7 @@ import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "./styles.css";
 import { App } from "./App";
+import { HostToaster } from "./components/HostToaster";
 import { ThemeProvider } from "./theme/ThemeProvider";
 
 const container = document.getElementById("root");
@@ -20,6 +21,7 @@ createRoot(container).render(
   <StrictMode>
     <ThemeProvider>
       <App />
+      <HostToaster />
     </ThemeProvider>
   </StrictMode>,
 );
