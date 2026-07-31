@@ -16,6 +16,14 @@ describe("SetupView", () => {
     expect(screen.getAllByText(/grok-bridge open/i).length).toBeGreaterThan(0);
   });
 
+  it("brands the product as Grok Desktop Portable, not Grok Light", () => {
+    renderSetup(<SetupView />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      /Grok Desktop Portable/i,
+    );
+    expect(screen.queryByText(/Grok Light/i)).not.toBeInTheDocument();
+  });
+
   it("explains an expired pairing link", () => {
     renderSetup(<SetupView mode={{ kind: "failure", failure: { kind: "rejected" } }} />);
     expect(screen.getByRole("alert")).toHaveTextContent(/already used or has expired/i);

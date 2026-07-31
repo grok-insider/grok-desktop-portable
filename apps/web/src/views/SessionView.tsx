@@ -26,16 +26,16 @@ import {
   type SessionScrollMemory,
 } from "../services/transcriptScroll";
 import { SessionComposer } from "./composer/SessionComposer";
-import { SessionSidebar } from "./SessionSidebar";
 import { SessionReviewPanel } from "./SessionReviewPanel";
 import { PlanRow } from "./PlanRow";
 import { SessionRepairBanner } from "./SessionRepairBanner";
+import { ThoughtRow } from "./ThoughtRow";
 import { ToolRow } from "./ToolRow";
 import {
   checkpointPreview,
   TranscriptCheckpoints,
 } from "./TranscriptCheckpoints";
-import { WorkShell } from "../shell/WorkShell";
+import { WorkShell, type WorkShellTab } from "../shell/WorkShell";
 import type { PlanEntryProjection } from "../services/protocol";
 import type { SessionDiagnosis } from "../services/outcomes";
 
@@ -77,6 +77,12 @@ export interface ToolEntry extends Sequenced {
   truncated: boolean;
 }
 
+/** One streaming reasoning block (`thoughtDelta`), never agent answer text. */
+export interface ThoughtEntry extends Sequenced {
+  id: string;
+  text: string;
+}
+
 /**
  * An ambiguous effect awaiting human review.
  *
@@ -97,6 +103,7 @@ export type SessionPhase = "idle" | "streaming" | "interrupted";
 export function SessionView({
   transcript,
   tools,
+  thoughts = [],
   reviews,
   phase,
   plan = [],
@@ -145,6 +152,8 @@ export function SessionView({
 }: {
   transcript: TranscriptEntry[];
   tools: ToolEntry[];
+  /** Live reasoning blocks from `thoughtDelta` (not restored from history). */
+  thoughts?: ThoughtEntry[];
   reviews: ReviewRecord[];
   phase: SessionPhase;
   /** Latest agent plan steps; empty when the agent has not published one. */
@@ -248,13 +257,18 @@ export function SessionView({
     const entries = [
       ...transcript.map((entry) => ({ kind: "message" as const, entry })),
       ...tools.map((tool) => ({ kind: "tool" as const, tool })),
+      ...thoughts.map((thought) => ({ kind: "thought" as const, thought })),
     ];
     return entries.toSorted((left, right) => {
-      const a = left.kind === "message" ? left.entry.seq : left.tool.seq;
-      const b = right.kind === "message" ? right.entry.seq : right.tool.seq;
-      return a - b;
+      const seqOf = (item: (typeof entries)[number]) =>
+        item.kind === "message"
+          ? item.entry.seq
+          : item.kind === "tool"
+            ? item.tool.seq
+            : item.thought.seq;
+      return seqOf(left) - seqOf(right);
     });
-  }, [transcript, tools]);
+  }, [transcript, tools, thoughts]);
 
   const userCheckpoints = useMemo(
     () =>
@@ -432,7 +446,15 @@ export function SessionView({
     }
     endRef.current?.scrollIntoView({ block: "end" });
     requestAnimationFrame(() => rememberCurrentScroll());
-  }, [transcript.length, lastAgentText, tools.length, phase, activeSessionId]);
+  }, [
+    transcript.length,
+    lastAgentText,
+    tools.length,
+    thoughts.length,
+    thoughts.at(-1)?.text,
+    phase,
+    activeSessionId,
+  ]);
 
   /**
    * Send, or queue behind the turn in flight.
@@ -484,11 +506,25 @@ export function SessionView({
     return -1;
   })();
 
+  const tabs: WorkShellTab[] = sessions.map((session) => ({
+    sessionId: session.sessionId,
+    title: sessionTitles[session.sessionId] ?? "New conversation",
+    workspaceName: session.workspaceName,
+    running: session.running,
+    awaitingDecision: session.awaitingDecision,
+  }));
+
   return (
     <WorkShell
-      workspaceName={workspaceName}
+      surface="session"
       phase={phase}
       connected={connected}
+      tabs={tabs}
+      activeTabId={activeSessionId}
+      onGoHome={onLeaveSession}
+      onSelectTab={onSelectSession}
+      onCloseTab={onCloseSession}
+      onNewTab={onLeaveSession}
       trailing={
         <IconButton
           size="sm"
@@ -502,14 +538,6 @@ export function SessionView({
     >
       {connectionBanner}
       <div className="relative flex min-h-0 flex-1">
-        <SessionSidebar
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          titles={sessionTitles}
-          onSelect={onSelectSession}
-          onClose={onCloseSession}
-          onNew={onLeaveSession}
-        />
         <div className="relative flex min-h-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1">
             <TranscriptCheckpoints
@@ -560,9 +588,9 @@ export function SessionView({
                           : `${reviews.length} actions were interrupted`}
                       </h2>
                       <p className="text-body text-warning">
-                        Grok Light does not know whether these finished, so it will not
-                        retry them. Check the result in your workspace, then mark them
-                        reviewed.
+                        Grok Desktop Portable does not know whether these finished, so
+                        it will not retry them. Check the result in your workspace,
+                        then mark them reviewed.
                       </p>
                       <ul className="flex flex-col gap-2">
                         {reviews.map((review) => (
@@ -634,6 +662,19 @@ export function SessionView({
                   if (item.kind === "tool") {
                     return <ToolRow key={`tool-${item.tool.id}`} tool={item.tool} />;
                   }
+                  if (item.kind === "thought") {
+                    const streamingThought =
+                      phase === "streaming" &&
+                      thoughts.length > 0 &&
+                      thoughts[thoughts.length - 1]?.id === item.thought.id;
+                    return (
+                      <ThoughtRow
+                        key={`thought-${item.thought.id}`}
+                        thought={item.thought}
+                        streaming={streamingThought}
+                      />
+                    );
+                  }
                   const entry = item.entry;
                   const isUser = entry.role === "user";
                   const streamingHere =
@@ -669,28 +710,21 @@ export function SessionView({
                 </>
               )}
 
-              {onDiagnoseSession != null && onRepairSession != null && onDismissDiagnosis != null ? (
+              {/* History dry-run is automatic when the conversation settles;
+                  only paint recovery UI when there is something to act on
+                  (or after Repair / Check again). Apply remains opt-in. */}
+              {diagnosis != null &&
+              onDiagnoseSession != null &&
+              onRepairSession != null &&
+              onDismissDiagnosis != null ? (
                 <div className="mt-3 flex flex-col gap-2">
-                  {diagnosis == null ? (
-                    <div className="flex justify-end">
-                      <Button
-                        variant="ghost"
-                        onClick={onDiagnoseSession}
-                        disabled={repairBusy || sessionLoading}
-                        aria-label="Check conversation history pairing"
-                      >
-                        Check history
-                      </Button>
-                    </div>
-                  ) : (
-                    <SessionRepairBanner
-                      diagnosis={diagnosis}
-                      busy={repairBusy}
-                      onDiagnose={onDiagnoseSession}
-                      onRepair={onRepairSession}
-                      onDismiss={onDismissDiagnosis}
-                    />
-                  )}
+                  <SessionRepairBanner
+                    diagnosis={diagnosis}
+                    busy={repairBusy}
+                    onDiagnose={onDiagnoseSession}
+                    onRepair={onRepairSession}
+                    onDismiss={onDismissDiagnosis}
+                  />
                 </div>
               ) : null}
 

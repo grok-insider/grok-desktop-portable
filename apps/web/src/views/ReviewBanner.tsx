@@ -33,8 +33,8 @@ export function ReviewBanner({
         <div className="flex flex-1 flex-col gap-3">
           <p className="text-body-lg text-foreground">
             {reviews.length === 1
-              ? "One action was interrupted before Grok Light could confirm the result."
-              : `${reviews.length} actions were interrupted before Grok Light could confirm the result.`}{" "}
+              ? "One action was interrupted before Grok Desktop Portable could confirm the result."
+              : `${reviews.length} actions were interrupted before Grok Desktop Portable could confirm the result.`}{" "}
             They were not retried. Check your workspace to see what actually happened.
           </p>
           <ul className="flex flex-col gap-2">

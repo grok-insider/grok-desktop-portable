@@ -191,19 +191,94 @@ describe("SessionView", () => {
     renderView();
     const composer = screen.getByRole("textbox", { name: /message the agent/i });
     await userEvent.type(composer, "!");
-    expect(screen.getByText(/bash mode/i)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /shell command/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/enter shell command/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /run shell command/i })).toBeInTheDocument();
+  });
+
+  it("fades the left toolbar in bash mode instead of unmounting it", async () => {
+    // OpenCode technique: left cluster stays mounted (opacity 0) so the card
+    // does not jump height or reflow when entering `!`.
+    renderView({
+      models: [
+        {
+          id: "m1",
+          name: "Grok",
+          supportsReasoningEffort: true,
+          reasoningEfforts: [{ id: "default", label: "Default" }],
+        },
+      ],
+      modelId: "m1",
+      effortId: "default",
+    });
+    const left = document.querySelector('[data-composer-chrome="left-toolbar"]');
+    expect(left).toBeTruthy();
+    expect(left).not.toHaveClass("opacity-0");
+    expect(left).not.toHaveAttribute("inert");
+    expect(screen.getByRole("button", { name: /add to message/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^model$/i })).toBeEnabled();
+
+    const composer = screen.getByRole("textbox", { name: /message the agent/i });
+    await userEvent.type(composer, "!");
+    expect(left).toHaveClass("opacity-0");
+    expect(left).toHaveClass("pointer-events-none");
+    // inert must be the boolean attribute (present), never an empty-string false.
+    expect(left).toHaveAttribute("inert");
+    // aria-hidden removes these from the a11y tree; query the DOM under the
+    // faded cluster and assert they are disabled (keyboard cannot activate).
+    const plus = left?.querySelector<HTMLButtonElement>('[aria-label="Add to message"]');
+    const model = left?.querySelector<HTMLButtonElement>('[aria-label="Model"]');
+    const effort = left?.querySelector<HTMLButtonElement>('[aria-label="Reasoning effort"]');
+    expect(plus).toBeTruthy();
+    expect(model).toBeTruthy();
+    expect(effort).toBeTruthy();
+    expect(plus).toBeDisabled();
+    expect(model).toBeDisabled();
+    expect(effort).toBeDisabled();
+    // Not exposed as interactive roles while bash chrome is active.
+    expect(screen.queryByRole("button", { name: /^model$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /shell command/i })).toHaveClass("font-mono");
+
+    await userEvent.keyboard("{Backspace}");
+    expect(left).not.toHaveClass("opacity-0");
+    expect(left).not.toHaveAttribute("inert");
+    expect(screen.getByRole("button", { name: /^model$/i })).toBeEnabled();
   });
 
   it("exits bash mode with Backspace when the command body is empty (CLI parity)", async () => {
     renderView();
     const composer = screen.getByRole("textbox", { name: /message the agent/i });
     await userEvent.type(composer, "!");
-    expect(screen.getByText(/bash mode/i)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /shell command/i })).toBeInTheDocument();
     // Empty body + Backspace → Normal (same as Grok Build pager is_exit_key).
     await userEvent.keyboard("{Backspace}");
-    expect(screen.queryByText(/bash mode/i)).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /message the agent/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/ask anything/i)).toBeInTheDocument();
+  });
+
+  it("renders streaming thought blocks separate from the agent answer", () => {
+    renderView({
+      phase: "streaming",
+      thoughts: [
+        { id: "th-1", text: "Considering the river bend…", seq: 1 },
+      ],
+      transcript: [
+        { id: "a-1", role: "agent", text: "Here is the story.", seq: 2 },
+      ],
+    });
+    expect(screen.getByLabelText(/thinking/i)).toBeInTheDocument();
+    expect(screen.getByText(/Considering the river bend/i)).toBeInTheDocument();
+    expect(screen.getByText("Here is the story.")).toBeInTheDocument();
+  });
+
+  it("labels finished thought blocks as Thought, not Thinking", () => {
+    renderView({
+      phase: "idle",
+      thoughts: [{ id: "th-2", text: "Finished reasoning.", seq: 1 }],
+      transcript: [],
+    });
+    expect(screen.getByLabelText(/^thought$/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/thinking/i)).not.toBeInTheDocument();
   });
 
   it("shows model and effort selectors when the host projects them", () => {
@@ -243,9 +318,23 @@ describe("SessionView", () => {
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
   });
 
-  it("shows the workspace display name in the header, never as a path", () => {
-    renderView({ workspaceName: "test" });
-    expect(screen.getAllByText("test").length).toBeGreaterThan(0);
+  it("puts the workspace display name on the open-conversation tab, never as a path", () => {
+    renderView({
+      workspaceName: "test",
+      activeSessionId: "s-1",
+      sessionTitles: { "s-1": "Ship the landing page" },
+      sessions: [
+        {
+          sessionId: "s-1",
+          workspaceId: "w-1",
+          workspaceName: "test",
+          running: false,
+          openedAtMs: 1,
+        },
+      ],
+    });
+    const tab = screen.getByRole("tab", { name: /ship the landing page/i });
+    expect(tab).toHaveAttribute("title", "Ship the landing page · test");
     expect(screen.queryByText(/\/home\//)).not.toBeInTheDocument();
   });
 
@@ -302,12 +391,56 @@ describe("SessionView", () => {
     expect(screen.queryByRole("listbox", { name: /mcp integrations/i })).not.toBeInTheDocument();
   });
 
-  it("offers a + control that inserts an @ file mention", async () => {
+  it("offers a + menu for files, commands, context, and shell", async () => {
     renderView();
     const composer = screen.getByRole("textbox", { name: /message the agent/i });
     await userEvent.type(composer, "see ");
-    await userEvent.click(screen.getByRole("button", { name: /add workspace file mention/i }));
+    await userEvent.click(screen.getByRole("button", { name: /add to message/i }));
+    expect(screen.getByRole("menu", { name: /add to message/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /images and files/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /commands/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /context/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /shell command/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("menuitem", { name: /context/i }));
     expect(composer).toHaveValue("see @");
+  });
+
+  it("enters bash mode from the + menu without relying on typing !", async () => {
+    renderView();
+    await userEvent.click(screen.getByRole("button", { name: /add to message/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /shell command/i }));
+    expect(screen.getByRole("textbox", { name: /shell command/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/enter shell command/i)).toBeInTheDocument();
+  });
+  it("uses custom listboxes for model and effort, not bare native selects", async () => {
+    renderView({
+      models: [
+        {
+          id: "grok-4",
+          name: "Grok 4.5",
+          supportsReasoningEffort: true,
+          reasoningEfforts: [
+            { id: "high", label: "High Effort" },
+            { id: "low", label: "Low Effort" },
+          ],
+        },
+      ],
+      modelId: "grok-4",
+      effortId: "high",
+    });
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^model$/i }));
+    expect(screen.getByRole("listbox", { name: /^model$/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /grok 4\.5/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // Close model menu first so effort is the open listbox.
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: /reasoning effort/i }));
+    expect(screen.getByRole("listbox", { name: /reasoning effort/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /low effort/i })).toBeInTheDocument();
   });
 
   it("offers conversation checkpoints for each user turn", async () => {
