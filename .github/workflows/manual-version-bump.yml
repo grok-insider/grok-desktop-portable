@@ -112,14 +112,6 @@ jobs:
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
           project-description: "Local grok-bridge for Grok Desktop Portable: Work UI over loopback to the user's Grok Build CLI"
 
-      - name: Normalize the changelog heading (Keep a Changelog)
-        if: ${{ !inputs.dry_run }}
-        env:
-          NEXT: ${{ steps.version.outputs.next }}
-        run: |
-          set -euo pipefail
-          sed -i -E "0,/^##[[:space:]]+\[?${NEXT}\]?([[:space:]].*)?$/s//## [${NEXT}] - $(date -u +%F)/" CHANGELOG.md
-
       - name: Show dry-run diff
         if: ${{ inputs.dry_run }}
         run: git diff -- Cargo.toml Cargo.lock
