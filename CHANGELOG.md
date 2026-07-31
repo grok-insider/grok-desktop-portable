@@ -4,6 +4,21 @@ All notable, user-facing changes to Grok Desktop Portable are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-07-31
+
+- style: rustfmt events_socket test
+- fix(test): connect events_socket via 127.0.0.1 for Windows CI
+- fix(ci): build fake_agent with EXE_SUFFIX for Windows tests
+- fix(bridge): make unit tests and Windows identity portable
+- docs: ship-min multiplatform install and prereq messaging
+- fix(bridge): make Windows owner-only DACL verification work
+- fix(bridge): make Windows control plane compile and test cleanly
+- ci(release): ship native Windows grok-bridge-windows-x64.exe
+- feat(bridge): kill Windows ACP process tree via job object
+- feat(bridge): Windows owner-only state directory ACLs
+- feat(bridge): Windows named-pipe control plane with Unix UDS path
+- fix(ci): release checksums without a git checkout
+
 ## [0.1.0] - 2026-07-30
 
 First stable public line of the local **grok-bridge** (Work UI for the user's
