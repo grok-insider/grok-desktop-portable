@@ -53,16 +53,21 @@ See [AGENTS.md](AGENTS.md).
 
 ## First run
 
+`grok` must already be on your `PATH` and authenticated (separate from this
+installer). There is **no autostart** in this beta: keep `serve` running yourself.
+A bookmark cannot start a stopped host.
+
 ```sh
 grok-bridge doctor
 grok-bridge serve          # leave running
-grok-bridge open           # prints https://desktop.grok.me/#pair=… (once implemented)
+grok-bridge open           # prints https://desktop.grok.me/#pair=…
 ```
 
-Then open **https://desktop.grok.me**, allow local network if prompted, complete
-pairing, and work. Without a running bridge the site shows **landing only**.
+Open the pair URL in **Chrome or Firefox 84+** (Edge OK on Windows; Safari
+unsupported), allow local network if prompted, complete pairing, and work.
+Without a running bridge the site shows **landing only**.
 
-Enrol a workspace if needed:
+Enrol a workspace if needed (Linux may also use the in-UI folder picker):
 
 ```sh
 grok-bridge workspace add /path/to/project

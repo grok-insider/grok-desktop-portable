@@ -350,9 +350,9 @@ jobs:
 
           Verify SHA-256 against `checksums.txt`. Builds are unsigned FOSS.
 
-          Requirements: Grok Build CLI ≥ 0.2.115, Chromium or Firefox 84+ (Edge OK on Windows).
-          Safari is unsupported. Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`,
-          `grok-bridge-windows-x64.exe`. Native Windows (named pipes + `grok.exe`); not WSL-primary.
+          Requirements: Grok Build CLI ≥ 0.2.115 (install and auth separately — Portable does not install `grok`), Chromium or Firefox 84+ (Edge OK on Windows).
+          Safari/WebKit is unsupported. No autostart: run `grok-bridge serve` yourself. Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`,
+          `grok-bridge-windows-x64.exe`. Native Windows (named pipes); not WSL-primary.
           EOF
           )"
           # Strip leading spaces from heredoc indent for cleaner body.

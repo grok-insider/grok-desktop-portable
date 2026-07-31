@@ -139,9 +139,12 @@ esac
 
 echo
 echo "Next:"
-echo "  1. Install and authenticate the Grok Build CLI (grok)."
+echo "  1. Install and authenticate the Grok Build CLI (grok) separately — version ≥ 0.2.115."
+echo "     Portable does not install grok; its PATH is owned by that CLI's installer."
 echo "  2. ${BIN_NAME} doctor"
-echo "  3. ${BIN_NAME} serve"
-echo "  4. ${BIN_NAME} open   # in another terminal; open the URL in Chrome/Firefox"
+echo "  3. ${BIN_NAME} serve   # leave running (no autostart in this beta)"
+echo "  4. ${BIN_NAME} open   # other terminal; open the URL in Chrome or Firefox 84+"
+echo "     Safari/WebKit is unsupported. On Windows Edge is OK."
 echo
+echo "Assets: grok-bridge-linux-x64, grok-bridge-darwin-arm64, grok-bridge-windows-x64.exe"
 echo "Unsigned FOSS build — prefer verifying checksums and source tags."
