@@ -146,6 +146,7 @@ prompt shown in another.
 | `LoadSession` | no | yes |
 | `GetSessionInspector` | no | no |
 | `GetSessionChanges` | no | no |
+| `GetBackgroundTaskOutput` | no | no |
 
 | `CreateSession` | yes | yes |
 | `CreateSideChat` | yes | yes |
