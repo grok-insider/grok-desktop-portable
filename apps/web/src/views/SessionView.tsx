@@ -38,6 +38,7 @@ import {
 import { WorkShell, type WorkShellTab } from "../shell/WorkShell";
 import type {
   PlanEntryProjection,
+  SnapshotBackgroundTask,
   SnapshotMember,
   SnapshotWorkflow,
 } from "../services/protocol";
@@ -114,6 +115,7 @@ export function SessionView({
   plan = [],
   members = [],
   workflows = [],
+  backgroundTasks = [],
   sessionLoading = false,
   diagnosis = null,
   repairBusy = false,
@@ -169,6 +171,8 @@ export function SessionView({
   members?: SnapshotMember[];
   /** Workflow runs under this session (from sessionSnapshot). */
   workflows?: SnapshotWorkflow[];
+  /** Background bash/monitor tasks (CLI Tasks pane). */
+  backgroundTasks?: SnapshotBackgroundTask[];
   /** True while create/load is in flight so the empty state does not flash. */
   sessionLoading?: boolean;
   /** Optional history-pairing diagnosis for this conversation. */
@@ -656,14 +660,19 @@ export function SessionView({
               ) : null}
 
               <div className="mb-3">
-                <WorkflowStrip workflows={workflows} members={members} />
+                <WorkflowStrip
+                  workflows={workflows}
+                  members={members}
+                  backgroundTasks={backgroundTasks}
+                />
               </div>
 
               {sessionLoading &&
               timeline.length === 0 &&
               plan.length === 0 &&
               workflows.length === 0 &&
-              members.length === 0 ? (
+              members.length === 0 &&
+              backgroundTasks.length === 0 ? (
                 <EmptyState
                   icon={<MessagesSquare size={24} />}
                   title="Opening conversation…"
@@ -672,7 +681,8 @@ export function SessionView({
               ) : timeline.length === 0 &&
                 plan.length === 0 &&
                 workflows.length === 0 &&
-                members.length === 0 ? (
+                members.length === 0 &&
+                backgroundTasks.length === 0 ? (
                 <EmptyState
                   icon={<MessagesSquare size={24} />}
                   title="No messages yet"

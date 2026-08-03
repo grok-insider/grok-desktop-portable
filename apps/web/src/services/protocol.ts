@@ -166,6 +166,34 @@ export interface SnapshotWorkflow {
   resultSummary?: string;
 }
 
+/** Background bash/monitor task (CLI Tasks pane). */
+export type BackgroundTaskKind = "bash" | "monitor";
+
+/** Lifecycle of a background task. */
+export type BackgroundTaskStatus =
+  | "running"
+  | "killing"
+  | "completed"
+  | "failed";
+
+/** One background task row (no filesystem paths). */
+export interface SnapshotBackgroundTask {
+  taskId: string;
+  toolCallId?: string;
+  kind: BackgroundTaskKind;
+  status: BackgroundTaskStatus;
+  title?: string;
+  command?: string;
+  startedAtMs: number;
+  endedAtMs?: number;
+  elapsedMs: number;
+  exitCode?: number;
+  signal?: string;
+  lineCount?: number;
+  truncated?: boolean;
+  restoredFromReplay?: boolean;
+}
+
 /** Server-to-client events. */
 export type LightEvent =
   | { kind: "hostStatus"; state: string }
@@ -189,6 +217,13 @@ export type LightEvent =
       members?: SnapshotMember[];
       /** Workflow runs under this session. */
       workflows?: SnapshotWorkflow[];
+      /** Background bash/monitor tasks (CLI Tasks pane). */
+      backgroundTasks?: SnapshotBackgroundTask[];
+    }
+  | {
+      kind: "backgroundTaskUpdated";
+      sessionId: string;
+      task: SnapshotBackgroundTask;
     }
   | { kind: "sessionStatus"; sessionId: string; state: string }
   | { kind: "messageDelta"; sessionId: string; text: string }

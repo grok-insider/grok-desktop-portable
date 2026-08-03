@@ -547,6 +547,17 @@ pub enum Event {
         /// Workflow runs under this session (`workflows/*/state.json`).
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         workflows: Vec<SnapshotWorkflow>,
+        /// Background bash/monitor tasks for this session (CLI Tasks pane).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        background_tasks: Vec<SnapshotBackgroundTask>,
+    },
+    /// A background task started, progressed, or finished.
+    #[serde(rename_all = "camelCase")]
+    BackgroundTaskUpdated {
+        /// Session that owns the task.
+        session_id: String,
+        /// Full upsert projection (no paths).
+        task: SnapshotBackgroundTask,
     },
     /// Session lifecycle transition.
     #[serde(rename_all = "camelCase")]
@@ -783,6 +794,77 @@ pub struct SnapshotWorkflowPhase {
     pub title: String,
     /// Closed-ish state: `pending`, `active`, `done` (derived on the host).
     pub state: String,
+}
+
+/// Kind of background task (CLI Tasks vs Watchers).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundTaskKind {
+    /// Ordinary background bash / `run_terminal_command` with background true.
+    Bash,
+    /// `monitor` tool long-running watcher.
+    Monitor,
+}
+
+/// Lifecycle status of a background task (CLI `BgTaskStatus` + killing).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundTaskStatus {
+    /// Process still running.
+    Running,
+    /// Kill requested; awaiting `task_completed`.
+    Killing,
+    /// Exit 0 / success.
+    Completed,
+    /// Non-zero exit, signal, or failure.
+    Failed,
+}
+
+/// One background task row for snapshot / live events (no filesystem paths).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotBackgroundTask {
+    /// Opaque task id from the agent.
+    pub task_id: String,
+    /// Correlated tool call id when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    /// Bash vs monitor.
+    pub kind: BackgroundTaskKind,
+    /// Lifecycle status.
+    pub status: BackgroundTaskStatus,
+    /// Display title (description preferred over command).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    /// Truncated command line.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub command: String,
+    /// Host clock when the task started (ms since epoch).
+    pub started_at_ms: u64,
+    /// Host clock when the task ended, if terminal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ended_at_ms: Option<u64>,
+    /// Elapsed ms (end or now − start).
+    pub elapsed_ms: u64,
+    /// Process exit code when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    /// Signal name when killed by signal.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub signal: String,
+    /// Bounded stdout line count for a badge.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub line_count: u32,
+    /// Whether stdout is incomplete.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
+    /// Restored from history replay (do not treat as new activity).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub restored_from_replay: bool,
+}
+
+fn is_zero_u32(value: &u32) -> bool {
+    *value == 0
 }
 
 /// One workflow run under a parent session (from `workflows/*/state.json`).

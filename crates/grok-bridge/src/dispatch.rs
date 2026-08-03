@@ -471,6 +471,8 @@ pub struct SessionState {
     /// One at a time: a second request must not stack dialogs on the user's
     /// desktop.
     pub picker_open: bool,
+    /// Background tasks (and later other runtime) per open agent session.
+    pub runtime: crate::session_runtime::RuntimeRegistry,
 }
 
 impl SessionState {

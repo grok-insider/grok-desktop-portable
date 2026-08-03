@@ -620,9 +620,38 @@ pub fn snapshot_from_rehydrate_in(
     session_id: String,
     restored: RehydratedSession,
 ) -> crate::protocol::Event {
+    snapshot_from_rehydrate_with_runtime(home, cwd, session_id, restored, Vec::new())
+}
+
+/// Snapshot with live runtime tasks merged after disk hierarchy.
+///
+/// Live tasks (from the open agent) override rehydrated ones with the same id.
+#[must_use]
+pub fn snapshot_from_rehydrate_with_runtime(
+    home: &Path,
+    cwd: Option<&Path>,
+    session_id: String,
+    restored: RehydratedSession,
+    live_tasks: Vec<crate::protocol::SnapshotBackgroundTask>,
+) -> crate::protocol::Event {
     let (members, workflows) = cwd
         .map(|cwd| project_session_hierarchy(home, cwd, &session_id))
         .unwrap_or_default();
+    let mut background_tasks = cwd
+        .map(|cwd| rehydrate_background_tasks(home, cwd, &session_id))
+        .unwrap_or_default();
+    // Live state wins over disk replay for the same task id.
+    for task in live_tasks {
+        if let Some(existing) = background_tasks
+            .iter_mut()
+            .find(|t| t.task_id == task.task_id)
+        {
+            *existing = task;
+        } else {
+            background_tasks.push(task);
+        }
+    }
+    background_tasks.sort_by(|a, b| b.started_at_ms.cmp(&a.started_at_ms));
     crate::protocol::Event::SessionSnapshot {
         session_id,
         messages: restored
@@ -651,7 +680,96 @@ pub fn snapshot_from_rehydrate_in(
             .collect(),
         members,
         workflows,
+        background_tasks,
     }
+}
+
+/// Rebuild background task rows from on-disk `updates.jsonl` Xai envelopes.
+#[must_use]
+pub fn rehydrate_background_tasks(
+    home: &Path,
+    cwd: &Path,
+    session_id: &str,
+) -> Vec<crate::protocol::SnapshotBackgroundTask> {
+    use crate::session_runtime::SessionRuntime;
+    use crate::xai_runtime::{RuntimeAction, decode_notification};
+
+    let encoded = encode_cwd_dirname(&cwd.to_string_lossy());
+    let updates = home
+        .join("sessions")
+        .join(encoded)
+        .join(session_id)
+        .join("updates.jsonl");
+    let Ok(raw) = fs::read_to_string(updates) else {
+        return Vec::new();
+    };
+
+    let mut runtime = SessionRuntime::default();
+    let now = crate::now_ms();
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let method = value
+            .get("method")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        let params = value
+            .get("params")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        // Some journals store the notification body at the top level.
+        let params = if params.is_null() {
+            value.clone()
+        } else {
+            params
+        };
+        let Some(action) = decode_notification(method, &params) else {
+            continue;
+        };
+        match action {
+            RuntimeAction::TaskBackgrounded { record, .. } => {
+                let mut record = record;
+                record.restored_from_replay = true;
+                runtime.upsert_running(record);
+            }
+            RuntimeAction::TaskCompleted {
+                task_id,
+                status,
+                exit_code,
+                signal,
+                ..
+            } => {
+                if !runtime.tasks.contains_key(&task_id) {
+                    runtime.upsert_running(crate::session_runtime::TaskRecord {
+                        task_id: task_id.clone(),
+                        tool_call_id: None,
+                        kind: crate::protocol::BackgroundTaskKind::Bash,
+                        status: crate::protocol::BackgroundTaskStatus::Running,
+                        title: task_id.clone(),
+                        command: String::new(),
+                        started_at_ms: now.saturating_sub(1),
+                        ended_at_ms: None,
+                        exit_code: None,
+                        signal: None,
+                        line_count: 0,
+                        truncated: false,
+                        output_path: None,
+                        restored_from_replay: true,
+                    });
+                }
+                runtime.complete(&task_id, status, now, exit_code, signal);
+                if let Some(task) = runtime.tasks.get_mut(&task_id) {
+                    task.restored_from_replay = true;
+                }
+            }
+        }
+    }
+    runtime.snapshot_tasks(now)
 }
 
 /// Parent-scoped members + workflows for one session (host-only read).

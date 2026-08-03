@@ -30,6 +30,8 @@
 //! - [`journal`] — intent before effect, idempotency, event cursor, and
 //!   `interrupted_needs_review`.
 //! - [`projection`] — pure ACP `session/update` → `light.local.v1` events.
+//! - [`xai_runtime`] — pure decode of `x.ai/task_*` (and related) notifications.
+//! - [`session_runtime`] — host-side tasks/workflows runtime bag per session.
 //! - [`cli_matrix`] — qualified Grok Build CLI version floor (product integrity).
 //! - [`repair`] — out-of-band session history repair (light ADR 0015).
 
@@ -56,8 +58,10 @@ pub mod repair;
 pub mod review;
 pub mod server;
 pub mod session_catalog;
+pub mod session_runtime;
 pub mod state;
 pub mod tools;
+pub mod xai_runtime;
 #[cfg(windows)]
 pub mod win_acl;
 #[cfg(windows)]

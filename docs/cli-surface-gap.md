@@ -75,10 +75,10 @@ From CLI tool runtime + pager:
 
 | Mechanism | CLI presentation | Bridge today |
 |-----------|------------------|--------------|
-| Bash moved to background | `BashExecutionBackgrounded` / task id; poll via tools | Not projected; tool row may end as completed/failed only |
-| Monitor / long process | Streaming monitor events | Dropped |
-| Subagents | Spawned / finished ext protocol; compaction reminders | Dropped |
-| Workflows | Full phase UI, agent budget, pause/resume | Dropped |
+| Bash moved to background | `BashExecutionBackgrounded` / task id; poll via tools | **Live + snapshot** via `x.ai/task_*` → `backgroundTaskUpdated` / `sessionSnapshot.backgroundTasks` (kill/output ops follow) |
+| Monitor / long process | Streaming monitor events | Kind=`monitor` on task events; full watcher stream later |
+| Subagents | Spawned / finished ext protocol; compaction reminders | Catalog filter + member roster on snapshot; live `subagent_*` still partial |
+| Workflows | Full phase UI, agent budget, pause/resume | Snapshot/workflows strip; live `workflow_updated` still partial |
 | ACP `plan` | Checklist of steps | **Shown** (`PlanRow`) |
 | Compaction “still running tasks” | Injected system reminder | N/A in browser |
 

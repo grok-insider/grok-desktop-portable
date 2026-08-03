@@ -10,6 +10,7 @@
 import type {
   EventEnvelope,
   PlanEntryProjection,
+  SnapshotBackgroundTask,
   SnapshotMember,
   SnapshotWorkflow,
 } from "./protocol";
@@ -35,6 +36,8 @@ export interface Projection {
   members: SnapshotMember[];
   /** Workflow runs under this session. */
   workflows: SnapshotWorkflow[];
+  /** Background bash/monitor tasks (CLI Tasks). */
+  backgroundTasks: SnapshotBackgroundTask[];
 }
 
 /** Empty projection used before any event and after a hard reset. */
@@ -47,6 +50,7 @@ export const EMPTY_PROJECTION: Projection = {
   plan: [],
   members: [],
   workflows: [],
+  backgroundTasks: [],
 };
 
 /**
@@ -243,6 +247,9 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
       const workflows = (event.workflows ?? []).filter(
         (workflow) => typeof workflow.runId === "string" && workflow.runId.length > 0,
       );
+      const backgroundTasks = (event.backgroundTasks ?? []).filter(
+        (task) => typeof task.taskId === "string" && task.taskId.length > 0,
+      );
       return {
         transcript: restored.map((message, index) => ({
           id: `restored-${index}`,
@@ -276,6 +283,18 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
         plan: [],
         members,
         workflows,
+        backgroundTasks,
+      };
+    }
+    case "backgroundTaskUpdated": {
+      const task = event.task;
+      if (!task || typeof task.taskId !== "string" || task.taskId.length === 0) {
+        return current;
+      }
+      const without = current.backgroundTasks.filter((t) => t.taskId !== task.taskId);
+      return {
+        ...current,
+        backgroundTasks: [task, ...without],
       };
     }
     // Handled before the fold, in App.handleEvent, because they change host or

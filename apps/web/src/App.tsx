@@ -299,10 +299,11 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     // loopback SPA (empty default base), probe same-origin so a missing pair
     // nonce becomes "needs pairing" instead of a false "bridge missing".
     const resolved = client.bridgeBaseUrl || resolveBridgeBaseUrl();
+    // Same-origin probe only for the embedded SPA hosts — not bare
+    // `localhost` (jsdom tests and unrelated dev servers use that name).
     const onLoopbackDocument =
       typeof location !== "undefined" &&
       (location.hostname === "127.0.0.1" ||
-        location.hostname === "localhost" ||
         location.hostname === "[::1]" ||
         location.hostname.endsWith(".grok-light.localhost"));
     const base =
@@ -1407,6 +1408,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         plan={shown.plan}
         members={shown.members}
         workflows={shown.workflows}
+        backgroundTasks={shown.backgroundTasks}
         connected={connected}
         sessionLoading={sessionLoading}
         diagnosis={activeDiagnosis}

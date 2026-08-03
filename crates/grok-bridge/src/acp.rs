@@ -206,8 +206,19 @@ pub const SESSION_UPDATE: &str = "session/update";
 /// Something the agent sent that the host must act on.
 #[derive(Debug)]
 pub enum AgentEvent {
-    /// A streaming session update notification.
+    /// A streaming session update notification (`session/update`).
     Update(Value),
+    /// An extension notification (`x.ai/*` or `_x.ai/*`).
+    ///
+    /// The host classifies known methods (tasks, workflows, …) and drops the
+    /// rest. Carrying method + params keeps NotificationHub open for new kinds
+    /// without growing the enum per method.
+    ExtNotification {
+        /// JSON-RPC method name as the agent sent it.
+        method: String,
+        /// Raw params object.
+        params: Value,
+    },
     /// The agent asked for a permission decision and awaits an answer.
     PermissionRequest {
         /// JSON-RPC id the answer must carry.
@@ -558,6 +569,13 @@ async fn read_loop(
             Some(AgentEvent::Update(
                 message.get("params").cloned().unwrap_or(Value::Null),
             ))
+        } else if is_ext_notification_method(method) {
+            // NotificationHub: every x.ai extension rides one variant so new
+            // runtime surfaces (tasks, workflows, …) do not fork the reader.
+            Some(AgentEvent::ExtNotification {
+                method: method.to_owned(),
+                params: message.get("params").cloned().unwrap_or(Value::Null),
+            })
         } else {
             None
         };
@@ -573,6 +591,17 @@ async fn read_loop(
     // outcome, and the host must classify it while the turn is still fresh.
     pending.lock().await.clear();
     let _ = events.send(AgentEvent::Exited).await;
+}
+
+/// Whether a JSON-RPC method is an agent extension notification we may decode.
+///
+/// Accepts both `x.ai/…` and `_x.ai/…` (stdio transport sometimes underscores
+/// extension methods). Unknown methods under that prefix still become
+/// [`AgentEvent::ExtNotification`] and are dropped later by the runtime
+/// decoder — better than never seeing them.
+fn is_ext_notification_method(method: &str) -> bool {
+    let normalized = method.strip_prefix('_').unwrap_or(method);
+    normalized.starts_with("x.ai/")
 }
 
 /// A supervised agent child speaking ACP over stdio.

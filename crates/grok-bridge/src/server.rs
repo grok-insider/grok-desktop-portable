@@ -498,21 +498,92 @@ impl HostState {
     async fn replay_open_sessions(&self) {
         let open = self.session.lock().await.sessions_to_replay();
 
+        let now = crate::now_ms();
         for (session_id, path) in open {
             let restored = crate::session_catalog::rehydrate_session(&path, &session_id);
-            if !crate::session_catalog::rehydrate_has_content(&restored) {
+            let live_tasks = self
+                .session
+                .lock()
+                .await
+                .runtime
+                .session(&session_id)
+                .map(|rt| rt.snapshot_tasks(now))
+                .unwrap_or_default();
+            if !crate::session_catalog::rehydrate_has_content(&restored) && live_tasks.is_empty()
+            {
                 continue;
             }
             self.emit_event(
-                crate::session_catalog::snapshot_from_rehydrate_in(
+                crate::session_catalog::snapshot_from_rehydrate_with_runtime(
                     &crate::session_catalog::grok_home(),
                     Some(path.as_path()),
                     session_id,
                     restored,
+                    live_tasks,
                 ),
                 None,
             )
             .await;
+        }
+    }
+
+    /// Fold an `x.ai/*` extension notification into runtime state + SPA events.
+    async fn absorb_ext_notification(&self, method: &str, params: &serde_json::Value) {
+        use crate::xai_runtime::{RuntimeAction, decode_notification};
+
+        let Some(action) = decode_notification(method, params) else {
+            return;
+        };
+        let now = crate::now_ms();
+        let projected = {
+            let mut state = self.session.lock().await;
+            match action {
+                RuntimeAction::TaskBackgrounded { session_id, record } => {
+                    let task_id = record.task_id.clone();
+                    let runtime = state.runtime.session_mut(&session_id);
+                    runtime.upsert_running(record);
+                    runtime
+                        .tasks
+                        .get(&task_id)
+                        .map(|t| (session_id, t.to_snapshot(now)))
+                }
+                RuntimeAction::TaskCompleted {
+                    session_id,
+                    task_id,
+                    status,
+                    exit_code,
+                    signal,
+                } => {
+                    // Ensure a record exists even if we missed backgrounded
+                    // (replay edge cases / version skew).
+                    let runtime = state.runtime.session_mut(&session_id);
+                    if !runtime.tasks.contains_key(&task_id) {
+                        runtime.upsert_running(crate::session_runtime::TaskRecord {
+                            task_id: task_id.clone(),
+                            tool_call_id: None,
+                            kind: crate::protocol::BackgroundTaskKind::Bash,
+                            status: crate::protocol::BackgroundTaskStatus::Running,
+                            title: task_id.clone(),
+                            command: String::new(),
+                            started_at_ms: now,
+                            ended_at_ms: None,
+                            exit_code: None,
+                            signal: None,
+                            line_count: 0,
+                            truncated: false,
+                            output_path: None,
+                            restored_from_replay: false,
+                        });
+                    }
+                    runtime
+                        .complete(&task_id, status, now, exit_code, signal)
+                        .map(|t| (session_id, t.to_snapshot(now)))
+                }
+            }
+        };
+        if let Some((session_id, task)) = projected {
+            self.emit_event(Event::BackgroundTaskUpdated { session_id, task }, None)
+                .await;
         }
     }
 
@@ -550,6 +621,9 @@ impl HostState {
                 if let Some(event) = crate::projection::session_update_event(&params) {
                     self.emit_event(event, None).await;
                 }
+            }
+            AgentEvent::ExtNotification { method, params } => {
+                self.absorb_ext_notification(&method, &params).await;
             }
             AgentEvent::PermissionRequest { request_id, params } => {
                 let offered: Vec<String> = params
@@ -604,6 +678,8 @@ impl HostState {
                 .await;
             }
             AgentEvent::Exited => {
+                // Runtime state is process-scoped with the agent.
+                self.session.lock().await.runtime.clear();
                 // One agent process holds every session (light ADR 0011), so
                 // its death is not one conversation's problem: each that had
                 // work in flight is left ambiguous, and none can be prompted
@@ -1244,21 +1320,28 @@ async fn apply_command_effects(
             .unwrap_or_default();
         // Parent-scoped members/workflows need the workspace cwd; resolve from
         // the open session's enrolled workspace when present.
-        let cwd = {
+        let (cwd, live_tasks) = {
             let guard = state.session.lock().await;
-            guard
+            let cwd = guard
                 .sessions
                 .get(&session_id)
                 .and_then(|live| guard.workspaces.get(&live.workspace_id))
-                .map(|ws| ws.path.clone())
+                .map(|ws| ws.path.clone());
+            let live_tasks = guard
+                .runtime
+                .session(&session_id)
+                .map(|rt| rt.snapshot_tasks(crate::now_ms()))
+                .unwrap_or_default();
+            (cwd, live_tasks)
         };
         state
             .emit_event(
-                crate::session_catalog::snapshot_from_rehydrate_in(
+                crate::session_catalog::snapshot_from_rehydrate_with_runtime(
                     &crate::session_catalog::grok_home(),
                     cwd.as_deref(),
                     session_id.clone(),
                     restored,
+                    live_tasks,
                 ),
                 None,
             )
