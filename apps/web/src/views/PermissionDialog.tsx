@@ -28,10 +28,13 @@ export function PermissionDialog({
   prompt,
   onDecide,
   busy,
+  sessionLabel,
 }: {
   prompt: PermissionPrompt;
   onDecide: (optionId: RenderableOption) => void;
   busy: boolean;
+  /** Which conversation raised this request (primary vs side chat title). */
+  sessionLabel?: string;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const options = renderableOptions(prompt.options);
@@ -65,8 +68,10 @@ export function PermissionDialog({
               The agent is asking permission
             </h2>
             <p id="permission-body" className="text-body text-muted-foreground">
-              This decision applies to this request only. Grok Desktop Portable
-              cannot grant standing permission.
+              {sessionLabel === undefined
+                ? "This decision applies to this request only."
+                : `In “${sessionLabel}” — this decision applies to this request only.`}{" "}
+              Grok Desktop Portable cannot grant standing permission.
             </p>
           </div>
         </div>

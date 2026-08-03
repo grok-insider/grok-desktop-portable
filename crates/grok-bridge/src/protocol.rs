@@ -6,8 +6,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::bounds::{MAX_CONTEXT_QUERY_BYTES, MAX_DEADLINE_MS, MAX_OPAQUE_ID_BYTES};
+use crate::bounds::{
+    MAX_CLIP_BYTES, MAX_CLIPS_PER_SIDE, MAX_CONTEXT_QUERY_BYTES, MAX_DEADLINE_MS,
+    MAX_OPAQUE_ID_BYTES, MAX_SIDE_CHAT_TITLE_BYTES,
+};
 use crate::review::ChangeMode;
+use crate::session_graph::ClipInput;
 
 /// Wire version of this protocol.
 pub const PROTOCOL_VERSION: u32 = 2;
@@ -162,6 +166,34 @@ pub enum Operation {
         /// Opaque workspace identifier. Never a filesystem path.
         workspace_id: String,
     },
+    /// Create a user side chat under an open primary session (light ADR 0019).
+    #[serde(rename_all = "camelCase")]
+    CreateSideChat {
+        /// Open primary session that owns the dock.
+        parent_session_id: String,
+        /// Optional title for the side tab.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        /// Optional context clips (selection text). Bounded by the host.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        clips: Vec<ClipInput>,
+    },
+    /// Attach more context clips to an open side chat.
+    #[serde(rename_all = "camelCase")]
+    AttachClips {
+        /// Side-chat session id.
+        session_id: String,
+        /// Clips to append (host-bounded).
+        clips: Vec<ClipInput>,
+    },
+    /// Remove one context clip from a side chat.
+    #[serde(rename_all = "camelCase")]
+    RemoveClip {
+        /// Side-chat session id.
+        session_id: String,
+        /// Host-assigned clip id.
+        clip_id: String,
+    },
     /// Send a prompt to the active session.
     #[serde(rename_all = "camelCase")]
     Prompt {
@@ -271,6 +303,9 @@ impl Operation {
                 | Self::SetSessionModel { .. }
                 | Self::DecidePermission { .. }
                 | Self::CreateSession { .. }
+                | Self::CreateSideChat { .. }
+                | Self::AttachClips { .. }
+                | Self::RemoveClip { .. }
                 | Self::LoadSession { .. }
                 | Self::CancelTurn { .. }
                 | Self::CloseSession { .. }
@@ -290,6 +325,9 @@ impl Operation {
                 | Self::RemoveQueued { .. }
                 | Self::DecidePermission { .. }
                 | Self::CreateSession { .. }
+                | Self::CreateSideChat { .. }
+                | Self::AttachClips { .. }
+                | Self::RemoveClip { .. }
                 | Self::LoadSession { .. }
                 | Self::CancelTurn { .. }
                 | Self::CloseSession { .. }
@@ -324,6 +362,9 @@ impl Operation {
             Self::ListSessions { .. } => "ListSessions",
             Self::LoadSession { .. } => "LoadSession",
             Self::CreateSession { .. } => "CreateSession",
+            Self::CreateSideChat { .. } => "CreateSideChat",
+            Self::AttachClips { .. } => "AttachClips",
+            Self::RemoveClip { .. } => "RemoveClip",
             Self::Prompt { .. } => "Prompt",
             Self::SendNow { .. } => "SendNow",
             Self::RemoveQueued { .. } => "RemoveQueued",
@@ -344,7 +385,7 @@ impl Operation {
 /// Used to turn a name read back from disk into the same `'static` string the
 /// running host uses, so a stored record cannot introduce an operation this
 /// build does not have.
-pub const OPERATION_NAMES: [&str; 27] = [
+pub const OPERATION_NAMES: [&str; 30] = [
     "Bootstrap",
     "GetHostStatus",
     "ListWorkspaces",
@@ -361,6 +402,9 @@ pub const OPERATION_NAMES: [&str; 27] = [
     "ListSessions",
     "LoadSession",
     "CreateSession",
+    "CreateSideChat",
+    "AttachClips",
+    "RemoveClip",
     "Prompt",
     "SendNow",
     "RemoveQueued",
@@ -490,6 +534,49 @@ impl CommandEnvelope {
             } => {
                 check_id(workspace_id, "workspaceId")?;
                 check_id(session_id, "sessionId")?;
+            }
+
+            Operation::CreateSideChat {
+                parent_session_id,
+                title,
+                clips,
+            } => {
+                check_id(parent_session_id, "parentSessionId")?;
+                if title
+                    .as_ref()
+                    .is_some_and(|text| text.len() > MAX_SIDE_CHAT_TITLE_BYTES)
+                {
+                    return Err(ProtocolError::FieldTooLong { field: "title" });
+                }
+                if clips.len() > MAX_CLIPS_PER_SIDE {
+                    return Err(ProtocolError::FieldTooLong { field: "clips" });
+                }
+                for clip in clips {
+                    if clip.text.len() > MAX_CLIP_BYTES {
+                        return Err(ProtocolError::FieldTooLong { field: "clipText" });
+                    }
+                }
+            }
+            Operation::AttachClips { session_id, clips } => {
+                check_id(session_id, "sessionId")?;
+                if clips.is_empty() {
+                    return Err(ProtocolError::MalformedId("clips"));
+                }
+                if clips.len() > MAX_CLIPS_PER_SIDE {
+                    return Err(ProtocolError::FieldTooLong { field: "clips" });
+                }
+                for clip in clips {
+                    if clip.text.len() > MAX_CLIP_BYTES {
+                        return Err(ProtocolError::FieldTooLong { field: "clipText" });
+                    }
+                }
+            }
+            Operation::RemoveClip {
+                session_id,
+                clip_id,
+            } => {
+                check_id(session_id, "sessionId")?;
+                check_id(clip_id, "clipId")?;
             }
             Operation::DecidePermission {
                 session_id,

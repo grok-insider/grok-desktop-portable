@@ -89,8 +89,7 @@ fn decode_task_backgrounded(params: &Value) -> Option<RuntimeAction> {
     let description = string_field(update, &["description"]);
     let monitor_description = string_field(update, &["monitor_description", "monitorDescription"]);
     let output_file = string_field(update, &["output_file", "outputFile"]);
-    let is_monitor = monitor_description.is_some()
-        || command_raw.starts_with("[monitor] ");
+    let is_monitor = monitor_description.is_some() || command_raw.starts_with("[monitor] ");
     let title = monitor_description
         .clone()
         .or(description)
@@ -326,8 +325,7 @@ mod tests {
             },
             "_meta": { "eventId": "e-1" }
         });
-        let action =
-            decode_notification("_x.ai/session/update", &params).expect("journal shape");
+        let action = decode_notification("_x.ai/session/update", &params).expect("journal shape");
         match action {
             RuntimeAction::TaskBackgrounded { record, .. } => {
                 assert_eq!(record.task_id, "call-abc");

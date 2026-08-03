@@ -83,6 +83,29 @@ export type Operation =
   | { kind: "listSessions"; workspaceId: string }
   | { kind: "loadSession"; workspaceId: string; sessionId: string }
   | { kind: "createSession"; workspaceId: string }
+  /** User side chat under an open primary (light ADR 0019). */
+  | {
+      kind: "createSideChat";
+      parentSessionId: string;
+      title?: string;
+      clips?: Array<{
+        text: string;
+        label?: string;
+        sourceMessageSeq?: number;
+        sourceRole?: string;
+      }>;
+    }
+  | {
+      kind: "attachClips";
+      sessionId: string;
+      clips: Array<{
+        text: string;
+        label?: string;
+        sourceMessageSeq?: number;
+        sourceRole?: string;
+      }>;
+    }
+  | { kind: "removeClip"; sessionId: string; clipId: string }
   | { kind: "prompt"; sessionId: string; text: string; bash?: boolean }
   | { kind: "cancelTurn"; sessionId: string }
   | { kind: "sendNow"; sessionId: string; text: string; bash?: boolean }

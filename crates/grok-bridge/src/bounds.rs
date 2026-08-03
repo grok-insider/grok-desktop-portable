@@ -149,7 +149,24 @@ pub const MAX_MODELS: usize = 32;
 /// Concurrency is the point, but it is still bounded: without a ceiling one
 /// page could open sessions until the agent process is exhausted, and every
 /// other boundary in this host is bounded.
+///
+/// Side chats (light ADR 0019) count toward this total.
 pub const MAX_LIVE_SESSIONS: usize = 8;
+
+/// Side chats open under one primary parent at once (light ADR 0019).
+pub const MAX_SIDE_CHATS_PER_PARENT: usize = 4;
+
+/// Context clips attached to one side chat.
+pub const MAX_CLIPS_PER_SIDE: usize = 8;
+
+/// Maximum UTF-8 bytes of one clip body (selection text).
+pub const MAX_CLIP_BYTES: usize = 8 * 1024;
+
+/// Maximum total UTF-8 bytes of all clips on one side chat.
+pub const MAX_CLIPS_TOTAL_BYTES: usize = 24 * 1024;
+
+/// Maximum bytes of a side-chat title or clip label on the wire.
+pub const MAX_SIDE_CHAT_TITLE_BYTES: usize = 128;
 
 /// Maximum length of a client-supplied opaque identifier, in bytes.
 pub const MAX_OPAQUE_ID_BYTES: usize = 128;

@@ -119,6 +119,10 @@ impl HostState {
     ) -> Result<Self, crate::journal::JournalError> {
         let directory = directory.into();
         self.journal = Mutex::new(Journal::open(&directory)?);
+        // Side-chat edges are durable host state (light ADR 0019).
+        let mut session = SessionState::default();
+        session.load_session_graph(&directory);
+        self.session = Mutex::new(session);
         self.state_directory = Some(directory);
         self.picker = picker;
         Ok(self)
@@ -409,7 +413,11 @@ impl HostState {
                     }
                 } else {
                     let agent = agent.expect("non-bash path holds an agent");
-                    let sent = agent.prompt(&session_id, &next.text).await;
+                    let agent_text = {
+                        let session = state.session.lock().await;
+                        session.agent_prompt_text(&session_id, &next.text)
+                    };
+                    let sent = agent.prompt(&session_id, &agent_text).await;
                     {
                         let mut session = state.session.lock().await;
                         match &sent {
@@ -509,8 +517,7 @@ impl HostState {
                 .session(&session_id)
                 .map(|rt| rt.snapshot_tasks(now))
                 .unwrap_or_default();
-            if !crate::session_catalog::rehydrate_has_content(&restored) && live_tasks.is_empty()
-            {
+            if !crate::session_catalog::rehydrate_has_content(&restored) && live_tasks.is_empty() {
                 continue;
             }
             self.emit_event(
@@ -819,8 +826,7 @@ pub struct LoopbackListeners {
 /// distinguishes from an origin conflict per ADR light 0006. IPv6 bind failure
 /// is non-fatal (logged by the caller if desired).
 pub async fn bind(origin: &LocalOrigin) -> std::io::Result<LoopbackListeners> {
-    let v4 =
-        tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, origin.port())).await?;
+    let v4 = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, origin.port())).await?;
     let v6 = tokio::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, origin.port()))
         .await
         .ok();
@@ -1219,7 +1225,12 @@ const fn addressed_session(operation: &crate::protocol::Operation) -> Option<&St
         | Operation::LoadSession { session_id, .. }
         | Operation::DiagnoseSession { session_id }
         | Operation::RepairSession { session_id, .. }
-        | Operation::GetBackgroundTaskOutput { session_id, .. } => Some(session_id),
+        | Operation::GetBackgroundTaskOutput { session_id, .. }
+        | Operation::AttachClips { session_id, .. }
+        | Operation::RemoveClip { session_id, .. } => Some(session_id),
+        Operation::CreateSideChat {
+            parent_session_id, ..
+        } => Some(parent_session_id),
         _ => None,
     }
 }
@@ -1631,9 +1642,7 @@ async fn open_session(
         if let Some(id) = resume
             && session.sessions.contains_key(id)
         {
-            return Ok(crate::dispatch::DispatchOutcome::SessionCreated {
-                session_id: id.to_owned(),
-            });
+            return Ok(crate::dispatch::session_created_outcome(&session, id));
         }
         if session.sessions.len() >= crate::bounds::MAX_LIVE_SESSIONS {
             return Err(DispatchError::TooManySessions);
@@ -1669,18 +1678,27 @@ async fn open_session(
 
     {
         let mut session = session.lock().await;
-        session.open_session(crate::dispatch::LiveSession {
-            id: session_id.clone(),
-            workspace_id: workspace.id.clone(),
-            workspace_name: workspace.display_name.clone(),
-            running: false,
-            queued: Vec::new(),
-            opened_at_ms: crate::now_ms(),
-        })?;
+        let mut live = crate::dispatch::LiveSession::primary(
+            session_id.clone(),
+            workspace.id.clone(),
+            workspace.display_name.clone(),
+            crate::now_ms(),
+        );
+        if let Some(edge) = session.graph.edge(&session_id).cloned() {
+            live.role = crate::session_graph::SessionRole::SideChat;
+            live.parent_session_id = Some(edge.parent_session_id);
+            live.title = edge.title;
+            live.clips = edge.clips;
+        }
+        session.open_session(live)?;
         session.capture_review_open_result(&session_id, &open_result);
         session.pending_rehydrate = restored;
+        // Project role/parent/clips when this id is a host side chat (ADR 0019).
+        Ok(crate::dispatch::session_created_outcome(
+            &session,
+            &session_id,
+        ))
     }
-    Ok(DispatchOutcome::SessionCreated { session_id })
 }
 
 /// Send a prompt, or hold it if the conversation is mid-turn.
@@ -1724,7 +1742,11 @@ async fn prompt_or_queue(
         session.set_running(session_id, true);
     }
     let agent = chat_agent.expect("non-bash path holds an agent");
-    let sent = agent.prompt(session_id, &wire).await;
+    let agent_text = {
+        let session = session.lock().await;
+        session.agent_prompt_text(session_id, &wire)
+    };
+    let sent = agent.prompt(session_id, &agent_text).await;
     {
         let mut session = session.lock().await;
         if let Ok(result) = &sent {
@@ -1780,7 +1802,11 @@ async fn send_now_unlocked(
         session.set_running(session_id, true);
     }
     let agent = chat_agent.expect("non-bash path holds an agent");
-    let sent = agent.prompt(session_id, &wire).await;
+    let agent_text = {
+        let session = session.lock().await;
+        session.agent_prompt_text(session_id, &wire)
+    };
+    let sent = agent.prompt(session_id, &agent_text).await;
     {
         let mut session = session.lock().await;
         if let Ok(result) = &sent {
@@ -1856,7 +1882,10 @@ async fn run_unlocked(
                 .workspaces
                 .get(workspace_id)
                 .ok_or(DispatchError::UnknownWorkspace)?;
-            let sessions = crate::session_catalog::list_for_cwd(&workspace.path);
+            let sessions = crate::dispatch::omit_side_chat_children(
+                crate::session_catalog::list_for_cwd(&workspace.path),
+                &session.graph,
+            );
             Ok(DispatchOutcome::Sessions {
                 workspace_id: workspace_id.clone(),
                 sessions,
@@ -1969,6 +1998,13 @@ async fn run_unlocked(
         }
         Operation::CreateSession { workspace_id } => {
             open_session(workspace_id, None, session, agent).await
+        }
+        Operation::CreateSideChat { .. }
+        | Operation::AttachClips { .. }
+        | Operation::RemoveClip { .. } => {
+            let mut journal = journal.lock().await;
+            let mut session = session.lock().await;
+            crate::dispatch::run(envelope, &mut journal, &mut session, agent).await
         }
         Operation::LoadSession {
             workspace_id,
@@ -2114,7 +2150,10 @@ fn run_without_begin(
                 .workspaces
                 .get(workspace_id)
                 .ok_or(DispatchError::UnknownWorkspace)?;
-            let sessions = crate::session_catalog::list_for_cwd(&workspace.path);
+            let sessions = crate::dispatch::omit_side_chat_children(
+                crate::session_catalog::list_for_cwd(&workspace.path),
+                &session.graph,
+            );
             Ok(DispatchOutcome::Sessions {
                 workspace_id: workspace_id.clone(),
                 sessions,
@@ -2163,6 +2202,9 @@ fn run_without_begin(
         // Agent-bound ops are handled in `run_unlocked` before this is called.
         Operation::Prompt { .. }
         | Operation::CreateSession { .. }
+        | Operation::CreateSideChat { .. }
+        | Operation::AttachClips { .. }
+        | Operation::RemoveClip { .. }
         | Operation::LoadSession { .. }
         | Operation::CancelTurn { .. }
         | Operation::DecidePermission { .. } => Err(DispatchError::Agent),

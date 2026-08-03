@@ -20,6 +20,10 @@ use crate::now_ms;
 use crate::permission::{self, PermissionError};
 use crate::protocol::{CommandEnvelope, Operation};
 use crate::session_catalog::{self, SessionSummary};
+use crate::session_graph::{
+    self, ClipInput, ContextClip, SessionGraph, SessionRole, SideChatEdge, compose_side_prompt,
+    normalize_clips, normalize_title,
+};
 
 /// Why a command could not be carried out.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -71,6 +75,21 @@ pub enum DispatchError {
     /// The concurrency bound is reached.
     #[error("too many sessions are open")]
     TooManySessions,
+    /// Per-parent side-chat cap is reached (light ADR 0019).
+    #[error("too many side chats under this parent")]
+    TooManySideChats,
+    /// Clip count or total size exceeded.
+    #[error("side chat clip limit reached")]
+    ClipLimit,
+    /// Clip text was empty after normalisation.
+    #[error("clip text is empty")]
+    EmptyClip,
+    /// Operation requires a side chat but the session is primary.
+    #[error("session is not a side chat")]
+    NotASideChat,
+    /// Side chat parent is not open or not primary.
+    #[error("side chat parent is not available")]
+    InvalidSideChatParent,
     /// The conversation is holding as many queued prompts as it may.
     #[error("too many prompts are queued")]
     QueueFull,
@@ -107,6 +126,11 @@ impl DispatchError {
             Self::UnknownSession => "unknown_session",
             Self::UnknownTask => "unknown_task",
             Self::TooManySessions => "too_many_sessions",
+            Self::TooManySideChats => "too_many_side_chats",
+            Self::ClipLimit => "clip_limit",
+            Self::EmptyClip => "empty_clip",
+            Self::NotASideChat => "not_a_side_chat",
+            Self::InvalidSideChatParent => "invalid_side_chat_parent",
             Self::QueueFull => "queue_full",
             Self::UnknownQueueEntry => "unknown_queue_entry",
             Self::IntentNotDurable => "intent_not_durable",
@@ -163,6 +187,18 @@ pub struct SessionProjection {
     pub queued: Vec<QueuedPrompt>,
     /// Host clock when it was opened, which fixes the list order.
     pub opened_at_ms: u64,
+    /// `primary` or `side_chat` (light ADR 0019). Omitted when primary.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<&'static str>,
+    /// Parent primary when this is a side chat.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_session_id: Option<String>,
+    /// Side-chat title when set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Context clips on a side chat.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clips: Vec<ContextClip>,
 }
 
 /// A workspace as the browser sees it: an opaque id and a label, never a path.
@@ -330,6 +366,26 @@ pub enum DispatchOutcome {
     SessionCreated {
         /// Agent session identifier.
         session_id: String,
+        /// `primary` or `side_chat` when not the default primary.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        role: Option<&'static str>,
+        /// Parent primary when this is a side chat.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        parent_session_id: Option<String>,
+        /// Side-chat title when set.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        /// Context clips when this is a side chat.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        clips: Vec<ContextClip>,
+    },
+    /// Side-chat clips changed (attach/remove).
+    #[serde(rename_all = "camelCase")]
+    SideChatClips {
+        /// Side-chat session id.
+        session_id: String,
+        /// Current clips after the change.
+        clips: Vec<ContextClip>,
     },
     /// Sessions available for an enrolled workspace (metadata only).
     #[serde(rename_all = "camelCase")]
@@ -450,6 +506,38 @@ pub struct LiveSession {
     pub queued: Vec<QueuedPrompt>,
     /// Host clock when the session was opened, for a stable list order.
     pub opened_at_ms: u64,
+    /// Primary vs user side chat (light ADR 0019).
+    pub role: SessionRole,
+    /// Parent primary when role is SideChat.
+    pub parent_session_id: Option<String>,
+    /// Side-chat tab title.
+    pub title: Option<String>,
+    /// Context clips for side chats (host injects on prompt).
+    pub clips: Vec<ContextClip>,
+}
+
+impl LiveSession {
+    /// Construct a primary (home-rail) live session.
+    #[must_use]
+    pub fn primary(
+        id: impl AsRef<str>,
+        workspace_id: impl AsRef<str>,
+        workspace_name: impl AsRef<str>,
+        opened_at_ms: u64,
+    ) -> Self {
+        Self {
+            id: id.as_ref().to_owned(),
+            workspace_id: workspace_id.as_ref().to_owned(),
+            workspace_name: workspace_name.as_ref().to_owned(),
+            running: false,
+            queued: Vec::new(),
+            opened_at_ms,
+            role: SessionRole::Primary,
+            parent_session_id: None,
+            title: None,
+            clips: Vec::new(),
+        }
+    }
 }
 
 /// A prompt waiting for its turn.
@@ -514,9 +602,28 @@ pub struct SessionState {
     pub picker_open: bool,
     /// Background tasks (and later other runtime) per open agent session.
     pub runtime: crate::session_runtime::RuntimeRegistry,
+    /// Durable side-chat edges (light ADR 0019).
+    pub graph: SessionGraph,
+    /// Host state directory for persisting graph, when known.
+    pub graph_directory: Option<PathBuf>,
+    /// Counter for host-assigned clip ids.
+    pub next_clip_id: u64,
 }
 
 impl SessionState {
+    /// Load the durable session graph from the host state directory.
+    pub fn load_session_graph(&mut self, directory: &Path) {
+        self.graph = SessionGraph::load(directory);
+        self.graph_directory = Some(directory.to_path_buf());
+    }
+
+    /// Persist the session graph when a state directory is configured.
+    fn persist_graph(&self) {
+        if let Some(directory) = self.graph_directory.as_deref() {
+            let _ = self.graph.persist(directory);
+        }
+    }
+
     /// Enrol a workspace the host resolved itself.
     pub fn enrol(&mut self, workspace: Workspace) {
         self.workspaces.insert(workspace.id.clone(), workspace);
@@ -647,10 +754,31 @@ impl SessionState {
     ///
     /// Returns [`DispatchError::UnknownSession`] when the id is not open.
     pub fn close_session(&mut self, session_id: &str) -> Result<(), DispatchError> {
+        let Some(closing) = self.sessions.get(session_id).cloned() else {
+            return Err(DispatchError::UnknownSession);
+        };
+        // Cascade: parent close tears down live side children first.
+        if closing.role == SessionRole::Primary {
+            for child_id in self.graph.child_ids_of(session_id) {
+                let _ = self.close_session_one(&child_id);
+            }
+            self.graph.remove_children_of(session_id);
+        } else if closing.role.is_side_chat() {
+            let _ = self.close_session_one(session_id);
+            self.persist_graph();
+            return Ok(());
+        }
+        self.close_session_one(session_id)?;
+        self.persist_graph();
+        Ok(())
+    }
+
+    fn close_session_one(&mut self, session_id: &str) -> Result<(), DispatchError> {
         if self.sessions.remove(session_id).is_none() {
             return Err(DispatchError::UnknownSession);
         }
         self.reviews.remove(session_id);
+        self.runtime.remove(session_id);
         self.pending_permissions
             .retain(|_, pending| pending.session_id != session_id);
         Ok(())
@@ -833,13 +961,29 @@ impl SessionState {
         let mut projected: Vec<SessionProjection> = self
             .sessions
             .values()
-            .map(|session| SessionProjection {
-                session_id: session.id.clone(),
-                workspace_id: session.workspace_id.clone(),
-                workspace_name: session.workspace_name.clone(),
-                running: session.running,
-                queued: session.queued.clone(),
-                opened_at_ms: session.opened_at_ms,
+            .map(|session| {
+                let (role, parent_session_id, title, clips) = if session.role.is_side_chat() {
+                    (
+                        Some(SessionRole::SideChat.as_str()),
+                        session.parent_session_id.clone(),
+                        session.title.clone(),
+                        session.clips.clone(),
+                    )
+                } else {
+                    (None, None, None, Vec::new())
+                };
+                SessionProjection {
+                    session_id: session.id.clone(),
+                    workspace_id: session.workspace_id.clone(),
+                    workspace_name: session.workspace_name.clone(),
+                    running: session.running,
+                    queued: session.queued.clone(),
+                    opened_at_ms: session.opened_at_ms,
+                    role,
+                    parent_session_id,
+                    title,
+                    clips,
+                }
             })
             .collect();
         projected.sort_by(|left, right| {
@@ -848,6 +992,19 @@ impl SessionState {
                 .then_with(|| left.session_id.cmp(&right.session_id))
         });
         projected
+    }
+
+    /// Wire agent prompt text: inject side-chat clips when present.
+    #[must_use]
+    pub fn agent_prompt_text(&self, session_id: &str, user_text: &str) -> String {
+        let Some(session) = self.sessions.get(session_id) else {
+            return user_text.to_owned();
+        };
+        if session.role.is_side_chat() && !session.clips.is_empty() {
+            compose_side_prompt(&session.clips, user_text)
+        } else {
+            user_text.to_owned()
+        }
     }
 
     /// Record a permission request the agent opened.
@@ -934,7 +1091,22 @@ fn list_context(
     })
 }
 
-async fn run(
+/// Drop host side-chat children from a catalog list (light ADR 0019).
+///
+/// Used by `ListSessions` so home-rail rows never include user side chats.
+#[must_use]
+pub fn omit_side_chat_children(
+    sessions: Vec<SessionSummary>,
+    graph: &SessionGraph,
+) -> Vec<SessionSummary> {
+    sessions
+        .into_iter()
+        .filter(|summary| !graph.is_side_chat(&summary.id))
+        .collect()
+}
+
+/// Carry out one validated command (shared with HTTP for side chats).
+pub async fn run(
     envelope: &CommandEnvelope,
     journal: &mut Journal,
     state: &mut SessionState,
@@ -959,7 +1131,10 @@ async fn run(
                 .workspaces
                 .get(workspace_id)
                 .ok_or(DispatchError::UnknownWorkspace)?;
-            let sessions = session_catalog::list_for_cwd(&workspace.path);
+            let sessions = omit_side_chat_children(
+                session_catalog::list_for_cwd(&workspace.path),
+                &state.graph,
+            );
             Ok(DispatchOutcome::Sessions {
                 workspace_id: workspace_id.clone(),
                 sessions,
@@ -969,6 +1144,30 @@ async fn run(
         Operation::CreateSession { workspace_id } => {
             create_session(workspace_id, state, agent).await
         }
+
+        Operation::CreateSideChat {
+            parent_session_id,
+            title,
+            clips,
+        } => {
+            create_side_chat(
+                parent_session_id,
+                title.clone(),
+                clips.clone(),
+                state,
+                agent,
+            )
+            .await
+        }
+
+        Operation::AttachClips { session_id, clips } => {
+            attach_clips(session_id, clips.clone(), state)
+        }
+
+        Operation::RemoveClip {
+            session_id,
+            clip_id,
+        } => remove_clip(session_id, clip_id, state),
 
         Operation::SendNow {
             session_id,
@@ -1007,7 +1206,8 @@ async fn run(
             }
             let agent = agent.ok_or(DispatchError::NoSession)?;
             state.begin_review_turn(session_id)?;
-            let sent = agent.prompt(session_id, &wire).await;
+            let agent_text = state.agent_prompt_text(session_id, &wire);
+            let sent = agent.prompt(session_id, &agent_text).await;
             match &sent {
                 Ok(result) => state.finish_review_turn(session_id, Some(result)),
                 Err(_) => state.interrupt_review_turn(session_id),
@@ -1382,12 +1582,8 @@ async fn load_session(
     state: &mut SessionState,
     agent: Option<&Arc<AgentHandle>>,
 ) -> Result<DispatchOutcome, DispatchError> {
-    // Already open: treat as success (focus, do not duplicate). Double-clicking
-    // a row or reopening a tab is a navigate intent, not an error.
     if state.sessions.contains_key(session_id) {
-        return Ok(DispatchOutcome::SessionCreated {
-            session_id: session_id.to_owned(),
-        });
+        return Ok(session_created_outcome(state, session_id));
     }
     let workspace = state
         .workspaces
@@ -1400,21 +1596,24 @@ async fn load_session(
         .load_session(session_id, &path)
         .await
         .map_err(|error| map_agent_error(&error))?;
-    state.open_session(LiveSession {
-        id: session_id.to_owned(),
-        workspace_id: workspace.id.clone(),
-        workspace_name: workspace.display_name.clone(),
-        running: false,
-        queued: Vec::new(),
-        opened_at_ms: now_ms(),
-    })?;
+
+    let mut live = LiveSession::primary(
+        session_id,
+        workspace.id.clone(),
+        workspace.display_name.clone(),
+        now_ms(),
+    );
+    if let Some(edge) = state.graph.edge(session_id).cloned() {
+        live.role = SessionRole::SideChat;
+        live.parent_session_id = Some(edge.parent_session_id);
+        live.title = edge.title;
+        live.clips = edge.clips;
+    }
+
+    state.open_session(live)?;
     state.capture_review_open_result(session_id, &open_result);
-    // The browser needs the prior transcript; ACP load does not stream it
-    // back as light events, so the host rehydrates from updates.jsonl.
     state.pending_rehydrate = Some(session_catalog::rehydrate_session(&path, session_id));
-    Ok(DispatchOutcome::SessionCreated {
-        session_id: session_id.to_owned(),
-    })
+    Ok(session_created_outcome(state, session_id))
 }
 
 /// Open a new conversation in an enrolled workspace.
@@ -1433,16 +1632,177 @@ async fn create_session(
         .new_session(&workspace.path)
         .await
         .map_err(|error| map_agent_error(&error))?;
-    state.open_session(LiveSession {
+    state.open_session(LiveSession::primary(
+        session_id.clone(),
+        workspace.id.clone(),
+        workspace.display_name.clone(),
+        now_ms(),
+    ))?;
+    state.capture_review_open_result(&session_id, &open_result);
+    Ok(session_created_primary(session_id))
+}
+
+/// Create a user side chat under an open primary (light ADR 0019).
+async fn create_side_chat(
+    parent_session_id: &str,
+    title: Option<String>,
+    clips: Vec<ClipInput>,
+    state: &mut SessionState,
+    agent: Option<&Arc<AgentHandle>>,
+) -> Result<DispatchOutcome, DispatchError> {
+    let parent = state.session(parent_session_id)?.clone();
+    if parent.role.is_side_chat() {
+        return Err(DispatchError::InvalidSideChatParent);
+    }
+    if state.graph.side_chat_count(parent_session_id) >= crate::bounds::MAX_SIDE_CHATS_PER_PARENT {
+        return Err(DispatchError::TooManySideChats);
+    }
+
+    let clips = normalize_clips(clips, &mut state.next_clip_id).map_err(map_graph_error)?;
+    let title = normalize_title(title).or_else(|| clips.first().and_then(|c| c.label.clone()));
+
+    let workspace = state
+        .workspaces
+        .get(&parent.workspace_id)
+        .ok_or(DispatchError::UnknownWorkspace)?
+        .clone();
+    let agent = agent.ok_or(DispatchError::NoSession)?;
+    let (session_id, open_result) = agent
+        .new_session(&workspace.path)
+        .await
+        .map_err(|error| map_agent_error(&error))?;
+
+    let edge = SideChatEdge {
+        child_session_id: session_id.clone(),
+        parent_session_id: parent_session_id.to_owned(),
+        role: SessionRole::SideChat,
+        title: title.clone(),
+        clips: clips.clone(),
+        created_at_ms: now_ms(),
+    };
+    state
+        .graph
+        .insert_side_chat(edge)
+        .map_err(map_graph_error)?;
+    state.persist_graph();
+
+    let live = LiveSession {
         id: session_id.clone(),
         workspace_id: workspace.id.clone(),
         workspace_name: workspace.display_name.clone(),
         running: false,
         queued: Vec::new(),
         opened_at_ms: now_ms(),
-    })?;
+        role: SessionRole::SideChat,
+        parent_session_id: Some(parent_session_id.to_owned()),
+        title: title.clone(),
+        clips: clips.clone(),
+    };
+    if let Err(error) = state.open_session(live) {
+        state.graph.remove_child(&session_id);
+        state.persist_graph();
+        return Err(error);
+    }
     state.capture_review_open_result(&session_id, &open_result);
-    Ok(DispatchOutcome::SessionCreated { session_id })
+
+    Ok(DispatchOutcome::SessionCreated {
+        session_id,
+        role: Some(SessionRole::SideChat.as_str()),
+        parent_session_id: Some(parent_session_id.to_owned()),
+        title,
+        clips,
+    })
+}
+
+fn attach_clips(
+    session_id: &str,
+    clips: Vec<ClipInput>,
+    state: &mut SessionState,
+) -> Result<DispatchOutcome, DispatchError> {
+    if !state.session(session_id)?.role.is_side_chat() {
+        return Err(DispatchError::NotASideChat);
+    }
+    let normalized = normalize_clips(clips, &mut state.next_clip_id).map_err(map_graph_error)?;
+    let session = state
+        .sessions
+        .get_mut(session_id)
+        .ok_or(DispatchError::UnknownSession)?;
+    session_graph::append_clips(&mut session.clips, normalized).map_err(map_graph_error)?;
+    let clips = session.clips.clone();
+    if let Some(edge) = state.graph.edge_mut(session_id) {
+        edge.clips = clips.clone();
+    }
+    state.persist_graph();
+    Ok(DispatchOutcome::SideChatClips {
+        session_id: session_id.to_owned(),
+        clips,
+    })
+}
+
+fn remove_clip(
+    session_id: &str,
+    clip_id: &str,
+    state: &mut SessionState,
+) -> Result<DispatchOutcome, DispatchError> {
+    if !state.session(session_id)?.role.is_side_chat() {
+        return Err(DispatchError::NotASideChat);
+    }
+    let session = state
+        .sessions
+        .get_mut(session_id)
+        .ok_or(DispatchError::UnknownSession)?;
+    let before = session.clips.len();
+    session.clips.retain(|clip| clip.clip_id != clip_id);
+    if session.clips.len() == before {
+        return Err(DispatchError::UnknownSession);
+    }
+    let clips = session.clips.clone();
+    if let Some(edge) = state.graph.edge_mut(session_id) {
+        edge.clips = clips.clone();
+    }
+    state.persist_graph();
+    Ok(DispatchOutcome::SideChatClips {
+        session_id: session_id.to_owned(),
+        clips,
+    })
+}
+
+fn map_graph_error(error: session_graph::GraphError) -> DispatchError {
+    match error {
+        session_graph::GraphError::TooManySideChats => DispatchError::TooManySideChats,
+        session_graph::GraphError::ClipLimit => DispatchError::ClipLimit,
+        session_graph::GraphError::EmptyClip => DispatchError::EmptyClip,
+        session_graph::GraphError::Unknown => DispatchError::UnknownSession,
+    }
+}
+
+fn session_created_primary(session_id: String) -> DispatchOutcome {
+    DispatchOutcome::SessionCreated {
+        session_id,
+        role: None,
+        parent_session_id: None,
+        title: None,
+        clips: Vec::new(),
+    }
+}
+
+/// Project create/load outcome including side-chat role fields (light ADR 0019).
+#[must_use]
+pub fn session_created_outcome(state: &SessionState, session_id: &str) -> DispatchOutcome {
+    let Some(session) = state.sessions.get(session_id) else {
+        return session_created_primary(session_id.to_owned());
+    };
+    if session.role.is_side_chat() {
+        DispatchOutcome::SessionCreated {
+            session_id: session_id.to_owned(),
+            role: Some(SessionRole::SideChat.as_str()),
+            parent_session_id: session.parent_session_id.clone(),
+            title: session.title.clone(),
+            clips: session.clips.clone(),
+        }
+    } else {
+        session_created_primary(session_id.to_owned())
+    }
 }
 
 /// Stop what is running so this message goes next.
@@ -1473,7 +1833,8 @@ async fn send_now(
     }
     let agent = agent.ok_or(DispatchError::NoSession)?;
     state.begin_review_turn(session_id)?;
-    let sent = agent.prompt(session_id, &wire).await;
+    let agent_text = state.agent_prompt_text(session_id, &wire);
+    let sent = agent.prompt(session_id, &agent_text).await;
     match &sent {
         Ok(result) => state.finish_review_turn(session_id, Some(result)),
         Err(_) => state.interrupt_review_turn(session_id),
@@ -1594,14 +1955,7 @@ mod tests {
     }
 
     fn live_session(id: &str) -> LiveSession {
-        LiveSession {
-            id: id.to_owned(),
-            workspace_id: "w-1".into(),
-            workspace_name: "Demo".into(),
-            running: false,
-            queued: Vec::new(),
-            opened_at_ms: 1,
-        }
+        LiveSession::primary(id, "w-1", "Demo", 1)
     }
 
     fn state_with_workspace() -> SessionState {
@@ -1634,14 +1988,7 @@ mod tests {
             path: root.clone(),
         });
         state
-            .open_session(LiveSession {
-                id: "s-1".into(),
-                workspace_id: "ws-1".into(),
-                workspace_name: "proj".into(),
-                running: false,
-                queued: Vec::new(),
-                opened_at_ms: 1,
-            })
+            .open_session(LiveSession::primary("s-1", "ws-1", "proj", 1))
             .expect("open");
 
         // No agent: if bash called session/prompt it would return NoSession.
@@ -2195,14 +2542,7 @@ mod tests {
         let mut state = SessionState::default();
         for (index, id) in ["s-a", "s-b", "s-c"].iter().enumerate() {
             state
-                .open_session(LiveSession {
-                    id: (*id).to_owned(),
-                    workspace_id: "w-1".into(),
-                    workspace_name: "Demo".into(),
-                    running: false,
-                    queued: Vec::new(),
-                    opened_at_ms: 100 + index as u64,
-                })
+                .open_session(LiveSession::primary(*id, "w-1", "Demo", 100 + index as u64))
                 .expect("open");
         }
         state.set_running("s-a", true);
@@ -2538,14 +2878,7 @@ mod tests {
             // directory the user has given up would read it after revocation.
             let mut state = SessionState::default();
             state
-                .open_session(LiveSession {
-                    id: "s-orphan".into(),
-                    workspace_id: "w-gone".into(),
-                    workspace_name: "gone".into(),
-                    running: false,
-                    queued: Vec::new(),
-                    opened_at_ms: 1,
-                })
+                .open_session(LiveSession::primary("s-orphan", "w-gone", "gone", 1))
                 .expect("open");
 
             assert!(state.sessions_to_replay().is_empty());
@@ -2554,6 +2887,233 @@ mod tests {
         #[test]
         fn nothing_open_replays_nothing() {
             assert!(SessionState::default().sessions_to_replay().is_empty());
+        }
+    }
+
+    mod side_chats {
+        use super::{envelope, live_session, state_with_workspace};
+        use crate::dispatch::{DispatchError, LiveSession, dispatch};
+        use crate::journal::Journal;
+        use crate::protocol::Operation;
+        use crate::session_graph::{SessionRole, SideChatEdge, compose_side_prompt};
+
+        #[test]
+        fn agent_prompt_injects_clips_on_side_chats_only() {
+            let mut state = state_with_workspace();
+            state.open_session(live_session("primary")).expect("open");
+            let mut side = LiveSession::primary("side", "w-1", "Demo", 2);
+            side.role = SessionRole::SideChat;
+            side.parent_session_id = Some("primary".into());
+            side.clips = vec![crate::session_graph::ContextClip {
+                clip_id: "clip-1".into(),
+                text: "cohorts and job roles".into(),
+                label: Some("cohorts".into()),
+                source_message_seq: None,
+                source_role: None,
+            }];
+            state.open_session(side).expect("open side");
+
+            assert_eq!(state.agent_prompt_text("primary", "hello"), "hello");
+            let composed = state.agent_prompt_text("side", "what data?");
+            assert!(composed.contains("portable_side_context"));
+            assert!(composed.contains("cohorts and job roles"));
+            assert!(composed.ends_with("what data?"));
+            assert_eq!(compose_side_prompt(&[], "x"), "x");
+        }
+
+        #[tokio::test]
+        async fn create_side_chat_requires_open_primary() {
+            let mut journal = Journal::new();
+            let mut state = state_with_workspace();
+            let result = dispatch(
+                &envelope(
+                    Operation::CreateSideChat {
+                        parent_session_id: "missing".into(),
+                        title: None,
+                        clips: Vec::new(),
+                    },
+                    Some("k-side"),
+                ),
+                &mut journal,
+                &mut state,
+                None,
+            )
+            .await;
+            assert_eq!(result, Err(DispatchError::UnknownSession));
+        }
+
+        #[test]
+        fn project_sessions_marks_side_chat_role() {
+            let mut state = state_with_workspace();
+            state.open_session(live_session("p")).expect("p");
+            let mut side = LiveSession::primary("c", "w-1", "Demo", 2);
+            side.role = SessionRole::SideChat;
+            side.parent_session_id = Some("p".into());
+            side.title = Some("Data".into());
+            state.open_session(side).expect("c");
+            let projected = state.project_sessions();
+            let child = projected
+                .iter()
+                .find(|s| s.session_id == "c")
+                .expect("child");
+            assert_eq!(child.role, Some("side_chat"));
+            assert_eq!(child.parent_session_id.as_deref(), Some("p"));
+            let parent = projected
+                .iter()
+                .find(|s| s.session_id == "p")
+                .expect("parent");
+            assert_eq!(parent.role, None);
+        }
+
+        #[test]
+        fn close_parent_cascades_live_side_children() {
+            let mut state = state_with_workspace();
+            state.open_session(live_session("p")).expect("p");
+            let mut side = LiveSession::primary("c", "w-1", "Demo", 2);
+            side.role = SessionRole::SideChat;
+            side.parent_session_id = Some("p".into());
+            state.open_session(side).expect("c");
+            state
+                .graph
+                .insert_side_chat(SideChatEdge {
+                    child_session_id: "c".into(),
+                    parent_session_id: "p".into(),
+                    role: SessionRole::SideChat,
+                    title: None,
+                    clips: Vec::new(),
+                    created_at_ms: 1,
+                })
+                .expect("edge");
+            state.close_session("p").expect("close parent");
+            assert!(!state.sessions.contains_key("p"));
+            assert!(!state.sessions.contains_key("c"));
+        }
+
+        #[test]
+        fn list_sessions_omits_graph_side_children() {
+            // Real ListSessions path: catalog rows filtered by omit_side_chat_children.
+            let mut graph = crate::session_graph::SessionGraph::default();
+            graph
+                .insert_side_chat(SideChatEdge {
+                    child_session_id: "hidden-side".into(),
+                    parent_session_id: "parent".into(),
+                    role: SessionRole::SideChat,
+                    title: None,
+                    clips: Vec::new(),
+                    created_at_ms: 1,
+                })
+                .expect("edge");
+            let catalog = vec![
+                crate::session_catalog::SessionSummary {
+                    id: "parent".into(),
+                    title: "Main".into(),
+                    updated_at: "2026-08-01T00:00:00Z".into(),
+                    message_count: 3,
+                    kind: "conversation".into(),
+                    member_count: 0,
+                },
+                crate::session_catalog::SessionSummary {
+                    id: "hidden-side".into(),
+                    title: "Side".into(),
+                    updated_at: "2026-08-01T00:01:00Z".into(),
+                    message_count: 1,
+                    kind: "conversation".into(),
+                    member_count: 0,
+                },
+                crate::session_catalog::SessionSummary {
+                    id: "other".into(),
+                    title: "Other".into(),
+                    updated_at: "2026-08-01T00:02:00Z".into(),
+                    message_count: 0,
+                    kind: "conversation".into(),
+                    member_count: 0,
+                },
+            ];
+            let listed = super::super::omit_side_chat_children(catalog, &graph);
+            let ids: Vec<&str> = listed.iter().map(|s| s.id.as_str()).collect();
+            assert_eq!(ids, vec!["parent", "other"]);
+            assert!(!ids.contains(&"hidden-side"));
+        }
+
+        #[tokio::test]
+        async fn list_sessions_dispatch_filters_side_chat_ids() {
+            use crate::dispatch::{DispatchOutcome, omit_side_chat_children};
+            use crate::session_catalog::SessionSummary;
+
+            let mut state = state_with_workspace();
+            state
+                .graph
+                .insert_side_chat(SideChatEdge {
+                    child_session_id: "side-1".into(),
+                    parent_session_id: "main".into(),
+                    role: SessionRole::SideChat,
+                    title: Some("Side".into()),
+                    clips: Vec::new(),
+                    created_at_ms: 1,
+                })
+                .expect("edge");
+
+            // Simulate what ListSessions does after list_for_cwd returns.
+            let catalog = vec![
+                SessionSummary {
+                    id: "main".into(),
+                    title: "Main".into(),
+                    updated_at: "t1".into(),
+                    message_count: 1,
+                    kind: "conversation".into(),
+                    member_count: 0,
+                },
+                SessionSummary {
+                    id: "side-1".into(),
+                    title: "Side".into(),
+                    updated_at: "t2".into(),
+                    message_count: 1,
+                    kind: "conversation".into(),
+                    member_count: 0,
+                },
+            ];
+            let sessions = omit_side_chat_children(catalog, &state.graph);
+            let outcome = DispatchOutcome::Sessions {
+                workspace_id: "w-1".into(),
+                sessions,
+            };
+            match outcome {
+                DispatchOutcome::Sessions { sessions, .. } => {
+                    assert_eq!(sessions.len(), 1);
+                    assert_eq!(sessions[0].id, "main");
+                }
+                other => panic!("expected Sessions, got {other:?}"),
+            }
+
+            // Full dispatch arm: workspace enrolled; list_for_cwd may be empty
+            // for temp_dir but filter still runs without error.
+            let mut journal = Journal::new();
+            let listed = dispatch(
+                &envelope(
+                    Operation::ListSessions {
+                        workspace_id: "w-1".into(),
+                    },
+                    None,
+                ),
+                &mut journal,
+                &mut state,
+                None,
+            )
+            .await
+            .expect("list sessions");
+            match listed {
+                DispatchOutcome::Sessions {
+                    workspace_id,
+                    sessions,
+                } => {
+                    assert_eq!(workspace_id, "w-1");
+                    assert!(
+                        sessions.iter().all(|s| s.id != "side-1"),
+                        "side chat id must never appear in list: {sessions:?}"
+                    );
+                }
+                other => panic!("expected Sessions, got {other:?}"),
+            }
         }
     }
 

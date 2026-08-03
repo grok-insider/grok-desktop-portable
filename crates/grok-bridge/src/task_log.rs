@@ -143,12 +143,14 @@ fn content_version_from_meta(meta: &fs::Metadata, file_size: u64) -> u64 {
         .map(|d| d.as_secs())
         .unwrap_or(0);
     // Mix size + mtime so poll can detect growth without re-sending text.
-    file_size
-        .wrapping_mul(1_000_003)
-        .wrapping_add(mtime)
+    file_size.wrapping_mul(1_000_003).wrapping_add(mtime)
 }
 
-fn read_tail(file: &mut File, file_size: u64, max_bytes: usize) -> Result<(Vec<u8>, bool), LogReadError> {
+fn read_tail(
+    file: &mut File,
+    file_size: u64,
+    max_bytes: usize,
+) -> Result<(Vec<u8>, bool), LogReadError> {
     let max = max_bytes as u64;
     if file_size <= max {
         let mut buf = Vec::with_capacity(file_size as usize);
@@ -156,7 +158,8 @@ fn read_tail(file: &mut File, file_size: u64, max_bytes: usize) -> Result<(Vec<u
         return Ok((buf, false));
     }
     let start = file_size - max;
-    file.seek(SeekFrom::Start(start)).map_err(|_| LogReadError::Io)?;
+    file.seek(SeekFrom::Start(start))
+        .map_err(|_| LogReadError::Io)?;
     let mut buf = vec![0_u8; max_bytes];
     file.read_exact(&mut buf).map_err(|_| LogReadError::Io)?;
     // Drop a leading partial UTF-8 sequence from the mid-file cut.
@@ -164,7 +167,11 @@ fn read_tail(file: &mut File, file_size: u64, max_bytes: usize) -> Result<(Vec<u
     Ok((buf[skip..].to_vec(), true))
 }
 
-fn read_head(file: &mut File, file_size: u64, max_bytes: usize) -> Result<(Vec<u8>, bool), LogReadError> {
+fn read_head(
+    file: &mut File,
+    file_size: u64,
+    max_bytes: usize,
+) -> Result<(Vec<u8>, bool), LogReadError> {
     let to_read = (file_size as usize).min(max_bytes);
     let mut buf = vec![0_u8; to_read];
     file.read_exact(&mut buf).map_err(|_| LogReadError::Io)?;

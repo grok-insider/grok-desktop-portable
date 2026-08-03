@@ -88,6 +88,15 @@ export function reviewCauseMessage(cause: string): string {
  * Ordered by `openedAtMs` so a row never moves because another conversation
  * spoke; activity is shown in the row, not by its position.
  */
+/** Context clip on a side chat (host-bounded). */
+export interface SideChatClip {
+  clipId: string;
+  text: string;
+  label?: string;
+  sourceMessageSeq?: number;
+  sourceRole?: string;
+}
+
 export interface SessionProjection {
   sessionId: string;
   workspaceId: string;
@@ -98,6 +107,14 @@ export interface SessionProjection {
   openedAtMs: number;
   /** Whether this conversation is waiting on a decision from the user. */
   awaitingDecision?: boolean;
+  /** `side_chat` when this is a user side chat under a parent (light ADR 0019). */
+  role?: "primary" | "side_chat";
+  /** Parent primary session when `role` is `side_chat`. */
+  parentSessionId?: string;
+  /** Side-chat tab title. */
+  title?: string;
+  /** Context clips attached to a side chat. */
+  clips?: SideChatClip[];
 }
 
 /** One category contributing to the current context window. */
@@ -212,7 +229,19 @@ export type DispatchOutcome =
       integrations?: Integration[];
       pendingReviews: ReviewProjection[];
     }
-  | { outcome: "sessionCreated"; sessionId: string }
+  | {
+      outcome: "sessionCreated";
+      sessionId: string;
+      role?: "primary" | "side_chat";
+      parentSessionId?: string;
+      title?: string;
+      clips?: SideChatClip[];
+    }
+  | {
+      outcome: "sideChatClips";
+      sessionId: string;
+      clips: SideChatClip[];
+    }
   | {
       outcome: "sessions";
       workspaceId: string;

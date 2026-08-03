@@ -79,10 +79,7 @@ pub enum VisibilityClass {
 /// `subagent_fork`, `subagent_resume`, …). Forks and worktrees stay visible.
 #[must_use]
 pub fn summary_is_hidden(hidden: Option<bool>, session_kind: Option<&str>) -> bool {
-    hidden.unwrap_or_else(|| {
-        session_kind
-            .is_some_and(|kind| kind.starts_with("subagent"))
-    })
+    hidden.unwrap_or_else(|| session_kind.is_some_and(|kind| kind.starts_with("subagent")))
 }
 
 /// Classify a session for catalog surfaces given summary fields and optional parent.
@@ -651,7 +648,7 @@ pub fn snapshot_from_rehydrate_with_runtime(
             background_tasks.push(task);
         }
     }
-    background_tasks.sort_by(|a, b| b.started_at_ms.cmp(&a.started_at_ms));
+    background_tasks.sort_by_key(|b| std::cmp::Reverse(b.started_at_ms));
     crate::protocol::Event::SessionSnapshot {
         session_id,
         messages: restored
@@ -818,9 +815,7 @@ fn project_session_members(
                     64,
                 )
                 .0,
-                status: meta
-                    .map(|m| m.status.clone())
-                    .unwrap_or_default(),
+                status: meta.map(|m| m.status.clone()).unwrap_or_default(),
                 message_count: node.message_count,
             }
         })
@@ -831,11 +826,7 @@ fn project_session_members(
 }
 
 /// Read `subagents/<id>/meta.json` labels/status for one parent.
-fn load_subagent_meta(
-    home: &Path,
-    cwd: &Path,
-    parent_id: &str,
-) -> HashMap<String, SubagentMeta> {
+fn load_subagent_meta(home: &Path, cwd: &Path, parent_id: &str) -> HashMap<String, SubagentMeta> {
     let encoded = encode_cwd_dirname(&cwd.to_string_lossy());
     let sub_root = home
         .join("sessions")
@@ -956,8 +947,7 @@ fn project_session_workflows(
                 .get("elapsed_ms_floor")
                 .or_else(|| state.get("elapsed_ms"))
                 .and_then(|value| value.as_u64()),
-            result_summary: crate::bounds::truncate_utf8(result_summary, MAX_WORKFLOW_TEXT_BYTES)
-                .0,
+            result_summary: crate::bounds::truncate_utf8(result_summary, MAX_WORKFLOW_TEXT_BYTES).0,
         });
     }
     workflows.sort_by(|left, right| left.run_id.cmp(&right.run_id));
@@ -973,10 +963,7 @@ fn project_workflow_phases(
     let Some(raw_phases) = state.get("phases").and_then(|value| value.as_array()) else {
         return Vec::new();
     };
-    let terminal = matches!(
-        status,
-        "complete" | "failed" | "cancelled" | "interrupted"
-    );
+    let terminal = matches!(status, "complete" | "failed" | "cancelled" | "interrupted");
     let mut phases = Vec::new();
     let mut before_current = true;
     for entry in raw_phases {
@@ -1478,10 +1465,7 @@ mod tests {
             visibility_class(None, Some("subagent"), None),
             VisibilityClass::Hidden
         );
-        assert_eq!(
-            visibility_class(None, None, None),
-            VisibilityClass::Primary
-        );
+        assert_eq!(visibility_class(None, None, None), VisibilityClass::Primary);
         assert_eq!(
             visibility_class(None, Some("worktree"), None),
             VisibilityClass::Primary
@@ -1758,8 +1742,7 @@ mod tests {
         )
         .expect("summary");
 
-        let tasks =
-            rehydrate_background_tasks(root.path(), std::path::Path::new(cwd), id);
+        let tasks = rehydrate_background_tasks(root.path(), std::path::Path::new(cwd), id);
         assert_eq!(tasks.len(), 2, "one completed + one still running");
         let done = tasks.iter().find(|t| t.task_id == "call-1").expect("done");
         assert_eq!(

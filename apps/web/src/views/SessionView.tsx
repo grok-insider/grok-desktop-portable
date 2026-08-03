@@ -15,6 +15,7 @@ import {
   type SessionChangesProjection,
   type SessionInspectorProjection,
   type SessionProjection,
+  type SideChatClip,
 } from "../services/outcomes";
 import type { ModelProjection } from "../services/models";
 import type { ContextEntry, ToolProjection } from "../services/outcomes";
@@ -34,6 +35,9 @@ import {
   isTaskDetailOpen,
   toggleReview,
 } from "../services/sessionSideSurface";
+import { SideChatDock } from "./side/SideChatDock";
+import { SelectionToolbar } from "./side/SelectionToolbar";
+import { primaryOpenSessions } from "../services/sideChat";
 import { PlanRow } from "./PlanRow";
 import { SessionRepairBanner } from "./SessionRepairBanner";
 import { ThoughtRow } from "./ThoughtRow";
@@ -169,6 +173,28 @@ export function SessionView({
   changeMode = "git",
   onChangeMode,
   taskOutput = null,
+  sideSessions = [],
+  activeSideSessionId = null,
+  sideTranscript = [],
+  sideTools = [],
+  sideThoughts = [],
+  sidePhase = "idle",
+  sideDraft = "",
+  sideQueued = [],
+  sideClips = [],
+  onSelectSideSession,
+  onCloseSideSession,
+  onNewSideSession,
+  onSideDraftChange,
+  onSidePrompt,
+  onSideSendNow,
+  onSideCancel,
+  onSideRemoveQueued,
+  onSideRemoveClip,
+  onAddSelectionToSideChat,
+  sideCommands = [],
+  onSideModelChange,
+  onSideEffortChange,
 }: {
   transcript: TranscriptEntry[];
   tools: ToolEntry[];
@@ -252,6 +278,31 @@ export function SessionView({
   onChangeMode?: (mode: ChangeMode) => void;
   /** Host-fetched log for the open task detail surface. */
   taskOutput?: TaskOutputLoad | null;
+  /** Side chats under the active primary (light ADR 0019). */
+  sideSessions?: SessionProjection[];
+  activeSideSessionId?: string | null;
+  sideTranscript?: TranscriptEntry[];
+  sideTools?: ToolEntry[];
+  sideThoughts?: ThoughtEntry[];
+  sidePhase?: SessionPhase;
+  sideDraft?: string;
+  sideQueued?: { entryId: string; text: string }[];
+  sideClips?: SideChatClip[];
+  onSelectSideSession?: (sessionId: string) => void;
+  onCloseSideSession?: (sessionId: string) => void;
+  onNewSideSession?: () => void;
+  onSideDraftChange?: (text: string) => void;
+  onSidePrompt?: () => void;
+  onSideSendNow?: () => void;
+  onSideCancel?: () => void;
+  onSideRemoveQueued?: (entryId: string) => void;
+  onSideRemoveClip?: (clipId: string) => void;
+  /** Selection → create/attach side chat with clip text. */
+  onAddSelectionToSideChat?: (text: string) => void;
+  sideCommands?: CommandProjection[];
+  /** Model switch for the active side session (not the primary). */
+  onSideModelChange?: (modelId: string) => void;
+  onSideEffortChange?: (effortId: string) => void;
 }) {
   // Bridge legacy boolean props used by existing tests.
   const effectiveSurface: SessionSideSurface =
@@ -271,6 +322,7 @@ export function SessionView({
     }
   }
   const scrollRef = useRef<HTMLDivElement>(null);
+  const mainColumnRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   // Per-session positions for this tab only — mirrors drafts, never host state.
   const scrollMemoryRef = useRef<Map<string, SessionScrollMemory>>(new Map());
@@ -554,7 +606,8 @@ export function SessionView({
     return -1;
   })();
 
-  const tabs: WorkShellTab[] = sessions.map((session) => ({
+  // Side chats never become shell peers (light ADR 0019).
+  const tabs: WorkShellTab[] = primaryOpenSessions(sessions).map((session) => ({
     sessionId: session.sessionId,
     title: sessionTitles[session.sessionId] ?? "New conversation",
     workspaceName: session.workspaceName,
@@ -587,12 +640,19 @@ export function SessionView({
       {connectionBanner}
       <div className="relative flex min-h-0 flex-1">
         <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1">
+          <div ref={mainColumnRef} className="relative min-h-0 flex-1">
             <TranscriptCheckpoints
               turns={userCheckpoints}
               activeId={activeCheckpointId}
               onJump={jumpToTurn}
             />
+            {onAddSelectionToSideChat !== undefined ? (
+              <SelectionToolbar
+                containerRef={mainColumnRef}
+                onAddToSideChat={onAddSelectionToSideChat}
+                disabled={!connected || activeSessionId === null}
+              />
+            ) : null}
             <div
               ref={scrollRef}
               // Extra right padding keeps the native scrollbar clear of the
@@ -848,6 +908,39 @@ export function SessionView({
             onContextQuery={onContextQuery}
           />
         </div>
+        {sideSessions.length > 0 || activeSideSessionId !== null ? (
+          <SideChatDock
+            sides={sideSessions}
+            activeSideId={activeSideSessionId}
+            onSelectSide={onSelectSideSession ?? (() => {})}
+            onCloseSide={onCloseSideSession ?? (() => {})}
+            onNewSide={onNewSideSession ?? (() => {})}
+            transcript={sideTranscript}
+            tools={sideTools}
+            thoughts={sideThoughts}
+            phase={sidePhase}
+            draft={sideDraft}
+            onDraftChange={onSideDraftChange ?? (() => {})}
+            queued={sideQueued}
+            onSubmit={onSidePrompt ?? (() => {})}
+            onSendNow={onSideSendNow ?? (() => {})}
+            onCancel={onSideCancel ?? (() => {})}
+            onRemoveQueued={onSideRemoveQueued ?? (() => {})}
+            clips={sideClips}
+            onRemoveClip={onSideRemoveClip ?? (() => {})}
+            connected={connected}
+            models={models}
+            modelId={modelId}
+            effortId={effortId}
+            onModelChange={onSideModelChange ?? (() => {})}
+            onEffortChange={onSideEffortChange ?? (() => {})}
+            configTools={configTools}
+            commands={sideCommands}
+            contextEntries={contextEntries}
+            contextLoading={contextLoading}
+            onContextQuery={onContextQuery}
+          />
+        ) : null}
         {reviewOpen ? (
           <>
             <button

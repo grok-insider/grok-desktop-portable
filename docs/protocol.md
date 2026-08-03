@@ -148,6 +148,9 @@ prompt shown in another.
 | `GetSessionChanges` | no | no |
 
 | `CreateSession` | yes | yes |
+| `CreateSideChat` | yes | yes |
+| `AttachClips` | yes | yes |
+| `RemoveClip` | yes | yes |
 | `Prompt` | yes | yes |
 | `SendNow` | yes | yes |
 | `RemoveQueued` | no | yes |

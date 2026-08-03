@@ -91,6 +91,15 @@ import { ReviewBanner } from "./views/ReviewBanner";
 import { HomeView, type WorkspaceSummary } from "./views/HomeView";
 import { SetupView } from "./views/SetupView";
 import { SessionView } from "./views/SessionView";
+import {
+  pickPrimarySessionId,
+  primaryOpenSessions,
+  resolvePrimarySessionId,
+  shouldClearSideFocus,
+  sideChatTitle,
+  sideChatsForParent,
+  visiblePermissionSessionId,
+} from "./services/sideChat";
 
 const RECONNECT_MS = 2_000;
 /** Longest gap between attempts, so a host that is gone is not hammered. */
@@ -197,6 +206,10 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const [sideSurface, setSideSurface] = useState<
     import("./services/sessionSideSurface").SessionSideSurface
   >({ kind: "none" });
+  /** Active side chat under the primary on screen (light ADR 0019). */
+  const [activeSideSessionId, setActiveSideSessionId] = useState<string | null>(
+    null,
+  );
   const [taskOutput, setTaskOutput] = useState<
     import("./views/TaskDetailPanel").TaskOutputLoad | null
   >(null);
@@ -214,6 +227,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   /** Anonymous public presence (hosted SPA only); null when unavailable. */
   const [presence, setPresence] = useState<PresenceStats | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  /**
+   * Side chat ids under the current parent that have been seen in openSessions.
+   * Used so create → setActive → refresh does not clear focus before the host
+   * list includes the new child (light ADR 0019).
+   */
+  const knownSideIdsRef = useRef<Set<string>>(new Set());
   /** Sequences `listContext` replies so a slow one cannot overwrite a newer. */
   const contextTicket = useRef(0);
   const inspectorTickets = useRef<Record<string, number>>({});
@@ -668,7 +687,46 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   useEffect(() => {
     setSideSurface({ kind: "none" });
     setTaskOutput(null);
+    setActiveSideSessionId(null);
+    knownSideIdsRef.current = new Set();
   }, [sessionId]);
+
+  // Drop side focus only when a previously known child disappeared — not when
+  // createSideChat set the id before refreshWorkspaces merged openSessions.
+  useEffect(() => {
+    if (sessionId === null) {
+      return;
+    }
+    const underParent = sideChatsForParent(openSessions, sessionId);
+    const present = new Set(underParent.map((s) => s.sessionId));
+    const previouslyKnown = knownSideIdsRef.current;
+    if (
+      shouldClearSideFocus(
+        activeSideSessionId,
+        sessionId,
+        openSessions,
+        previouslyKnown,
+      )
+    ) {
+      setActiveSideSessionId(null);
+    }
+    knownSideIdsRef.current = present;
+  }, [activeSideSessionId, openSessions, sessionId]);
+
+  // When a side under the open primary needs permission, focus its dock tab.
+  useEffect(() => {
+    if (sessionId === null) {
+      return;
+    }
+    const sides = sideChatsForParent(openSessions, sessionId);
+    const pendingSide = sides.find((s) => prompts[s.sessionId] !== undefined);
+    if (pendingSide === undefined) {
+      return;
+    }
+    if (activeSideSessionId !== pendingSide.sessionId) {
+      setActiveSideSessionId(pendingSide.sessionId);
+    }
+  }, [activeSideSessionId, openSessions, prompts, sessionId]);
 
   const refreshWorkspaces = useCallback(() => {
     setBusy(true);
@@ -728,12 +786,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         setReviewRevisions((current) => retainLive(current, live));
         setDiagnoses((current) => retainDiagnoses(current, live));
         setRepairBusyBySession((current) => retainLive(current, live));
-        setSessionId((current) => {
-          if (current !== null && open.some((s) => s.sessionId === current)) {
-            return current;
-          }
-          return open.at(-1)?.sessionId ?? null;
-        });
+        setSessionId((current) => pickPrimarySessionId(open, current));
       }
     });
   }, [client, refreshModels]);
@@ -1347,20 +1400,181 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             reportClientFailure(result.failure, "The host could not close that session.");
             return;
           }
+          if (activeSideSessionId === target) {
+            setActiveSideSessionId(null);
+          }
           // The host decides what is still open; the browser re-reads rather
           // than assuming its own view of the list is now correct.
           refreshWorkspaces();
         });
     },
-    [client, refreshWorkspaces, reportClientFailure],
+    [activeSideSessionId, client, refreshWorkspaces, reportClientFailure],
   );
 
-  const decide = useCallback(
-    (optionId: RenderableOption) => {
+  const createSideChat = useCallback(
+    (clipText?: string) => {
       if (sessionId === null) {
         return;
       }
-      const answered = prompts[sessionId];
+      const parent = sessionId;
+      const clips =
+        clipText !== undefined && clipText.trim().length > 0
+          ? [{ text: clipText.trim() }]
+          : [];
+      void client
+        .send(
+          {
+            kind: "createSideChat",
+            parentSessionId: parent,
+            clips,
+          },
+          { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+        )
+        .then((result) => {
+          if (!result.ok) {
+            reportClientFailure(
+              result.failure,
+              "The host could not open a side chat.",
+            );
+            return;
+          }
+          const created = asSessionCreated(result.value);
+          if (created === null) {
+            return;
+          }
+          // Optimistic openSessions row so dock focus is not cleared before
+          // listWorkspaces returns (stillOpen race).
+          setOpenSessions((current) => {
+            if (current.some((s) => s.sessionId === created.sessionId)) {
+              return current;
+            }
+            const parentRow = current.find((s) => s.sessionId === parent);
+            return [
+              ...current,
+              {
+                sessionId: created.sessionId,
+                workspaceId: parentRow?.workspaceId ?? "",
+                workspaceName: parentRow?.workspaceName ?? "",
+                running: false,
+                openedAtMs: Date.now(),
+                role: created.role ?? "side_chat",
+                parentSessionId: created.parentSessionId ?? parent,
+                title: created.title,
+                clips: created.clips,
+              },
+            ];
+          });
+          knownSideIdsRef.current = new Set([
+            ...knownSideIdsRef.current,
+            created.sessionId,
+          ]);
+          setProjections((held) => openProjection(held, created.sessionId));
+          setActiveSideSessionId(created.sessionId);
+          refreshWorkspaces();
+        });
+    },
+    [client, refreshWorkspaces, reportClientFailure, sessionId],
+  );
+
+  const addSelectionToSideChat = useCallback(
+    (text: string) => {
+      if (sessionId === null) {
+        return;
+      }
+      if (activeSideSessionId !== null) {
+        void client
+          .send(
+            {
+              kind: "attachClips",
+              sessionId: activeSideSessionId,
+              clips: [{ text }],
+            },
+            { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+          )
+          .then((result) => {
+            if (!result.ok) {
+              reportClientFailure(result.failure, "Could not attach that selection.");
+              return;
+            }
+            refreshWorkspaces();
+          });
+        return;
+      }
+      createSideChat(text);
+    },
+    [
+      activeSideSessionId,
+      client,
+      createSideChat,
+      refreshWorkspaces,
+      reportClientFailure,
+      sessionId,
+    ],
+  );
+
+  const promptSide = useCallback(() => {
+    if (activeSideSessionId === null) {
+      return;
+    }
+    const target = activeSideSessionId;
+    const text = drafts[target] ?? "";
+    if (text.trim().length === 0) {
+      return;
+    }
+    const bash = isBashMode(text);
+    const wire = bash ? bashSendText(text) : text;
+    setProjections((held) => {
+      const existing = projectionFor(held, target);
+      const seq = nextLocalSeq(existing);
+      return {
+        ...held,
+        [target]: {
+          ...existing,
+          phase: "streaming",
+          transcript: [
+            ...existing.transcript,
+            { id: `u-${seq}`, role: "user", text: wire, seq },
+          ],
+        },
+      };
+    });
+    setDrafts((held) => ({ ...held, [target]: "" }));
+    void client
+      .send(
+        { kind: "prompt", sessionId: target, text: wire, bash },
+        { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+      )
+      .then((result) => {
+        if (!result.ok) {
+          reportClientFailure(result.failure, "The host did not accept that prompt.");
+        }
+        refreshWorkspaces();
+      });
+  }, [
+    activeSideSessionId,
+    client,
+    drafts,
+    refreshWorkspaces,
+    reportClientFailure,
+  ]);
+
+  const decide = useCallback(
+    (optionId: RenderableOption) => {
+      // Answer the visible request — may be a side chat under the open primary.
+      const sideIds =
+        sessionId === null
+          ? []
+          : sideChatsForParent(openSessions, sessionId).map((s) => s.sessionId);
+      const ownerId = visiblePermissionSessionId(
+        Object.keys(prompts),
+        sessionId,
+        activeSideSessionId,
+        sideIds,
+      );
+      if (ownerId === null) {
+        return;
+      }
+      const answered = prompts[ownerId];
       if (answered === undefined) {
         return;
       }
@@ -1384,7 +1598,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setDeciding(false);
         });
     },
-    [client, prompts, sessionId],
+    [activeSideSessionId, client, openSessions, prompts, sessionId],
   );
 
   if (!browserSupport.ok) {
@@ -1427,13 +1641,28 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     awaitingDecision: awaitingDecision.has(session.sessionId),
   }));
   const titles = sessionTitles(projections);
-  const shellTabs = sessionsWithActivity.map((session) => ({
+  // Shell tabs list primaries only — side chats live in the parent dock.
+  const primarySessions = primaryOpenSessions(sessionsWithActivity);
+  const shellTabs = primarySessions.map((session) => ({
     sessionId: session.sessionId,
     title: titles[session.sessionId] ?? "New conversation",
     workspaceName: session.workspaceName,
     running: session.running,
     awaitingDecision: session.awaitingDecision,
   }));
+  const sideSessionsForActive =
+    sessionId === null
+      ? []
+      : sideChatsForParent(sessionsWithActivity, sessionId);
+  const activeSide =
+    activeSideSessionId === null
+      ? null
+      : (sideSessionsForActive.find((s) => s.sessionId === activeSideSessionId) ??
+        null);
+  const sideShown =
+    activeSideSessionId === null
+      ? null
+      : projectionFor(projections, activeSideSessionId);
 
   // A session must exist before the composer means anything, so an unpaired
   // browser sees setup, a paired one without a session picks a workspace (and
@@ -1451,7 +1680,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         }}
         onSelectTab={(id) => {
           setRefusal(undefined);
-          setSessionId(id);
+          setSessionId(resolvePrimarySessionId(openSessions, id));
         }}
         onCloseTab={closeSession}
         onNewTab={() => {
@@ -1498,11 +1727,16 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     );
   }
 
-  // Only the conversation on screen may raise a modal. One that arrives for a
-  // different conversation is announced on its tab instead: a dialog for
-  // something the user is not looking at is a hijack, and with several running
-  // they would fight for the screen.
-  const prompt = prompts[sessionId] ?? null;
+  // Permission modal: primary on screen, or its side dock children (light ADR
+  // 0019). A side request must never be silent while the parent is open.
+  const permissionOwnerId = visiblePermissionSessionId(
+    Object.keys(prompts),
+    sessionId,
+    activeSideSessionId,
+    sideSessionsForActive.map((s) => s.sessionId),
+  );
+  const prompt =
+    permissionOwnerId === null ? null : (prompts[permissionOwnerId] ?? null);
   const shown = projectionFor(projections, sessionId);
   const current = openSessions.find((session) => session.sessionId === sessionId);
   const activeDiagnosis = diagnosisForSession(
@@ -1558,6 +1792,160 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         sideSurface={sideSurface}
         onSideSurfaceChange={setSideSurface}
         taskOutput={taskOutput}
+        sideSessions={sideSessionsForActive}
+        activeSideSessionId={activeSideSessionId}
+        sideTranscript={sideShown?.transcript ?? []}
+        sideTools={sideShown?.tools ?? []}
+        sideThoughts={sideShown?.thoughts ?? []}
+        sidePhase={sideShown?.phase ?? "idle"}
+        sideDraft={
+          activeSideSessionId === null
+            ? ""
+            : (drafts[activeSideSessionId] ?? "")
+        }
+        sideQueued={activeSide?.queued ?? []}
+        sideClips={activeSide?.clips ?? []}
+        onSelectSideSession={setActiveSideSessionId}
+        onCloseSideSession={closeSession}
+        onNewSideSession={() => createSideChat()}
+        onSideDraftChange={(text) => {
+          if (activeSideSessionId === null) {
+            return;
+          }
+          setDrafts((held) => ({ ...held, [activeSideSessionId]: text }));
+        }}
+        onSidePrompt={promptSide}
+        onSideSendNow={() => {
+          if (activeSideSessionId === null) {
+            return;
+          }
+          const target = activeSideSessionId;
+          const text = drafts[target] ?? "";
+          if (text.trim().length === 0) {
+            return;
+          }
+          const bash = isBashMode(text);
+          const wire = bash ? bashSendText(text) : text;
+          setDrafts((held) => ({ ...held, [target]: "" }));
+          void client
+            .send(
+              {
+                kind: "sendNow",
+                sessionId: target,
+                text: wire,
+                bash,
+              },
+              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+            )
+            .then((result) => {
+              if (!result.ok) {
+                reportClientFailure(result.failure, "Send now failed.");
+              }
+              refreshWorkspaces();
+            });
+        }}
+        onSideCancel={() => {
+          if (activeSideSessionId === null) {
+            return;
+          }
+          void client.send(
+            { kind: "cancelTurn", sessionId: activeSideSessionId },
+            { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+          );
+        }}
+        onSideRemoveQueued={(entryId) => {
+          if (activeSideSessionId === null) {
+            return;
+          }
+          void client
+            .send(
+              {
+                kind: "removeQueued",
+                sessionId: activeSideSessionId,
+                entryId,
+              },
+              { controllerEpoch: 1 },
+            )
+            .then(() => refreshWorkspaces());
+        }}
+        onSideRemoveClip={(clipId) => {
+          if (activeSideSessionId === null) {
+            return;
+          }
+          void client
+            .send(
+              {
+                kind: "removeClip",
+                sessionId: activeSideSessionId,
+                clipId,
+              },
+              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+            )
+            .then((result) => {
+              if (!result.ok) {
+                reportClientFailure(result.failure, "Could not remove that clip.");
+                return;
+              }
+              refreshWorkspaces();
+            });
+        }}
+        onAddSelectionToSideChat={addSelectionToSideChat}
+        sideCommands={
+          activeSideSessionId === null
+            ? []
+            : (commands[activeSideSessionId] ?? [])
+        }
+        onSideModelChange={(nextModelId) => {
+          setModelId(nextModelId);
+          if (activeSideSessionId === null) {
+            return;
+          }
+          const target = activeSideSessionId;
+          const effort = pickDefaultEffort(models, nextModelId) ?? undefined;
+          void client
+            .send(
+              {
+                kind: "setSessionModel",
+                sessionId: target,
+                modelId: nextModelId,
+                reasoningEffort: effort,
+              },
+              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+            )
+            .then((result) => {
+              if (!result.ok) {
+                reportClientFailure(
+                  result.failure,
+                  "The host could not change the side chat model.",
+                );
+              }
+            });
+        }}
+        onSideEffortChange={(nextEffort) => {
+          setEffortId(nextEffort);
+          if (activeSideSessionId === null || modelId === null) {
+            return;
+          }
+          const target = activeSideSessionId;
+          void client
+            .send(
+              {
+                kind: "setSessionModel",
+                sessionId: target,
+                modelId,
+                reasoningEffort: nextEffort,
+              },
+              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+            )
+            .then((result) => {
+              if (!result.ok) {
+                reportClientFailure(
+                  result.failure,
+                  "The host could not change side chat reasoning effort.",
+                );
+              }
+            });
+        }}
         inspector={activeInspector?.data ?? null}
         changes={activeChanges?.data ?? null}
         inspectorLoading={activeInspector?.loading ?? false}
@@ -1711,7 +2099,23 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         onAcknowledge={acknowledgeReview}
       />
       {prompt !== null ? (
-        <PermissionDialog prompt={prompt} onDecide={decide} busy={deciding} />
+        <PermissionDialog
+          prompt={prompt}
+          onDecide={decide}
+          busy={deciding}
+          sessionLabel={(() => {
+            const owner = openSessions.find(
+              (session) => session.sessionId === prompt.sessionId,
+            );
+            if (owner === undefined) {
+              return titles[prompt.sessionId];
+            }
+            if (owner.role === "side_chat") {
+              return sideChatTitle(owner);
+            }
+            return titles[prompt.sessionId] ?? "Main chat";
+          })()}
+        />
       ) : null}
     </>
   );

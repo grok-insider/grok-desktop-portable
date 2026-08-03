@@ -730,6 +730,8 @@ describe("session review belongs to the conversation on screen", () => {
     });
 
     await switchToRow(0);
+    // Switching conversations closes the side surface; re-open review for s-1.
+    await userEvent.click(screen.getByRole("button", { name: /open review panel/i }));
     await waitFor(() => {
       expect(
         host.sent.some(

@@ -244,9 +244,7 @@ async fn run_open() -> Result<(), String> {
                         .split('&')
                         .find_map(|part| part.strip_prefix("pair="))
                     {
-                        println!(
-                            "http://127.0.0.1:{port}/#pair={pair}&p={port}"
-                        );
+                        println!("http://127.0.0.1:{port}/#pair={pair}&p={port}");
                     }
                 }
             }

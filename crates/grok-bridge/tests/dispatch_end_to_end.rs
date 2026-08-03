@@ -86,7 +86,11 @@ async fn a_browser_command_creates_a_session_and_prompts() {
     assert_eq!(
         created,
         DispatchOutcome::SessionCreated {
-            session_id: "s-1".into()
+            session_id: "s-1".into(),
+            role: None,
+            parent_session_id: None,
+            title: None,
+            clips: Vec::new()
         }
     );
 
