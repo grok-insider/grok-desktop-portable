@@ -74,6 +74,11 @@ export type Operation =
   | { kind: "listContext"; workspaceId: string; query?: string }
   | { kind: "getSessionInspector"; sessionId: string }
   | { kind: "getSessionChanges"; sessionId: string; mode: ChangeMode }
+  /**
+   * Bounded tail of one background task's host-owned log (ADR light 0018).
+   * Browser sends only opaque ids; never a filesystem path.
+   */
+  | { kind: "getBackgroundTaskOutput"; sessionId: string; taskId: string }
   | { kind: "removeWorkspace"; workspaceId: string }
   | { kind: "listSessions"; workspaceId: string }
   | { kind: "loadSession"; workspaceId: string; sessionId: string }

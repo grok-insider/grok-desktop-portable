@@ -1218,7 +1218,8 @@ const fn addressed_session(operation: &crate::protocol::Operation) -> Option<&St
         | Operation::DecidePermission { session_id, .. }
         | Operation::LoadSession { session_id, .. }
         | Operation::DiagnoseSession { session_id }
-        | Operation::RepairSession { session_id, .. } => Some(session_id),
+        | Operation::RepairSession { session_id, .. }
+        | Operation::GetBackgroundTaskOutput { session_id, .. } => Some(session_id),
         _ => None,
     }
 }
@@ -1937,6 +1938,14 @@ async fn run_unlocked(
             })
         }
 
+        Operation::GetBackgroundTaskOutput {
+            session_id,
+            task_id,
+        } => {
+            let state = session.lock().await;
+            crate::dispatch::background_task_output(&state, session_id, task_id)
+        }
+
         Operation::SetSessionModel {
             session_id,
             model_id,
@@ -2093,6 +2102,7 @@ fn run_without_begin(
         | Operation::ListContext { .. }
         | Operation::GetSessionInspector { .. }
         | Operation::GetSessionChanges { .. }
+        | Operation::GetBackgroundTaskOutput { .. }
         | Operation::GetHostStatus
         | Operation::DiagnoseSession { .. }
         | Operation::RepairSession { .. } => Ok(DispatchOutcome::Projection {

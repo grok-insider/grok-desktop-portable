@@ -65,6 +65,9 @@ pub enum DispatchError {
     /// The named session is not open.
     #[error("session is not open")]
     UnknownSession,
+    /// The named background task is not known for that session.
+    #[error("background task is not known")]
+    UnknownTask,
     /// The concurrency bound is reached.
     #[error("too many sessions are open")]
     TooManySessions,
@@ -102,6 +105,7 @@ impl DispatchError {
             Self::NotReplayable => "not_replayable",
             Self::PickerAlreadyOpen => "picker_already_open",
             Self::UnknownSession => "unknown_session",
+            Self::UnknownTask => "unknown_task",
             Self::TooManySessions => "too_many_sessions",
             Self::QueueFull => "queue_full",
             Self::UnknownQueueEntry => "unknown_queue_entry",
@@ -252,6 +256,43 @@ pub enum DispatchOutcome {
         /// Absent when the CLI or repository cannot support the comparison.
         #[serde(skip_serializing_if = "Option::is_none")]
         changes: Option<crate::review::SessionChangesProjection>,
+    },
+    /// Bounded host read of one background task log (no filesystem paths).
+    #[serde(rename_all = "camelCase")]
+    BackgroundTaskOutput {
+        /// Open session that owns the task.
+        session_id: String,
+        /// Opaque task id.
+        task_id: String,
+        /// Bounded UTF-8 log window (empty when not ready / unavailable).
+        text: String,
+        /// More bytes exist outside the returned window.
+        truncated: bool,
+        /// Echo of current task lifecycle status.
+        status: crate::protocol::BackgroundTaskStatus,
+        /// Display title echo.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        title: String,
+        /// Truncated command echo.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        command: String,
+        /// Newline count of the returned slice.
+        #[serde(default, skip_serializing_if = "is_zero_u32")]
+        line_count: u32,
+        /// Opaque poll short-circuit token.
+        #[serde(default, skip_serializing_if = "is_zero_u64")]
+        content_version: u64,
+        /// Full file size when known.
+        #[serde(default, skip_serializing_if = "is_zero_u64")]
+        file_size: u64,
+        /// Process exit code when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        exit_code: Option<i32>,
+        /// Signal name when killed by signal.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        signal: String,
+        /// Whether log bytes are available.
+        availability: crate::protocol::BackgroundTaskOutputAvailability,
     },
     /// Model switch applied on a session.
     #[serde(rename_all = "camelCase")]
@@ -1000,6 +1041,10 @@ async fn run(
                 changes: crate::review::collect_changes(session_id, &root, *mode, &local).await,
             })
         }
+        Operation::GetBackgroundTaskOutput {
+            session_id,
+            task_id,
+        } => background_task_output(state, session_id, task_id),
         Operation::ListTools { workspace_id } => {
             let cwd = workspace_id.as_ref().and_then(|id| {
                 state
@@ -1201,8 +1246,109 @@ const fn addressed_session_of(operation: &Operation) -> Option<&String> {
         | Operation::DecidePermission { session_id, .. }
         | Operation::LoadSession { session_id, .. }
         | Operation::DiagnoseSession { session_id }
-        | Operation::RepairSession { session_id, .. } => Some(session_id),
+        | Operation::RepairSession { session_id, .. }
+        | Operation::GetBackgroundTaskOutput { session_id, .. } => Some(session_id),
         _ => None,
+    }
+}
+
+fn is_zero_u32(value: &u32) -> bool {
+    *value == 0
+}
+
+fn is_zero_u64(value: &u64) -> bool {
+    *value == 0
+}
+
+/// Resolve a background task log through host-only paths (ADR light 0018).
+pub fn background_task_output(
+    state: &SessionState,
+    session_id: &str,
+    task_id: &str,
+) -> Result<DispatchOutcome, DispatchError> {
+    use crate::protocol::BackgroundTaskOutputAvailability;
+    use crate::task_log::{self, LogReadError, ReadOpts};
+
+    state.session(session_id)?;
+    let runtime = state
+        .runtime
+        .session(session_id)
+        .ok_or(DispatchError::UnknownTask)?;
+    let task = runtime
+        .tasks
+        .get(task_id)
+        .ok_or(DispatchError::UnknownTask)?;
+
+    let title = task.title.clone();
+    let command = task.command.clone();
+    let status = task.status;
+    let exit_code = task.exit_code;
+    let signal = task.signal.clone().unwrap_or_default();
+
+    let Some(path) = task.output_path.as_ref() else {
+        return Ok(DispatchOutcome::BackgroundTaskOutput {
+            session_id: session_id.to_owned(),
+            task_id: task_id.to_owned(),
+            text: String::new(),
+            truncated: false,
+            status,
+            title,
+            command,
+            line_count: 0,
+            content_version: 0,
+            file_size: 0,
+            exit_code,
+            signal,
+            availability: BackgroundTaskOutputAvailability::Unavailable,
+        });
+    };
+
+    match task_log::read_task_log(path, ReadOpts::default()) {
+        Ok(slice) => Ok(DispatchOutcome::BackgroundTaskOutput {
+            session_id: session_id.to_owned(),
+            task_id: task_id.to_owned(),
+            text: slice.text,
+            truncated: slice.truncated,
+            status,
+            title,
+            command,
+            line_count: slice.line_count,
+            content_version: slice.content_version,
+            file_size: slice.file_size,
+            exit_code,
+            signal,
+            availability: BackgroundTaskOutputAvailability::Ok,
+        }),
+        Err(LogReadError::NotFound) => Ok(DispatchOutcome::BackgroundTaskOutput {
+            session_id: session_id.to_owned(),
+            task_id: task_id.to_owned(),
+            text: String::new(),
+            truncated: false,
+            status,
+            title,
+            command,
+            line_count: 0,
+            content_version: 0,
+            file_size: 0,
+            exit_code,
+            signal,
+            availability: BackgroundTaskOutputAvailability::NotReady,
+        }),
+        Err(LogReadError::Io) => Ok(DispatchOutcome::BackgroundTaskOutput {
+            session_id: session_id.to_owned(),
+            task_id: task_id.to_owned(),
+            text: String::new(),
+            truncated: false,
+            status,
+            title,
+            command,
+            line_count: 0,
+            content_version: 0,
+            file_size: 0,
+            exit_code,
+            signal,
+            availability: BackgroundTaskOutputAvailability::Unavailable,
+        }),
     }
 }
 

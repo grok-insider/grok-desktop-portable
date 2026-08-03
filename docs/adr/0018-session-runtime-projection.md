@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (tasks live + snapshot foundation; kill/output ops follow)
+Accepted (tasks live + snapshot + GetBackgroundTaskOutput detail; kill follows)
 
 ## Context
 
@@ -34,8 +34,13 @@ the Work SPA while fully visible in the CLI Tasks pane.
    - `sessionSnapshot.backgroundTasks` (rehydrate + live merge)
 4. **SPA Runtime strip** shows Tasks alongside Workflows and nested Agents
    (CLI group model without full TUI clone).
-5. **Control ops (follow-on):** `getBackgroundTaskOutput` (bounded host read)
-   and `killBackgroundTask` via agent `x.ai/task/kill`, under the control lease.
+5. **Detail ops:** `GetBackgroundTaskOutput` pulls a bounded host tail of the
+   task's `output_path` (never a browser path). The Work SPA opens a single
+   **side surface** (`review` | `taskDetail` | `none`) so task log shares the
+   review rail chrome. Follow is client poll while the rail is open and the
+   task is `running`/`killing`. `KillBackgroundTask` (control lease, agent
+   `x.ai/task/kill`) is the same detail surface's mutation path and remains
+   follow-on if the agent capability is unavailable.
 
 ## Consequences
 

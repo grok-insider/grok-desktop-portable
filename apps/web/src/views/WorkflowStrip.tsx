@@ -54,10 +54,16 @@ export function WorkflowStrip({
   workflows,
   members,
   backgroundTasks = [],
+  selectedTaskId = null,
+  onSelectTask,
 }: {
   workflows: SnapshotWorkflow[];
   members: SnapshotMember[];
   backgroundTasks?: SnapshotBackgroundTask[];
+  /** Task currently open in the side rail, if any. */
+  selectedTaskId?: string | null;
+  /** Toggle task detail for this id. */
+  onSelectTask?: (taskId: string) => void;
 }) {
   if (
     workflows.length === 0 &&
@@ -90,26 +96,43 @@ export function WorkflowStrip({
               ]
                 .filter(Boolean)
                 .join(" · ");
+              const selected = selectedTaskId === task.taskId;
+              const rowClass = cn(
+                "flex w-full items-baseline justify-between gap-2 rounded-md px-1 py-0.5 text-left text-body",
+                "transition-colors duration-150 ease-fluid",
+                selected
+                  ? "bg-accent text-foreground"
+                  : "hover:bg-accent/50",
+              );
+              const metaClass = cn(
+                "shrink-0 font-mono text-label",
+                task.status === "failed"
+                  ? "text-destructive"
+                  : task.status === "running" || task.status === "killing"
+                    ? "text-muted-foreground"
+                    : "text-subtle-foreground",
+              );
               return (
-                <li
-                  key={task.taskId}
-                  className="flex items-baseline justify-between gap-2 text-body"
-                >
-                  <span className="min-w-0 truncate font-medium text-foreground">
-                    {title}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 font-mono text-label",
-                      task.status === "failed"
-                        ? "text-destructive"
-                        : task.status === "running" || task.status === "killing"
-                          ? "text-muted-foreground"
-                          : "text-subtle-foreground",
-                    )}
-                  >
-                    {meta}
-                  </span>
+                <li key={task.taskId}>
+                  {onSelectTask ? (
+                    <button
+                      type="button"
+                      className={rowClass}
+                      aria-pressed={selected}
+                      aria-label={`Show log for ${title}`}
+                      onClick={() => onSelectTask(task.taskId)}
+                    >
+                      <span className="min-w-0 truncate font-medium">{title}</span>
+                      <span className={metaClass}>{meta}</span>
+                    </button>
+                  ) : (
+                    <div className={rowClass}>
+                      <span className="min-w-0 truncate font-medium text-foreground">
+                        {title}
+                      </span>
+                      <span className={metaClass}>{meta}</span>
+                    </div>
+                  )}
                 </li>
               );
             })}

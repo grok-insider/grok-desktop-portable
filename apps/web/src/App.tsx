@@ -41,6 +41,7 @@ import {
   type ModelProjection,
 } from "./services/models";
 import {
+  asBackgroundTaskOutput,
   asContext,
   asHostStatus,
   asModels,
@@ -193,7 +194,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // resolves the root and never sends an absolute path (light ADR 0013).
   const [contextEntries, setContextEntries] = useState<ContextEntry[]>([]);
   const [contextLoading, setContextLoading] = useState(false);
-  const [reviewPanelOpen, setReviewPanelOpen] = useState(false);
+  const [sideSurface, setSideSurface] = useState<
+    import("./services/sessionSideSurface").SessionSideSurface
+  >({ kind: "none" });
+  const [taskOutput, setTaskOutput] = useState<
+    import("./views/TaskDetailPanel").TaskOutputLoad | null
+  >(null);
   const [changeModes, setChangeModes] = useState<Record<string, ChangeMode>>({});
   const [inspectors, setInspectors] = useState<Record<string, InspectorLoad>>({});
   const [sessionChanges, setSessionChanges] = useState<
@@ -538,7 +544,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   );
 
   useEffect(() => {
-    if (!reviewPanelOpen || sessionId === null) {
+    if (sideSurface.kind !== "review" || sessionId === null) {
       return;
     }
     refreshInspector(sessionId);
@@ -548,9 +554,121 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     activeReviewRevision,
     refreshChanges,
     refreshInspector,
-    reviewPanelOpen,
+    sideSurface.kind,
     sessionId,
   ]);
+
+  // Pull bounded task log while the detail rail is open; poll when running.
+  useEffect(() => {
+    if (sideSurface.kind !== "taskDetail" || sessionId === null) {
+      setTaskOutput(null);
+      return;
+    }
+    const taskId = sideSurface.taskId;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const load = (isPoll: boolean) => {
+      if (!isPoll) {
+        setTaskOutput((prev) =>
+          prev && prev.loading
+            ? prev
+            : {
+                text: prev?.text ?? "",
+                truncated: prev?.truncated ?? false,
+                availability: prev?.availability ?? "ok",
+                contentVersion: prev?.contentVersion,
+                loading: true,
+              },
+        );
+      }
+      void client
+        .send({
+          kind: "getBackgroundTaskOutput",
+          sessionId,
+          taskId,
+        })
+        .then((result) => {
+          if (cancelled) {
+            return;
+          }
+          if (!result.ok) {
+            setTaskOutput({
+              text: "",
+              truncated: false,
+              availability: "unavailable",
+              loading: false,
+              error: failureMessage(
+                result.failure,
+                "Could not load task output.",
+              ),
+            });
+            return;
+          }
+          const projected = asBackgroundTaskOutput(result.value, sessionId, taskId);
+          if (projected === null) {
+            setTaskOutput({
+              text: "",
+              truncated: false,
+              availability: "unavailable",
+              loading: false,
+              error: "Unexpected task output from the host.",
+            });
+            return;
+          }
+          setTaskOutput((prev) => {
+            if (
+              prev &&
+              prev.contentVersion !== undefined &&
+              projected.contentVersion !== undefined &&
+              prev.contentVersion === projected.contentVersion &&
+              prev.text === projected.text
+            ) {
+              return {
+                ...prev,
+                loading: false,
+                status: projected.status,
+                exitCode: projected.exitCode,
+                signal: projected.signal,
+                availability: projected.availability,
+              };
+            }
+            return {
+              text: projected.text,
+              truncated: projected.truncated,
+              availability: projected.availability,
+              contentVersion: projected.contentVersion,
+              status: projected.status,
+              title: projected.title,
+              command: projected.command,
+              exitCode: projected.exitCode,
+              signal: projected.signal,
+              loading: false,
+            };
+          });
+
+          const active =
+            projected.status === "running" || projected.status === "killing";
+          if (active && !cancelled) {
+            timer = setTimeout(() => load(true), 1500);
+          }
+        });
+    };
+
+    load(false);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    };
+  }, [client, sessionId, sideSurface]);
+
+  // Drop side surface when the open conversation changes.
+  useEffect(() => {
+    setSideSurface({ kind: "none" });
+    setTaskOutput(null);
+  }, [sessionId]);
 
   const refreshWorkspaces = useCallback(() => {
     setBusy(true);
@@ -1437,8 +1555,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         contextEntries={contextEntries}
         contextLoading={contextLoading}
         onContextQuery={(query) => refreshContext(current?.workspaceId ?? null, query)}
-        reviewPanelOpen={reviewPanelOpen}
-        onReviewPanelOpenChange={setReviewPanelOpen}
+        sideSurface={sideSurface}
+        onSideSurfaceChange={setSideSurface}
+        taskOutput={taskOutput}
         inspector={activeInspector?.data ?? null}
         changes={activeChanges?.data ?? null}
         inspectorLoading={activeInspector?.loading ?? false}

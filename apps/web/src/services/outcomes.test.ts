@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  asBackgroundTaskOutput,
   asSessionChanges,
   asSessionInspector,
   failureMessage,
@@ -254,5 +255,35 @@ describe("session review projections", () => {
         "s-1",
       ),
     ).toBeNull();
+  });
+});
+
+describe("asBackgroundTaskOutput", () => {
+  it("accepts a bounded log outcome", () => {
+    const value = {
+      outcome: "backgroundTaskOutput",
+      sessionId: "s-1",
+      taskId: "t-1",
+      text: "hello\n",
+      truncated: false,
+      status: "running",
+      availability: "ok",
+      contentVersion: 12,
+    };
+    expect(asBackgroundTaskOutput(value, "s-1", "t-1")).toEqual(value);
+  });
+
+  it("rejects wrong session or task id", () => {
+    const value = {
+      outcome: "backgroundTaskOutput",
+      sessionId: "s-1",
+      taskId: "t-1",
+      text: "x",
+      truncated: false,
+      status: "completed",
+      availability: "ok",
+    };
+    expect(asBackgroundTaskOutput(value, "s-2", "t-1")).toBeNull();
+    expect(asBackgroundTaskOutput(value, "s-1", "t-9")).toBeNull();
   });
 });

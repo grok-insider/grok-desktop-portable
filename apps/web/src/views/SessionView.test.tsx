@@ -710,6 +710,57 @@ describe("SessionView", () => {
     await userEvent.click(screen.getAllByRole("button", { name: /close review panel$/i })[0]!);
     expect(onReviewPanelOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("opens task detail side surface when a task row is clicked", async () => {
+    const onSideSurfaceChange = vi.fn();
+    renderView({
+      backgroundTasks: [
+        {
+          taskId: "task-1",
+          kind: "bash",
+          status: "running",
+          title: "Simple heartbeat loop",
+          startedAtMs: 1,
+          elapsedMs: 1000,
+        },
+      ],
+      sideSurface: { kind: "none" },
+      onSideSurfaceChange,
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: /show log for simple heartbeat loop/i }),
+    );
+    expect(onSideSurfaceChange).toHaveBeenCalledWith({
+      kind: "taskDetail",
+      taskId: "task-1",
+    });
+  });
+
+  it("renders task log text in the side rail", () => {
+    renderView({
+      backgroundTasks: [
+        {
+          taskId: "task-1",
+          kind: "bash",
+          status: "running",
+          title: "Simple heartbeat loop",
+          startedAtMs: 1,
+          elapsedMs: 1000,
+        },
+      ],
+      sideSurface: { kind: "taskDetail", taskId: "task-1" },
+      taskOutput: {
+        text: "tick 1\ntick 2\n",
+        truncated: false,
+        availability: "ok",
+        loading: false,
+        status: "running",
+        title: "Simple heartbeat loop",
+      },
+    });
+    expect(screen.getByLabelText(/task output: simple heartbeat loop/i)).toBeInTheDocument();
+    expect(screen.getByText(/tick 1/)).toBeInTheDocument();
+  });
 });
 
 describe("interrupted records across conversations", () => {

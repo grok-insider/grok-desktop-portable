@@ -17,6 +17,12 @@ pub const MAX_EVENT_PAYLOAD_BYTES: usize = 128 * 1024;
 /// Maximum tool output forwarded to the browser for a single tool call.
 pub const MAX_TOOL_OUTPUT_BYTES: usize = 64 * 1024;
 
+/// Maximum background-task log slice returned by `GetBackgroundTaskOutput`.
+///
+/// Tail window only (CLI-like recent output). Aligned with
+/// [`MAX_EVENT_PAYLOAD_BYTES`] so one outcome stays a single WS-friendly body.
+pub const MAX_BACKGROUND_TASK_OUTPUT_BYTES: usize = 128 * 1024;
+
 /// Maximum number of undelivered events retained per connection lineage.
 pub const MAX_EVENT_QUEUE_DEPTH: usize = 1024;
 

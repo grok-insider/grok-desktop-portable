@@ -27,6 +27,13 @@ import {
 } from "../services/transcriptScroll";
 import { SessionComposer } from "./composer/SessionComposer";
 import { SessionReviewPanel } from "./SessionReviewPanel";
+import { TaskDetailPanel, type TaskOutputLoad } from "./TaskDetailPanel";
+import type { SessionSideSurface } from "../services/sessionSideSurface";
+import {
+  isReviewOpen,
+  isTaskDetailOpen,
+  toggleReview,
+} from "../services/sessionSideSurface";
 import { PlanRow } from "./PlanRow";
 import { SessionRepairBanner } from "./SessionRepairBanner";
 import { ThoughtRow } from "./ThoughtRow";
@@ -150,7 +157,10 @@ export function SessionView({
   contextEntries = [],
   contextLoading = false,
   onContextQuery,
-  reviewPanelOpen = false,
+  sideSurface = { kind: "none" } as SessionSideSurface,
+  onSideSurfaceChange,
+  /** @deprecated Prefer sideSurface; kept for tests migrating gradually. */
+  reviewPanelOpen,
   onReviewPanelOpenChange,
   inspector = null,
   changes = null,
@@ -158,6 +168,7 @@ export function SessionView({
   changesLoading = false,
   changeMode = "git",
   onChangeMode,
+  taskOutput = null,
 }: {
   transcript: TranscriptEntry[];
   tools: ToolEntry[];
@@ -227,7 +238,10 @@ export function SessionView({
   contextEntries?: ContextEntry[];
   contextLoading?: boolean;
   onContextQuery?: (query: string) => void;
-  /** Whether the read-only Changes / Context panel is visible. */
+  /** Secondary rail surface (review | task detail | none). */
+  sideSurface?: SessionSideSurface;
+  onSideSurfaceChange?: (surface: SessionSideSurface) => void;
+  /** @deprecated Prefer sideSurface. */
   reviewPanelOpen?: boolean;
   onReviewPanelOpenChange?: (open: boolean) => void;
   inspector?: SessionInspectorProjection | null;
@@ -236,7 +250,26 @@ export function SessionView({
   changesLoading?: boolean;
   changeMode?: ChangeMode;
   onChangeMode?: (mode: ChangeMode) => void;
+  /** Host-fetched log for the open task detail surface. */
+  taskOutput?: TaskOutputLoad | null;
 }) {
+  // Bridge legacy boolean props used by existing tests.
+  const effectiveSurface: SessionSideSurface =
+    reviewPanelOpen === true
+      ? { kind: "review" }
+      : reviewPanelOpen === false && sideSurface.kind === "review"
+        ? { kind: "none" }
+        : sideSurface;
+  const reviewOpen = isReviewOpen(effectiveSurface);
+  const taskDetail =
+    isTaskDetailOpen(effectiveSurface) ? effectiveSurface : null;
+
+  function setSurface(next: SessionSideSurface) {
+    onSideSurfaceChange?.(next);
+    if (onReviewPanelOpenChange) {
+      onReviewPanelOpenChange(next.kind === "review");
+    }
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   // Per-session positions for this tab only — mirrors drafts, never host state.
@@ -543,9 +576,9 @@ export function SessionView({
       trailing={
         <IconButton
           size="sm"
-          onClick={() => onReviewPanelOpenChange?.(!reviewPanelOpen)}
-          aria-label={reviewPanelOpen ? "Close review panel" : "Open review panel"}
-          aria-pressed={reviewPanelOpen}
+          onClick={() => setSurface(toggleReview(effectiveSurface))}
+          aria-label={reviewOpen ? "Close review panel" : "Open review panel"}
+          aria-pressed={reviewOpen}
         >
           <PanelRight size={14} aria-hidden="true" />
         </IconButton>
@@ -664,6 +697,17 @@ export function SessionView({
                   workflows={workflows}
                   members={members}
                   backgroundTasks={backgroundTasks}
+                  selectedTaskId={taskDetail?.taskId ?? null}
+                  onSelectTask={(taskId) => {
+                    if (
+                      taskDetail !== null &&
+                      taskDetail.taskId === taskId
+                    ) {
+                      setSurface({ kind: "none" });
+                    } else {
+                      setSurface({ kind: "taskDetail", taskId });
+                    }
+                  }}
                 />
               </div>
 
@@ -804,12 +848,12 @@ export function SessionView({
             onContextQuery={onContextQuery}
           />
         </div>
-        {reviewPanelOpen ? (
+        {reviewOpen ? (
           <>
             <button
               type="button"
               className="absolute inset-0 z-10 bg-scrim min-[1181px]:hidden"
-              onClick={() => onReviewPanelOpenChange?.(false)}
+              onClick={() => setSurface({ kind: "none" })}
               aria-label="Close review panel overlay"
             />
             <SessionReviewPanel
@@ -819,8 +863,26 @@ export function SessionView({
               changesLoading={changesLoading}
               mode={changeMode}
               onModeChange={onChangeMode ?? (() => {})}
-              onClose={() => onReviewPanelOpenChange?.(false)}
+              onClose={() => setSurface({ kind: "none" })}
               configTools={configTools}
+            />
+          </>
+        ) : null}
+        {taskDetail !== null ? (
+          <>
+            <button
+              type="button"
+              className="absolute inset-0 z-10 bg-scrim min-[1181px]:hidden"
+              onClick={() => setSurface({ kind: "none" })}
+              aria-label="Close task panel overlay"
+            />
+            <TaskDetailPanel
+              task={
+                backgroundTasks.find((t) => t.taskId === taskDetail.taskId) ??
+                null
+              }
+              output={taskOutput}
+              onClose={() => setSurface({ kind: "none" })}
             />
           </>
         ) : null}

@@ -240,6 +240,22 @@ export type DispatchOutcome =
       changes?: SessionChangesProjection;
     }
   | {
+      outcome: "backgroundTaskOutput";
+      sessionId: string;
+      taskId: string;
+      text: string;
+      truncated: boolean;
+      status: import("./protocol").BackgroundTaskStatus;
+      title?: string;
+      command?: string;
+      lineCount?: number;
+      contentVersion?: number;
+      fileSize?: number;
+      exitCode?: number | null;
+      signal?: string;
+      availability: "ok" | "notReady" | "unavailable";
+    }
+  | {
       outcome: "modelSet";
       sessionId: string;
       modelId: string;
@@ -645,6 +661,44 @@ export function asSessionInspector(
     return null;
   }
   return value as Extract<DispatchOutcome, { outcome: "sessionInspector" }>;
+}
+
+const TASK_OUTPUT_STATUSES = new Set([
+  "running",
+  "killing",
+  "completed",
+  "failed",
+]);
+const TASK_OUTPUT_AVAILABILITY = new Set(["ok", "notReady", "unavailable"]);
+
+/** Strictly narrow a background-task log response (no paths). */
+export function asBackgroundTaskOutput(
+  value: unknown,
+  expectedSessionId: string,
+  expectedTaskId: string,
+): Extract<DispatchOutcome, { outcome: "backgroundTaskOutput" }> | null {
+  if (
+    !isRecord(value) ||
+    value.outcome !== "backgroundTaskOutput" ||
+    value.sessionId !== expectedSessionId ||
+    value.taskId !== expectedTaskId ||
+    typeof value.text !== "string" ||
+    typeof value.truncated !== "boolean" ||
+    typeof value.status !== "string" ||
+    !TASK_OUTPUT_STATUSES.has(value.status) ||
+    typeof value.availability !== "string" ||
+    !TASK_OUTPUT_AVAILABILITY.has(value.availability)
+  ) {
+    return null;
+  }
+  // Refuse any path-shaped leakage in text metadata fields (defence in depth).
+  for (const key of ["title", "command", "signal"] as const) {
+    const field = value[key];
+    if (field !== undefined && typeof field !== "string") {
+      return null;
+    }
+  }
+  return value as Extract<DispatchOutcome, { outcome: "backgroundTaskOutput" }>;
 }
 
 /** Strictly narrow one bounded change response, including every patch body. */

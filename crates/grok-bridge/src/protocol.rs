@@ -116,6 +116,18 @@ pub enum Operation {
         /// Closed comparison mode; refs and scope are resolved by the host.
         mode: ChangeMode,
     },
+    /// Read a bounded tail of one background task's host-owned log.
+    ///
+    /// Browser sends only opaque `sessionId` + `taskId`. The host resolves
+    /// `TaskRecord.output_path` and never returns a filesystem path
+    /// (ADR light 0018).
+    #[serde(rename_all = "camelCase")]
+    GetBackgroundTaskOutput {
+        /// Open agent session that owns the task.
+        session_id: String,
+        /// Opaque task id from `backgroundTaskUpdated` / snapshot.
+        task_id: String,
+    },
     /// Remove an enrolled workspace by opaque identifier.
     #[serde(rename_all = "camelCase")]
     RemoveWorkspace {
@@ -307,6 +319,7 @@ impl Operation {
             Self::ListContext { .. } => "ListContext",
             Self::GetSessionInspector { .. } => "GetSessionInspector",
             Self::GetSessionChanges { .. } => "GetSessionChanges",
+            Self::GetBackgroundTaskOutput { .. } => "GetBackgroundTaskOutput",
             Self::RemoveWorkspace { .. } => "RemoveWorkspace",
             Self::ListSessions { .. } => "ListSessions",
             Self::LoadSession { .. } => "LoadSession",
@@ -331,7 +344,7 @@ impl Operation {
 /// Used to turn a name read back from disk into the same `'static` string the
 /// running host uses, so a stored record cannot introduce an operation this
 /// build does not have.
-pub const OPERATION_NAMES: [&str; 26] = [
+pub const OPERATION_NAMES: [&str; 27] = [
     "Bootstrap",
     "GetHostStatus",
     "ListWorkspaces",
@@ -343,6 +356,7 @@ pub const OPERATION_NAMES: [&str; 26] = [
     "ListContext",
     "GetSessionInspector",
     "GetSessionChanges",
+    "GetBackgroundTaskOutput",
     "RemoveWorkspace",
     "ListSessions",
     "LoadSession",
@@ -457,6 +471,13 @@ impl CommandEnvelope {
             Operation::GetSessionInspector { session_id }
             | Operation::GetSessionChanges { session_id, .. } => {
                 check_id(session_id, "sessionId")?;
+            }
+            Operation::GetBackgroundTaskOutput {
+                session_id,
+                task_id,
+            } => {
+                check_id(session_id, "sessionId")?;
+                check_id(task_id, "taskId")?;
             }
             Operation::RemoveWorkspace { workspace_id }
             | Operation::CreateSession { workspace_id }
@@ -820,6 +841,18 @@ pub enum BackgroundTaskStatus {
     Failed,
 }
 
+/// Whether host-owned task log bytes are available for the detail panel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundTaskOutputAvailability {
+    /// Bounded text is present (may be empty for a new file).
+    Ok,
+    /// Task is known but the log file is not ready yet (still starting).
+    NotReady,
+    /// No host path, or output permanently unreadable for this task.
+    Unavailable,
+}
+
 /// One background task row for snapshot / live events (no filesystem paths).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -986,6 +1019,14 @@ mod tests {
             envelope(Operation::GetSessionChanges {
                 session_id: "s-1".into(),
                 mode: crate::review::ChangeMode::Branch,
+            })
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            envelope(Operation::GetBackgroundTaskOutput {
+                session_id: "s-1".into(),
+                task_id: "t-1".into(),
             })
             .validate()
             .is_ok()

@@ -32,6 +32,7 @@
 //! - [`projection`] — pure ACP `session/update` → `light.local.v1` events.
 //! - [`xai_runtime`] — pure decode of `x.ai/task_*` (and related) notifications.
 //! - [`session_runtime`] — host-side tasks/workflows runtime bag per session.
+//! - [`task_log`] — bounded host reads of background-task output files.
 //! - [`cli_matrix`] — qualified Grok Build CLI version floor (product integrity).
 //! - [`repair`] — out-of-band session history repair (light ADR 0015).
 
@@ -60,6 +61,7 @@ pub mod server;
 pub mod session_catalog;
 pub mod session_runtime;
 pub mod state;
+pub mod task_log;
 pub mod tools;
 pub mod xai_runtime;
 #[cfg(windows)]
