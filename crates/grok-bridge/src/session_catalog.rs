@@ -744,6 +744,7 @@ pub fn rehydrate_background_tasks(
                 signal,
                 ..
             } => {
+                let ended = crate::xai_runtime::ended_at_hint(&params).unwrap_or(now);
                 if !runtime.tasks.contains_key(&task_id) {
                     runtime.upsert_running(crate::session_runtime::TaskRecord {
                         task_id: task_id.clone(),
@@ -752,7 +753,7 @@ pub fn rehydrate_background_tasks(
                         status: crate::protocol::BackgroundTaskStatus::Running,
                         title: task_id.clone(),
                         command: String::new(),
-                        started_at_ms: now.saturating_sub(1),
+                        started_at_ms: ended.saturating_sub(1),
                         ended_at_ms: None,
                         exit_code: None,
                         signal: None,
@@ -762,7 +763,7 @@ pub fn rehydrate_background_tasks(
                         restored_from_replay: true,
                     });
                 }
-                runtime.complete(&task_id, status, now, exit_code, signal);
+                runtime.complete(&task_id, status, ended, exit_code, signal);
                 if let Some(task) = runtime.tasks.get_mut(&task_id) {
                     task.restored_from_replay = true;
                 }
@@ -1304,8 +1305,8 @@ struct StoredInfo {
 mod tests {
     use super::{
         VisibilityClass, decode_cwd_dirname, encode_cwd_dirname, list_for_cwd_in,
-        list_project_groups_in, rehydrate_session_in, rehydrate_transcript_in, summary_is_hidden,
-        visibility_class, wire_session_kind,
+        list_project_groups_in, rehydrate_background_tasks, rehydrate_session_in,
+        rehydrate_transcript_in, summary_is_hidden, visibility_class, wire_session_kind,
     };
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1723,6 +1724,71 @@ mod tests {
             } => {
                 assert_eq!(m.len(), 1);
                 assert_eq!(w.len(), 1);
+            }
+            other => panic!("expected snapshot, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rehydrate_background_tasks_from_journal_shape() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let cwd = "/tmp/light-bg-tasks-ws";
+        let id = "sess-bg";
+        let group = root
+            .path()
+            .join("sessions")
+            .join(encode_cwd_dirname(cwd))
+            .join(id);
+        fs::create_dir_all(&group).expect("mkdir");
+        let updates = r#"
+{"method":"_x.ai/session/update","params":{"sessionId":"sess-bg","update":{"sessionUpdate":"task_backgrounded","tool_call_id":"call-1","task_id":"call-1","command":"./target/debug/grok-bridge serve","cwd":"/tmp/ws","output_file":"/tmp/secret.log","description":"Start dual-stack grok-bridge"}}}
+{"method":"_x.ai/session/update","params":{"sessionId":"sess-bg","update":{"sessionUpdate":"task_completed","task_snapshot":{"task_id":"call-1","exit_code":0,"success":true}}}}
+{"method":"_x.ai/session/update","params":{"sessionId":"sess-bg","update":{"sessionUpdate":"task_backgrounded","task_id":"call-2","command":"sleep 999","description":"long sleep"}}}
+"#;
+        fs::write(group.join("updates.jsonl"), updates).expect("updates");
+        fs::write(
+            group.join("summary.json"),
+            serde_json::json!({
+                "info": { "id": id, "cwd": cwd },
+                "session_summary": "bg",
+                "updated_at": "2026-08-03T00:00:00Z",
+                "num_messages": 1
+            })
+            .to_string(),
+        )
+        .expect("summary");
+
+        let tasks =
+            rehydrate_background_tasks(root.path(), std::path::Path::new(cwd), id);
+        assert_eq!(tasks.len(), 2, "one completed + one still running");
+        let done = tasks.iter().find(|t| t.task_id == "call-1").expect("done");
+        assert_eq!(
+            done.status,
+            crate::protocol::BackgroundTaskStatus::Completed
+        );
+        assert_eq!(done.title, "Start dual-stack grok-bridge");
+        let running = tasks.iter().find(|t| t.task_id == "call-2").expect("run");
+        assert_eq!(
+            running.status,
+            crate::protocol::BackgroundTaskStatus::Running
+        );
+        let json = serde_json::to_string(&tasks).expect("json");
+        assert!(
+            !json.contains("secret") && !json.contains("/tmp/"),
+            "must not leak output paths: {json}"
+        );
+
+        let snap = super::snapshot_from_rehydrate_in(
+            root.path(),
+            Some(std::path::Path::new(cwd)),
+            id.into(),
+            super::RehydratedSession::default(),
+        );
+        match snap {
+            crate::protocol::Event::SessionSnapshot {
+                background_tasks, ..
+            } => {
+                assert_eq!(background_tasks.len(), 2);
             }
             other => panic!("expected snapshot, got {other:?}"),
         }
