@@ -24,7 +24,7 @@ Before Work is shown, the SPA probes the bridge:
 | State | UI |
 |-------|-----|
 | `checking` | Landing: brief “looking for bridge…” (never Work chrome) |
-| `bridge_missing` | Landing: install + `grok-bridge serve` |
+| `bridge_missing` | Landing: install + `grok-bridge serve`; optional anonymous presence badge (top-right; see [presence.md](presence.md)) |
 | `blocked_lna` | Landing: allow local network for this site |
 | `needs_pairing` | Pair instructions; consume `#pair=` from `grok-bridge open` |
 | `ready` | Work shell (home / session) **only if still paired** |

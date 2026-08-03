@@ -36,8 +36,13 @@ import {
   TranscriptCheckpoints,
 } from "./TranscriptCheckpoints";
 import { WorkShell, type WorkShellTab } from "../shell/WorkShell";
-import type { PlanEntryProjection } from "../services/protocol";
+import type {
+  PlanEntryProjection,
+  SnapshotMember,
+  SnapshotWorkflow,
+} from "../services/protocol";
 import type { SessionDiagnosis } from "../services/outcomes";
+import { WorkflowStrip } from "./WorkflowStrip";
 
 /**
  * Where something sits in the conversation.
@@ -107,6 +112,8 @@ export function SessionView({
   reviews,
   phase,
   plan = [],
+  members = [],
+  workflows = [],
   sessionLoading = false,
   diagnosis = null,
   repairBusy = false,
@@ -158,6 +165,10 @@ export function SessionView({
   phase: SessionPhase;
   /** Latest agent plan steps; empty when the agent has not published one. */
   plan?: PlanEntryProjection[];
+  /** Nested subagent roster for this parent (from sessionSnapshot). */
+  members?: SnapshotMember[];
+  /** Workflow runs under this session (from sessionSnapshot). */
+  workflows?: SnapshotWorkflow[];
   /** True while create/load is in flight so the empty state does not flash. */
   sessionLoading?: boolean;
   /** Optional history-pairing diagnosis for this conversation. */
@@ -644,13 +655,24 @@ export function SessionView({
                 </Card>
               ) : null}
 
-              {sessionLoading && timeline.length === 0 && plan.length === 0 ? (
+              <div className="mb-3">
+                <WorkflowStrip workflows={workflows} members={members} />
+              </div>
+
+              {sessionLoading &&
+              timeline.length === 0 &&
+              plan.length === 0 &&
+              workflows.length === 0 &&
+              members.length === 0 ? (
                 <EmptyState
                   icon={<MessagesSquare size={24} />}
                   title="Opening conversation…"
                   description="Loading session state from the host. This is not an empty conversation."
                 />
-              ) : timeline.length === 0 && plan.length === 0 ? (
+              ) : timeline.length === 0 &&
+                plan.length === 0 &&
+                workflows.length === 0 &&
+                members.length === 0 ? (
                 <EmptyState
                   icon={<MessagesSquare size={24} />}
                   title="No messages yet"

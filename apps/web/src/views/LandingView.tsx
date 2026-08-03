@@ -5,6 +5,8 @@
  */
 
 import type { BridgeProbeState } from "../services/bridgeProbe";
+import type { PresenceStats } from "../services/presence";
+import { LandingPresence } from "./LandingPresence";
 
 const INSTALL_SNIPPET = `curl -fsSL https://desktop.grok.me/install.sh | sh
 grok-bridge doctor
@@ -61,11 +63,14 @@ export function LandingView({
   probe,
   onRetry,
   hadPort = false,
+  presence = null,
 }: {
   probe: BridgeProbeState;
   onRetry: () => void;
   /** True when this profile has a remembered loopback port (even if host is down). */
   hadPort?: boolean;
+  /** Anonymous aggregate counts from the public presence service (optional). */
+  presence?: PresenceStats | null;
 }) {
   let title = "Grok Desktop Portable";
   let body =
@@ -148,6 +153,7 @@ export function LandingView({
       data-probe-kind={probe.kind}
       data-had-port={hadPort ? "1" : "0"}
     >
+      <LandingPresence stats={presence} />
       <div className="landing-card">
         <p className="landing-kicker">Grok Desktop Portable</p>
         <h1>{title}</h1>

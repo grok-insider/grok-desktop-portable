@@ -410,6 +410,39 @@
   color: var(--subtle-foreground, var(--muted-foreground));
 }
 
+/* Anonymous presence badge (top-right); outside the card. */
+.landing-presence {
+  position: fixed;
+  z-index: 1;
+  top: max(1rem, env(safe-area-inset-top, 0px));
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  pointer-events: none;
+  user-select: none;
+}
+
+.landing-presence-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--success, #22c55e);
+  flex-shrink: 0;
+}
+
+.landing-presence-text {
+  white-space: nowrap;
+}
+
 /* Viewport-corner social links (X left, GitHub right); outside the card. */
 .landing-social {
   position: fixed;

@@ -60,10 +60,10 @@ async fn start() -> Running {
     let port = free_port();
     let origin = LocalOrigin::new(INSTALL, port).expect("origin");
     let state = Arc::new(HostState::new(origin.clone()));
-    let listener = bind(&origin).await.expect("bind");
+    let listeners = bind(&origin).await.expect("bind");
     let served = Arc::clone(&state);
     let task = tokio::spawn(async move {
-        let _ = serve(listener, served).await;
+        let _ = serve(listeners, served).await;
     });
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     Running {

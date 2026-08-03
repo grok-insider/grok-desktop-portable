@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("LIGHT_NONCE={nonce}");
     println!("URL={origin}/#pair={nonce}");
 
-    let listener = bind(&origin).await?;
-    serve(listener, state).await?;
+    let listeners = bind(&origin).await?;
+    serve(listeners, state).await?;
     Ok(())
 }

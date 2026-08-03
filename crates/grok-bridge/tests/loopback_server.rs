@@ -44,10 +44,10 @@ async fn start() -> Running {
     let port = free_port();
     let origin = origin_for(port);
     let state = Arc::new(HostState::new(origin.clone()));
-    let listener = bind(&origin).await.expect("bind");
+    let listeners = bind(&origin).await.expect("bind");
     let served = Arc::clone(&state);
     let task = tokio::spawn(async move {
-        let _ = serve(listener, served).await;
+        let _ = serve(listeners, served).await;
     });
     // Give the accept loop a moment to become ready.
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -89,14 +89,22 @@ async fn the_listener_binds_loopback_only() {
     // The bound address itself is the evidence: a routable bind would show
     // 0.0.0.0 here and would expose the host beyond this machine.
     let origin = origin_for(free_port());
-    let listener = bind(&origin).await.expect("bind");
-    let address = listener.local_addr().expect("local addr");
+    let listeners = bind(&origin).await.expect("bind");
+    let address = listeners.v4.local_addr().expect("local addr");
     assert!(
         address.ip().is_loopback(),
         "the host must bind loopback only, got {address}"
     );
     assert_eq!(address.port(), origin.port());
-    drop(listener);
+    if let Some(v6) = listeners.v6.as_ref() {
+        let v6_addr = v6.local_addr().expect("v6 local addr");
+        assert!(
+            v6_addr.ip().is_loopback(),
+            "IPv6 bind must also be loopback, got {v6_addr}"
+        );
+        assert_eq!(v6_addr.port(), origin.port());
+    }
+    drop(listeners);
 
     // And a served instance answers on loopback.
     let running = start().await;
@@ -309,7 +317,16 @@ async fn asking_the_host_to_stop_actually_stops_it() {
 
     let serving = tokio::spawn({
         let state = Arc::clone(&state);
-        async move { grok_bridge::server::serve(listener, state).await }
+        async move {
+            grok_bridge::server::serve(
+                grok_bridge::server::LoopbackListeners {
+                    v4: listener,
+                    v6: None,
+                },
+                state,
+            )
+            .await
+        }
     });
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 

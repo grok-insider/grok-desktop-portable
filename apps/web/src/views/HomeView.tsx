@@ -426,6 +426,14 @@ export function HomeView({
                                 <span className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
                                   {title}
                                 </span>
+                                {(session.memberCount ?? 0) > 0 ? (
+                                  <span
+                                    className="w-14 shrink-0 whitespace-nowrap text-right font-mono text-label text-muted-foreground"
+                                    title={`${session.memberCount} nested agents`}
+                                  >
+                                    {session.memberCount} ag
+                                  </span>
+                                ) : null}
                                 {session.messageCount === 0 ? (
                                   <span className="w-16 shrink-0 whitespace-nowrap text-right text-label text-subtle-foreground">
                                     Empty

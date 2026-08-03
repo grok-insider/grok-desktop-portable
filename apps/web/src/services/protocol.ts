@@ -136,6 +136,36 @@ export interface CommandEnvelope {
   operation: Operation;
 }
 
+/** Nested agent belonging to a parent session (opaque ids only). */
+export interface SnapshotMember {
+  id: string;
+  title?: string;
+  kind?: string;
+  label?: string;
+  status?: string;
+  messageCount?: number;
+}
+
+/** One phase in a workflow strip. */
+export interface SnapshotWorkflowPhase {
+  title: string;
+  state: string;
+}
+
+/** Workflow run projected onto a parent session. */
+export interface SnapshotWorkflow {
+  runId: string;
+  name?: string;
+  status?: string;
+  objective?: string;
+  phases?: SnapshotWorkflowPhase[];
+  currentPhase?: string;
+  agentsUsed?: number;
+  agentBudget?: number;
+  elapsedMs?: number;
+  resultSummary?: string;
+}
+
 /** Server-to-client events. */
 export type LightEvent =
   | { kind: "hostStatus"; state: string }
@@ -155,6 +185,10 @@ export type LightEvent =
         failed: boolean;
         seq: number;
       }>;
+      /** Nested subagent sessions for this parent (not home-rail peers). */
+      members?: SnapshotMember[];
+      /** Workflow runs under this session. */
+      workflows?: SnapshotWorkflow[];
     }
   | { kind: "sessionStatus"; sessionId: string; state: string }
   | { kind: "messageDelta"; sessionId: string; text: string }

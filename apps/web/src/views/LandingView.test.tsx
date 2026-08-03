@@ -106,4 +106,28 @@ describe("LandingView", () => {
     expect(github).toHaveAttribute("target", "_blank");
     expect(github.getAttribute("rel") ?? "").toMatch(/noopener/);
   });
+
+  it("shows anonymous presence when stats are available", () => {
+    render(
+      <LandingView
+        probe={{ kind: "bridge_missing" }}
+        onRetry={() => {}}
+        presence={{ active: 12, total: 1284, window_sec: 300 }}
+      />,
+    );
+    expect(screen.getByTestId("landing-presence")).toHaveTextContent(
+      /12 online · 1\.3k total/,
+    );
+  });
+
+  it("hides presence when stats are null", () => {
+    render(
+      <LandingView
+        probe={{ kind: "bridge_missing" }}
+        onRetry={() => {}}
+        presence={null}
+      />,
+    );
+    expect(screen.queryByTestId("landing-presence")).toBeNull();
+  });
 });

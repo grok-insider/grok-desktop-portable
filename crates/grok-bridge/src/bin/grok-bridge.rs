@@ -157,7 +157,7 @@ async fn run_serve() -> Result<(), String> {
     let identity = state::load_or_create(lock.directory()).map_err(|error| error.to_string())?;
     let origin = identity.origin().map_err(|error| error.to_string())?;
 
-    let listener = bind(&origin).await.map_err(|error| {
+    let listeners = bind(&origin).await.map_err(|error| {
         format!(
             "port {} is unavailable ({error}). This is transient: the origin and \
              pairings are kept. Retry, or run `grok-bridge repair` to rotate them.",
@@ -208,8 +208,21 @@ async fn run_serve() -> Result<(), String> {
     tokio::spawn(async move { control::serve(control_listener, control_state).await });
 
     println!("grok-bridge listening on {origin}");
+    println!(
+        "also reachable at http://127.0.0.1:{} (use when *.localhost resolves to IPv6 only)",
+        origin.port()
+    );
+    if listeners.v6.is_some() {
+        println!("IPv6 loopback [::1]:{} bound", origin.port());
+    } else {
+        eprintln!(
+            "grok-bridge: could not bind [::1]:{}; hostname URLs that resolve only to IPv6 may fail — use http://127.0.0.1:{}",
+            origin.port(),
+            origin.port()
+        );
+    }
     println!("run `grok-bridge open` in this account to pair a browser");
-    serve(listener, state)
+    serve(listeners, state)
         .await
         .map_err(|error| error.to_string())
 }
@@ -219,9 +232,28 @@ async fn run_open() -> Result<(), String> {
     match control::call(&directory, &ControlRequest::MintNonce).await {
         Ok(ControlResponse::Paired { url, .. }) => {
             println!("{url}");
+            // Reliable local path: desktop.grok.me needs local-network permission;
+            // 127.0.0.1 pairs against the embedded SPA without DNS / LNA issues.
+            if let Some(pair_and_port) = url.split_once("#").map(|(_, frag)| frag) {
+                // url shape: https://desktop.grok.me/#pair=…&p=PORT
+                if let Some(port) = pair_and_port
+                    .split('&')
+                    .find_map(|part| part.strip_prefix("p="))
+                {
+                    if let Some(pair) = pair_and_port
+                        .split('&')
+                        .find_map(|part| part.strip_prefix("pair="))
+                    {
+                        println!(
+                            "http://127.0.0.1:{port}/#pair={pair}&p={port}"
+                        );
+                    }
+                }
+            }
             println!(
-                "\nOpen that URL once to pair this browser, then bookmark the address \
-                 without the fragment."
+                "\nOpen either URL once to pair this browser, then bookmark the address \
+                 without the fragment. Prefer the 127.0.0.1 link if desktop.grok.me cannot \
+                 reach the bridge."
             );
             Ok(())
         }

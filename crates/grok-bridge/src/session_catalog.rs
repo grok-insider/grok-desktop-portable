@@ -5,8 +5,13 @@
 //! `/resume` picker uses. This module only **lists metadata** and **reads**
 //! `updates.jsonl` for rehydration — it never writes session content.
 //!
+//! The list is **membership-aware**: subagent (and other hidden) sessions stay
+//! on disk for the CLI, but only **primary** sessions appear in
+//! [`list_for_cwd`]. Visibility matches Grok Build's `Summary::is_hidden`
+//! (explicit `hidden`, else `session_kind` starting with `subagent`).
+//!
 //! See light ADR 0010, light ADR 0012 (project groups), and
-//! `docs/light/protocol.md`.
+//! `docs/protocol.md`.
 
 use std::collections::HashMap;
 use std::fs;
@@ -15,9 +20,16 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
-use crate::bounds::{MAX_PROJECTS, MAX_REHYDRATE_CHARS, MAX_SESSION_LIST};
+use crate::bounds::{
+    MAX_PROJECTS, MAX_REHYDRATE_CHARS, MAX_SESSION_LIST, MAX_SESSION_MEMBERS,
+    MAX_SESSION_WORKFLOWS, MAX_WORKFLOW_PHASES, MAX_WORKFLOW_TEXT_BYTES,
+};
 
 /// One session as the browser may see it: never a filesystem path.
+///
+/// Only **primary** sessions (resume-picker peers) are returned by
+/// [`list_for_cwd`]. Nested agents are members of a parent and are projected
+/// only when that parent is opened (see session membership ADR).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSummary {
@@ -29,6 +41,75 @@ pub struct SessionSummary {
     pub updated_at: String,
     /// Coarse message count for ranking / empty detection.
     pub message_count: u64,
+    /// Session kind from Grok Build (`conversation`, `fork`, `worktree`, …).
+    ///
+    /// Subagent kinds never appear here because those sessions are not primary.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
+    /// How many nested member sessions (e.g. workflow subagents) belong to this
+    /// primary session. Zero when none; the home rail can badge without listing
+    /// each child as a peer chat.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub member_count: u64,
+}
+
+fn is_zero_u64(value: &u64) -> bool {
+    *value == 0
+}
+
+/// Host-side visibility for a session row in the catalog graph.
+///
+/// Not sent on the wire as a free string for every disk entry; it decides
+/// whether the session is a primary list peer, a parent-scoped member, or
+/// omitted from SPA surfaces for now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VisibilityClass {
+    /// Appears in `ListSessions` / the project session rail.
+    Primary,
+    /// Nested under a parent (subagents). Not a home-rail peer.
+    Member,
+    /// Hidden and not attached to a known parent in this group.
+    Hidden,
+}
+
+/// Whether a Grok Build summary is excluded from history listings.
+///
+/// Ports CLI `Summary::is_hidden`: explicit `hidden` wins; otherwise any
+/// `session_kind` that starts with `subagent` is hidden (`subagent`,
+/// `subagent_fork`, `subagent_resume`, …). Forks and worktrees stay visible.
+#[must_use]
+pub fn summary_is_hidden(hidden: Option<bool>, session_kind: Option<&str>) -> bool {
+    hidden.unwrap_or_else(|| {
+        session_kind
+            .is_some_and(|kind| kind.starts_with("subagent"))
+    })
+}
+
+/// Classify a session for catalog surfaces given summary fields and optional parent.
+#[must_use]
+pub fn visibility_class(
+    hidden: Option<bool>,
+    session_kind: Option<&str>,
+    parent_session_id: Option<&str>,
+) -> VisibilityClass {
+    if !summary_is_hidden(hidden, session_kind) {
+        return VisibilityClass::Primary;
+    }
+    if parent_session_id.is_some_and(|parent| !parent.is_empty()) {
+        VisibilityClass::Member
+    } else {
+        VisibilityClass::Hidden
+    }
+}
+
+/// Wire `kind` for a primary session: CLI kind when set, else `conversation`.
+#[must_use]
+pub fn wire_session_kind(session_kind: Option<&str>) -> String {
+    session_kind
+        .map(str::trim)
+        .filter(|kind| !kind.is_empty())
+        .unwrap_or("conversation")
+        .to_owned()
 }
 
 /// One turn restored into the browser after `session/load`.
@@ -283,11 +364,12 @@ fn disambiguate_display_names(groups: &mut [ProjectGroup]) {
     }
 }
 
-/// List sessions stored for a workspace directory, newest first.
+/// List **primary** sessions stored for a workspace directory, newest first.
 ///
-/// Missing groups or unreadable summaries are skipped, not fatal: a partial
-/// list is better than blocking Work. Results are capped at
-/// [`MAX_SESSION_LIST`].
+/// Nested / hidden sessions (subagents, explicit `hidden: true`) are omitted
+/// from this list so the home rail matches the CLI resume picker. Missing
+/// groups or unreadable summaries are skipped, not fatal. Results are capped
+/// at [`MAX_SESSION_LIST`].
 #[must_use]
 pub fn list_for_cwd(cwd: &Path) -> Vec<SessionSummary> {
     list_for_cwd_in(&grok_home(), cwd)
@@ -296,18 +378,82 @@ pub fn list_for_cwd(cwd: &Path) -> Vec<SessionSummary> {
 /// Same as [`list_for_cwd`] with an explicit Grok home (tests and injection).
 #[must_use]
 pub fn list_for_cwd_in(home: &Path, cwd: &Path) -> Vec<SessionSummary> {
+    let graph = load_session_graph(home, cwd);
+    let mut member_counts: HashMap<String, u64> = HashMap::new();
+    for node in &graph {
+        if node.visibility != VisibilityClass::Member {
+            continue;
+        }
+        // Count each member session once, by its resolved parent edge.
+        if let Some(parent) = node.parent_session_id.as_deref() {
+            *member_counts.entry(parent.to_owned()).or_insert(0) += 1;
+        }
+    }
+
+    let mut sessions = Vec::new();
+    for node in graph {
+        if node.visibility != VisibilityClass::Primary {
+            continue;
+        }
+        let member_count = member_counts.get(&node.id).copied().unwrap_or(0);
+        sessions.push(SessionSummary {
+            id: node.id,
+            title: node.title,
+            updated_at: node.updated_at,
+            message_count: node.message_count,
+            kind: wire_session_kind(node.session_kind.as_deref()),
+            member_count,
+        });
+    }
+
+    sessions.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+    sessions.truncate(MAX_SESSION_LIST);
+    sessions
+}
+
+/// One node in the host-only session graph for a cwd group.
+#[derive(Debug, Clone)]
+struct SessionNode {
+    id: String,
+    title: String,
+    updated_at: String,
+    message_count: u64,
+    session_kind: Option<String>,
+    /// Explicit CLI `hidden` flag when present.
+    hidden: Option<bool>,
+    parent_session_id: Option<String>,
+    visibility: VisibilityClass,
+}
+
+/// Scan `summary.json` (+ `subagents/` links) for one workspace cwd.
+///
+/// Host-only. Builds membership edges so primary listing and later parent
+/// snapshots share the same visibility rules.
+fn load_session_graph(home: &Path, cwd: &Path) -> Vec<SessionNode> {
     let encoded = encode_cwd_dirname(&cwd.to_string_lossy());
     let group = home.join("sessions").join(encoded);
     let Ok(entries) = fs::read_dir(&group) else {
         return Vec::new();
     };
 
-    let mut sessions = Vec::new();
+    let mut by_id: HashMap<String, SessionNode> = HashMap::new();
+    // parent session id → child session ids (from summary and `subagents/`).
+    let mut children_of: HashMap<String, Vec<String>> = HashMap::new();
+
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_dir() {
             continue;
         }
+        let dir_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("")
+            .to_owned();
+        if dir_name.is_empty() {
+            continue;
+        }
+
         let summary_path = path.join("summary.json");
         let Ok(raw) = fs::read_to_string(&summary_path) else {
             continue;
@@ -319,19 +465,16 @@ pub fn list_for_cwd_in(home: &Path, cwd: &Path) -> Vec<SessionSummary> {
             .info
             .as_ref()
             .and_then(|info| info.id.clone())
-            .or_else(|| {
-                path.file_name()
-                    .and_then(|name| name.to_str().map(str::to_owned))
-            });
-        let Some(id) = id else {
-            continue;
-        };
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| dir_name.clone());
         if id.is_empty() {
             continue;
         }
+
+        // Prefer generated_title like CLI `display_title`, then session_summary.
         let title = first_nonempty_str(&[
-            parsed.session_summary.as_deref(),
             parsed.generated_title.as_deref(),
+            parsed.session_summary.as_deref(),
         ])
         .unwrap_or("")
         .to_owned();
@@ -343,17 +486,86 @@ pub fn list_for_cwd_in(home: &Path, cwd: &Path) -> Vec<SessionSummary> {
         .unwrap_or("")
         .to_owned();
         let message_count = parsed.num_messages.unwrap_or(0);
-        sessions.push(SessionSummary {
-            id,
-            title,
-            updated_at,
-            message_count,
-        });
+        let session_kind = parsed
+            .session_kind
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        let parent_session_id = parsed
+            .parent_session_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        let hidden = parsed.hidden;
+
+        if let Some(parent) = parent_session_id.as_ref() {
+            children_of
+                .entry(parent.clone())
+                .or_default()
+                .push(id.clone());
+        }
+
+        // Parent folder's `subagents/<childId>/` is a durable membership edge.
+        let subagents_dir = path.join("subagents");
+        if let Ok(subs) = fs::read_dir(subagents_dir) {
+            for sub in subs.flatten() {
+                let sub_path = sub.path();
+                if !sub_path.is_dir() {
+                    continue;
+                }
+                let Some(child_id) = sub_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .filter(|name| !name.is_empty())
+                else {
+                    continue;
+                };
+                children_of
+                    .entry(id.clone())
+                    .or_default()
+                    .push(child_id.to_owned());
+            }
+        }
+
+        by_id.insert(
+            id.clone(),
+            SessionNode {
+                id,
+                title,
+                updated_at,
+                message_count,
+                session_kind,
+                hidden,
+                parent_session_id,
+                // Filled after parent edges are complete.
+                visibility: VisibilityClass::Primary,
+            },
+        );
     }
 
-    sessions.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
-    sessions.truncate(MAX_SESSION_LIST);
-    sessions
+    // Apply parent edges from `subagents/` when summary omitted parent_session_id.
+    for (parent_id, children) in &children_of {
+        for child_id in children {
+            let Some(node) = by_id.get_mut(child_id) else {
+                continue;
+            };
+            if node.parent_session_id.is_none() {
+                node.parent_session_id = Some(parent_id.clone());
+            }
+        }
+    }
+
+    for node in by_id.values_mut() {
+        node.visibility = visibility_class(
+            node.hidden,
+            node.session_kind.as_deref(),
+            node.parent_session_id.as_deref(),
+        );
+    }
+
+    by_id.into_values().collect()
 }
 
 /// Rebuild user/agent turns from `updates.jsonl` for browser rehydration.
@@ -388,11 +600,29 @@ pub fn rehydrate_has_content(session: &RehydratedSession) -> bool {
 }
 
 /// Map a rehydrate result onto the browser-facing snapshot event body.
+///
+/// When `cwd` is provided, attaches bounded parent-scoped **members** and
+/// **workflows** from the session graph and `workflows/*/state.json`.
 #[must_use]
 pub fn snapshot_from_rehydrate(
     session_id: String,
     restored: RehydratedSession,
 ) -> crate::protocol::Event {
+    snapshot_from_rehydrate_in(&grok_home(), None, session_id, restored)
+}
+
+/// Same as [`snapshot_from_rehydrate`] with an explicit home and optional cwd
+/// for hierarchy projection.
+#[must_use]
+pub fn snapshot_from_rehydrate_in(
+    home: &Path,
+    cwd: Option<&Path>,
+    session_id: String,
+    restored: RehydratedSession,
+) -> crate::protocol::Event {
+    let (members, workflows) = cwd
+        .map(|cwd| project_session_hierarchy(home, cwd, &session_id))
+        .unwrap_or_default();
     crate::protocol::Event::SessionSnapshot {
         session_id,
         messages: restored
@@ -419,7 +649,253 @@ pub fn snapshot_from_rehydrate(
                 seq: tool.seq,
             })
             .collect(),
+        members,
+        workflows,
     }
+}
+
+/// Parent-scoped members + workflows for one session (host-only read).
+#[must_use]
+pub fn project_session_hierarchy(
+    home: &Path,
+    cwd: &Path,
+    session_id: &str,
+) -> (
+    Vec<crate::protocol::SnapshotMember>,
+    Vec<crate::protocol::SnapshotWorkflow>,
+) {
+    (
+        project_session_members(home, cwd, session_id),
+        project_session_workflows(home, cwd, session_id),
+    )
+}
+
+struct SubagentMeta {
+    label: String,
+    status: String,
+}
+
+fn project_session_members(
+    home: &Path,
+    cwd: &Path,
+    session_id: &str,
+) -> Vec<crate::protocol::SnapshotMember> {
+    let graph = load_session_graph(home, cwd);
+    let meta_by_id = load_subagent_meta(home, cwd, session_id);
+    let mut members: Vec<crate::protocol::SnapshotMember> = graph
+        .into_iter()
+        .filter(|node| {
+            node.visibility == VisibilityClass::Member
+                && node.parent_session_id.as_deref() == Some(session_id)
+        })
+        .map(|node| {
+            let meta = meta_by_id.get(&node.id);
+            crate::protocol::SnapshotMember {
+                id: node.id,
+                title: crate::bounds::truncate_utf8(&node.title, MAX_WORKFLOW_TEXT_BYTES).0,
+                kind: wire_session_kind(node.session_kind.as_deref()),
+                label: crate::bounds::truncate_utf8(
+                    meta.map(|m| m.label.as_str()).unwrap_or(""),
+                    64,
+                )
+                .0,
+                status: meta
+                    .map(|m| m.status.clone())
+                    .unwrap_or_default(),
+                message_count: node.message_count,
+            }
+        })
+        .collect();
+    members.sort_by(|left, right| left.label.cmp(&right.label).then(left.id.cmp(&right.id)));
+    members.truncate(MAX_SESSION_MEMBERS);
+    members
+}
+
+/// Read `subagents/<id>/meta.json` labels/status for one parent.
+fn load_subagent_meta(
+    home: &Path,
+    cwd: &Path,
+    parent_id: &str,
+) -> HashMap<String, SubagentMeta> {
+    let encoded = encode_cwd_dirname(&cwd.to_string_lossy());
+    let sub_root = home
+        .join("sessions")
+        .join(encoded)
+        .join(parent_id)
+        .join("subagents");
+    let Ok(entries) = fs::read_dir(sub_root) else {
+        return HashMap::new();
+    };
+    let mut out = HashMap::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(child_id) = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+        else {
+            continue;
+        };
+        let meta_path = path.join("meta.json");
+        let Ok(raw) = fs::read_to_string(meta_path) else {
+            continue;
+        };
+        let Ok(meta) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        let label = meta
+            .get("description")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("")
+            .to_owned();
+        let status = meta
+            .get("status")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("")
+            .to_owned();
+        out.insert(child_id.to_owned(), SubagentMeta { label, status });
+    }
+    out
+}
+
+fn project_session_workflows(
+    home: &Path,
+    cwd: &Path,
+    session_id: &str,
+) -> Vec<crate::protocol::SnapshotWorkflow> {
+    let encoded = encode_cwd_dirname(&cwd.to_string_lossy());
+    let wf_root = home
+        .join("sessions")
+        .join(encoded)
+        .join(session_id)
+        .join("workflows");
+    let Ok(entries) = fs::read_dir(wf_root) else {
+        return Vec::new();
+    };
+    let mut workflows = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let state_path = path.join("state.json");
+        let Ok(raw) = fs::read_to_string(state_path) else {
+            continue;
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        let state = value.get("state").unwrap_or(&value);
+        let Some(run_id) = state
+            .get("run_id")
+            .and_then(|value| value.as_str())
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        let status = state
+            .get("status")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_owned();
+        let name = state
+            .get("name")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_owned();
+        let objective = state
+            .get("objective")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let current_phase = state
+            .get("current_phase")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .to_owned();
+        let result_summary = state
+            .get("result_summary")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        let phases = project_workflow_phases(state, &current_phase, &status);
+        workflows.push(crate::protocol::SnapshotWorkflow {
+            run_id: run_id.to_owned(),
+            name: crate::bounds::truncate_utf8(&name, 64).0,
+            status,
+            objective: crate::bounds::truncate_utf8(objective, MAX_WORKFLOW_TEXT_BYTES).0,
+            phases,
+            current_phase: crate::bounds::truncate_utf8(&current_phase, 64).0,
+            agents_used: state.get("agents_used").and_then(|value| value.as_u64()),
+            agent_budget: state.get("agent_budget").and_then(|value| value.as_u64()),
+            elapsed_ms: state
+                .get("elapsed_ms_floor")
+                .or_else(|| state.get("elapsed_ms"))
+                .and_then(|value| value.as_u64()),
+            result_summary: crate::bounds::truncate_utf8(result_summary, MAX_WORKFLOW_TEXT_BYTES)
+                .0,
+        });
+    }
+    workflows.sort_by(|left, right| left.run_id.cmp(&right.run_id));
+    workflows.truncate(MAX_SESSION_WORKFLOWS);
+    workflows
+}
+
+fn project_workflow_phases(
+    state: &serde_json::Value,
+    current_phase: &str,
+    status: &str,
+) -> Vec<crate::protocol::SnapshotWorkflowPhase> {
+    let Some(raw_phases) = state.get("phases").and_then(|value| value.as_array()) else {
+        return Vec::new();
+    };
+    let terminal = matches!(
+        status,
+        "complete" | "failed" | "cancelled" | "interrupted"
+    );
+    let mut phases = Vec::new();
+    let mut before_current = true;
+    for entry in raw_phases {
+        let title = entry
+            .get("title")
+            .and_then(|value| value.as_str())
+            .unwrap_or("")
+            .trim();
+        if title.is_empty() {
+            continue;
+        }
+        // Prefer explicit state from live/workflow_updated shape when present.
+        let explicit = entry
+            .get("state")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let phase_state = if let Some(state) = explicit {
+            state.to_owned()
+        } else if terminal {
+            "done".to_owned()
+        } else if !current_phase.is_empty() && title == current_phase {
+            before_current = false;
+            "active".to_owned()
+        } else if before_current {
+            "done".to_owned()
+        } else {
+            "pending".to_owned()
+        };
+        phases.push(crate::protocol::SnapshotWorkflowPhase {
+            title: crate::bounds::truncate_utf8(title, 64).0,
+            state: phase_state,
+        });
+        if phases.len() >= MAX_WORKFLOW_PHASES {
+            break;
+        }
+    }
+    phases
 }
 
 /// Same as [`rehydrate_session`] with an explicit Grok home.
@@ -690,6 +1166,15 @@ struct StoredSummary {
     updated_at: Option<String>,
     last_active_at: Option<String>,
     num_messages: Option<u64>,
+    /// Grok Build session kind (`subagent`, `fork`, `worktree`, …).
+    #[serde(default)]
+    session_kind: Option<String>,
+    /// Explicit list visibility override from the CLI summary.
+    #[serde(default)]
+    hidden: Option<bool>,
+    /// Parent conversation when this session is a nested agent / fork child.
+    #[serde(default)]
+    parent_session_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -700,8 +1185,9 @@ struct StoredInfo {
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_cwd_dirname, encode_cwd_dirname, list_for_cwd_in, list_project_groups_in,
-        rehydrate_session_in, rehydrate_transcript_in,
+        VisibilityClass, decode_cwd_dirname, encode_cwd_dirname, list_for_cwd_in,
+        list_project_groups_in, rehydrate_session_in, rehydrate_transcript_in, summary_is_hidden,
+        visibility_class, wire_session_kind,
     };
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -714,15 +1200,49 @@ mod tests {
         updated_at: &str,
         updates_jsonl: &str,
     ) {
+        write_session_with(
+            root,
+            cwd,
+            id,
+            title,
+            updated_at,
+            updates_jsonl,
+            None,
+            None,
+            None,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn write_session_with(
+        root: &std::path::Path,
+        cwd: &str,
+        id: &str,
+        title: &str,
+        updated_at: &str,
+        updates_jsonl: &str,
+        session_kind: Option<&str>,
+        hidden: Option<bool>,
+        parent_session_id: Option<&str>,
+    ) {
         let group = root.join("sessions").join(encode_cwd_dirname(cwd));
         let dir = group.join(id);
         fs::create_dir_all(&dir).expect("mkdir");
-        let summary = serde_json::json!({
+        let mut summary = serde_json::json!({
             "info": { "id": id, "cwd": cwd },
             "session_summary": title,
             "updated_at": updated_at,
             "num_messages": 2,
         });
+        if let Some(kind) = session_kind {
+            summary["session_kind"] = serde_json::json!(kind);
+        }
+        if let Some(flag) = hidden {
+            summary["hidden"] = serde_json::json!(flag);
+        }
+        if let Some(parent) = parent_session_id {
+            summary["parent_session_id"] = serde_json::json!(parent);
+        }
         fs::write(dir.join("summary.json"), summary.to_string()).expect("summary");
         fs::write(dir.join("updates.jsonl"), updates_jsonl).expect("updates");
     }
@@ -809,10 +1329,285 @@ mod tests {
         assert_eq!(listed.len(), 2);
         assert_eq!(listed[0].id, "sess-new");
         assert_eq!(listed[0].title, "New chat");
+        assert_eq!(listed[0].kind, "conversation");
+        assert_eq!(listed[0].member_count, 0);
         assert_eq!(listed[1].id, "sess-old");
         let encoded = serde_json::to_string(&listed).expect("json");
         assert!(!encoded.contains(cwd));
         assert!(!encoded.contains("sessions"));
+    }
+
+    #[test]
+    fn is_hidden_matches_cli_subagent_kinds() {
+        assert!(summary_is_hidden(None, Some("subagent")));
+        assert!(summary_is_hidden(None, Some("subagent_fork")));
+        assert!(summary_is_hidden(None, Some("subagent_resume")));
+        assert!(!summary_is_hidden(None, None));
+        assert!(!summary_is_hidden(None, Some("fork")));
+        assert!(!summary_is_hidden(None, Some("worktree")));
+        assert!(!summary_is_hidden(Some(false), Some("subagent")));
+        assert!(summary_is_hidden(Some(true), None));
+    }
+
+    #[test]
+    fn visibility_classifies_members_vs_primary() {
+        assert_eq!(
+            visibility_class(None, Some("subagent"), Some("parent")),
+            VisibilityClass::Member
+        );
+        assert_eq!(
+            visibility_class(None, Some("subagent"), None),
+            VisibilityClass::Hidden
+        );
+        assert_eq!(
+            visibility_class(None, None, None),
+            VisibilityClass::Primary
+        );
+        assert_eq!(
+            visibility_class(None, Some("worktree"), None),
+            VisibilityClass::Primary
+        );
+        assert_eq!(wire_session_kind(None), "conversation");
+        assert_eq!(wire_session_kind(Some("worktree")), "worktree");
+    }
+
+    #[test]
+    fn list_omits_subagents_and_counts_members_on_parent() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let cwd = "/tmp/light-catalog-members";
+        write_session_with(
+            root.path(),
+            cwd,
+            "parent-1",
+            "Deep research parent",
+            "2026-08-02T23:47:00Z",
+            "",
+            None,
+            None,
+            None,
+        );
+        write_session_with(
+            root.path(),
+            cwd,
+            "child-planner",
+            "Planner title",
+            "2026-08-02T23:43:00Z",
+            "",
+            Some("subagent"),
+            None,
+            Some("parent-1"),
+        );
+        write_session_with(
+            root.path(),
+            cwd,
+            "child-researcher",
+            "Researcher title",
+            "2026-08-02T23:44:00Z",
+            "",
+            Some("subagent"),
+            None,
+            Some("parent-1"),
+        );
+        // Sibling primary conversation must still list.
+        write_session_with(
+            root.path(),
+            cwd,
+            "other-primary",
+            "Other chat",
+            "2026-08-02T23:40:00Z",
+            "",
+            None,
+            None,
+            None,
+        );
+        // Fork stays primary (CLI does not hide forks).
+        write_session_with(
+            root.path(),
+            cwd,
+            "fork-1",
+            "Fork chat",
+            "2026-08-02T23:39:00Z",
+            "",
+            Some("fork"),
+            None,
+            Some("parent-1"),
+        );
+
+        // Parent subagents/ edge without parent_session_id on summary.
+        write_session_with(
+            root.path(),
+            cwd,
+            "child-via-dir",
+            "Dir linked",
+            "2026-08-02T23:45:00Z",
+            "",
+            Some("subagent"),
+            None,
+            None,
+        );
+        let parent_dir = root
+            .path()
+            .join("sessions")
+            .join(encode_cwd_dirname(cwd))
+            .join("parent-1");
+        fs::create_dir_all(parent_dir.join("subagents").join("child-via-dir")).expect("sub link");
+
+        let listed = list_for_cwd_in(root.path(), std::path::Path::new(cwd));
+        let ids: Vec<&str> = listed.iter().map(|s| s.id.as_str()).collect();
+        assert!(
+            !ids.contains(&"child-planner")
+                && !ids.contains(&"child-researcher")
+                && !ids.contains(&"child-via-dir"),
+            "subagents must not appear as primary peers: {ids:?}"
+        );
+        assert!(ids.contains(&"parent-1"));
+        assert!(ids.contains(&"other-primary"));
+        assert!(ids.contains(&"fork-1"), "forks remain primary: {ids:?}");
+
+        let parent = listed
+            .iter()
+            .find(|s| s.id == "parent-1")
+            .expect("parent row");
+        assert_eq!(
+            parent.member_count, 3,
+            "planner + researcher + dir-linked child"
+        );
+        assert_eq!(parent.kind, "conversation");
+    }
+
+    #[test]
+    fn explicit_hidden_true_is_omitted_even_without_subagent_kind() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let cwd = "/tmp/light-catalog-hidden";
+        write_session_with(
+            root.path(),
+            cwd,
+            "visible",
+            "Visible",
+            "2026-08-01T00:00:00Z",
+            "",
+            None,
+            None,
+            None,
+        );
+        write_session_with(
+            root.path(),
+            cwd,
+            "ghost",
+            "Ghost",
+            "2026-08-01T01:00:00Z",
+            "",
+            None,
+            Some(true),
+            None,
+        );
+        let listed = list_for_cwd_in(root.path(), std::path::Path::new(cwd));
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "visible");
+    }
+
+    #[test]
+    fn hierarchy_projects_members_and_workflows_without_paths() {
+        use super::{project_session_hierarchy, snapshot_from_rehydrate_in};
+
+        let root = tempfile::tempdir().expect("tempdir");
+        let cwd = "/tmp/light-hierarchy-ws";
+        write_session_with(
+            root.path(),
+            cwd,
+            "parent-h",
+            "Parent",
+            "2026-08-02T00:00:00Z",
+            "",
+            None,
+            None,
+            None,
+        );
+        write_session_with(
+            root.path(),
+            cwd,
+            "child-h",
+            "Child title",
+            "2026-08-02T00:01:00Z",
+            "",
+            Some("subagent"),
+            None,
+            Some("parent-h"),
+        );
+        let parent_dir = root
+            .path()
+            .join("sessions")
+            .join(encode_cwd_dirname(cwd))
+            .join("parent-h");
+        let sub_meta = parent_dir.join("subagents").join("child-h");
+        fs::create_dir_all(&sub_meta).expect("sub");
+        fs::write(
+            sub_meta.join("meta.json"),
+            r#"{"description":"researcher-0","status":"completed"}"#,
+        )
+        .expect("meta");
+        let wf_dir = parent_dir.join("workflows").join("wf_test");
+        fs::create_dir_all(&wf_dir).expect("wf");
+        fs::write(
+            wf_dir.join("state.json"),
+            serde_json::json!({
+                "state": {
+                    "run_id": "wf_test",
+                    "name": "deep-research",
+                    "status": "complete",
+                    "objective": "learn layouts",
+                    "current_phase": "Report",
+                    "phases": [
+                        { "title": "Plan" },
+                        { "title": "Research" },
+                        { "title": "Verify" },
+                        { "title": "Report" }
+                    ],
+                    "agents_used": 8,
+                    "agent_budget": 128,
+                    "elapsed_ms_floor": 1000,
+                    "result_summary": "Partial findings",
+                    "journal_path": "workflows/wf_test/journal.jsonl"
+                }
+            })
+            .to_string(),
+        )
+        .expect("state");
+
+        let (members, workflows) =
+            project_session_hierarchy(root.path(), std::path::Path::new(cwd), "parent-h");
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].id, "child-h");
+        assert_eq!(members[0].label, "researcher-0");
+        assert_eq!(members[0].status, "completed");
+        assert_eq!(workflows.len(), 1);
+        assert_eq!(workflows[0].run_id, "wf_test");
+        assert_eq!(workflows[0].name, "deep-research");
+        assert_eq!(workflows[0].phases.len(), 4);
+        assert!(workflows[0].phases.iter().all(|p| p.state == "done"));
+        let encoded = serde_json::to_string(&workflows).expect("json");
+        assert!(
+            !encoded.contains("journal_path") && !encoded.contains(cwd),
+            "hierarchy must not leak paths: {encoded}"
+        );
+
+        let event = snapshot_from_rehydrate_in(
+            root.path(),
+            Some(std::path::Path::new(cwd)),
+            "parent-h".into(),
+            super::RehydratedSession::default(),
+        );
+        match event {
+            crate::protocol::Event::SessionSnapshot {
+                members: m,
+                workflows: w,
+                ..
+            } => {
+                assert_eq!(m.len(), 1);
+                assert_eq!(w.len(), 1);
+            }
+            other => panic!("expected snapshot, got {other:?}"),
+        }
     }
 
     #[test]

@@ -30,6 +30,10 @@ import {
   shouldShowWork,
 } from "./services/surfaceGate";
 import { LandingView } from "./views/LandingView";
+import {
+  startPresenceLoop,
+  type PresenceStats,
+} from "./services/presence";
 import { isBashMode, bashSendText } from "./services/bashMode";
 import {
   pickDefaultEffort,
@@ -201,6 +205,8 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const [deciding, setDeciding] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [wsGeneration, setWsGeneration] = useState(0);
+  /** Anonymous public presence (hosted SPA only); null when unavailable. */
+  const [presence, setPresence] = useState<PresenceStats | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   /** Sequences `listContext` replies so a slow one cannot overwrite a newer. */
   const contextTicket = useRef(0);
@@ -221,6 +227,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     sessionId === null ? undefined : sessionChanges[sessionId]?.[activeChangeMode];
   const activeReviewRevision =
     sessionId === null ? 0 : (reviewRevisions[sessionId] ?? 0);
+
+  // Hosted SPA: anonymous heartbeat to grok-insider-web (landing + Work).
+  // Never sends bridge secrets; soft-fails when the public API is down.
+  useEffect(() => {
+    return startPresenceLoop({ onStats: setPresence });
+  }, []);
 
   /** Leave Work for landing when pairing dies or the host is gone. */
   const demoteToLanding = useCallback(
@@ -283,12 +295,25 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       // Silent resume path: restore grant before reading base URL.
       client.restoreFromStorage();
     }
-    const base = client.bridgeBaseUrl || resolveBridgeBaseUrl();
-    if (base && !client.bridgeBaseUrl) {
-      client.setBridgeBaseUrl(base);
+    // Hosted SPA needs an explicit loopback base. When this document *is* the
+    // loopback SPA (empty default base), probe same-origin so a missing pair
+    // nonce becomes "needs pairing" instead of a false "bridge missing".
+    const resolved = client.bridgeBaseUrl || resolveBridgeBaseUrl();
+    const onLoopbackDocument =
+      typeof location !== "undefined" &&
+      (location.hostname === "127.0.0.1" ||
+        location.hostname === "localhost" ||
+        location.hostname === "[::1]" ||
+        location.hostname.endsWith(".grok-light.localhost"));
+    const base =
+      resolved ||
+      (onLoopbackDocument && typeof location !== "undefined" ? location.origin : "");
+    if (resolved && !client.bridgeBaseUrl) {
+      client.setBridgeBaseUrl(resolved);
     }
     const afterPairAttempt = (isPaired: boolean) => {
-      if (!base && !client.bridgeBaseUrl) {
+      const apiBase = client.bridgeBaseUrl || base;
+      if (!apiBase) {
         // No known API port yet (hosted, never opened) → treat as missing bridge.
         // Same-origin tests inject an empty base with a paired resume → ready.
         setProbe(
@@ -296,7 +321,6 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         );
         return;
       }
-      const apiBase = client.bridgeBaseUrl || base;
       void probeBridge({
         bridgeBaseUrl: apiBase,
         isPaired,
@@ -1261,6 +1285,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         probe={probe}
         onRetry={runProbeAndPair}
         hadPort={hasStoredPort()}
+        presence={presence}
       />
     );
   }
@@ -1380,6 +1405,8 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         reviews={pendingReviews}
         phase={shown.phase}
         plan={shown.plan}
+        members={shown.members}
+        workflows={shown.workflows}
         connected={connected}
         sessionLoading={sessionLoading}
         diagnosis={activeDiagnosis}

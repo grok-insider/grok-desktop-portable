@@ -540,6 +540,13 @@ pub enum Event {
         /// none were recorded or the log had no tool activity.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tools: Vec<SnapshotTool>,
+        /// Nested member sessions (subagents) belonging to this parent.
+        /// Empty for members themselves and for sessions with no children.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        members: Vec<SnapshotMember>,
+        /// Workflow runs under this session (`workflows/*/state.json`).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        workflows: Vec<SnapshotWorkflow>,
     },
     /// Session lifecycle transition.
     #[serde(rename_all = "camelCase")]
@@ -740,6 +747,81 @@ pub struct SnapshotTool {
     pub failed: bool,
     /// Order among restored messages and tools.
     pub seq: i64,
+}
+
+/// Nested agent session belonging to a parent conversation.
+///
+/// Opaque ids and display strings only — never a path. Used so the SPA can
+/// show a roster without promoting children to home-rail peers (ADR 0017).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotMember {
+    /// Child session id (opaque).
+    pub id: String,
+    /// Human title from the child summary, when present.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
+    /// Session kind (`subagent`, …).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
+    /// Short label from workflow/subagent meta (e.g. `researcher-0`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub label: String,
+    /// Coarse status: `running`, `completed`, `failed`, or empty when unknown.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub status: String,
+    /// Message count from the child summary when available.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub message_count: u64,
+}
+
+/// One workflow phase for the session strip.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotWorkflowPhase {
+    /// Phase title (`Plan`, `Research`, …).
+    pub title: String,
+    /// Closed-ish state: `pending`, `active`, `done` (derived on the host).
+    pub state: String,
+}
+
+/// One workflow run under a parent session (from `workflows/*/state.json`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotWorkflow {
+    /// Opaque run id (`wf_…`).
+    pub run_id: String,
+    /// Workflow name (`deep-research`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
+    /// Run status (`active`, `complete`, `failed`, …).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub status: String,
+    /// Bounded objective text.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub objective: String,
+    /// Phase trail for the strip.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub phases: Vec<SnapshotWorkflowPhase>,
+    /// Current phase title when known.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub current_phase: String,
+    /// How many child agents the run has consumed, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agents_used: Option<u64>,
+    /// Agent budget ceiling for the run, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_budget: Option<u64>,
+    /// Elapsed wall time in milliseconds (floor), when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elapsed_ms: Option<u64>,
+    /// Bounded result summary for completed runs (no paths).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub result_summary: String,
+}
+
+fn is_zero_u64(value: &u64) -> bool {
+    *value == 0
 }
 
 /// One step of an agent plan, projected for the transcript.

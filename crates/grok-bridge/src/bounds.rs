@@ -44,6 +44,18 @@ pub const MAX_PROJECTS: usize = 200;
 /// Maximum sessions returned for one workspace listing.
 pub const MAX_SESSION_LIST: usize = 50;
 
+/// Nested member sessions projected on one parent `sessionSnapshot`.
+pub const MAX_SESSION_MEMBERS: usize = 32;
+
+/// Workflow runs projected on one parent `sessionSnapshot`.
+pub const MAX_SESSION_WORKFLOWS: usize = 8;
+
+/// Phase rows projected for one workflow run.
+pub const MAX_WORKFLOW_PHASES: usize = 16;
+
+/// Maximum bytes for a workflow objective or member title on the wire.
+pub const MAX_WORKFLOW_TEXT_BYTES: usize = 512;
+
 /// Maximum total characters of transcript rehydrated after `session/load`.
 pub const MAX_REHYDRATE_CHARS: usize = 256 * 1024;
 

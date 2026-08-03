@@ -39,6 +39,16 @@ export interface SessionSummary {
   title: string;
   updatedAt: string;
   messageCount: number;
+  /**
+   * Session kind from the host (`conversation`, `fork`, `worktree`, …).
+   * Subagent kinds never appear here — they are not primary list peers.
+   */
+  kind?: string;
+  /**
+   * Nested member sessions (e.g. workflow subagents) belonging to this primary
+   * chat. Used for a rail badge; children are not listed as peer chats.
+   */
+  memberCount?: number;
 }
 
 /**

@@ -6,17 +6,16 @@ import { defineConfig } from "vitest/config";
 /**
  * Content Security Policy for the Grok Desktop Portable SPA.
  *
- * `connect-src 'self'` holds unchanged because the document and the local API
- * share one loopback origin (light ADR 0002). A hosted deployment would need
- * this widened, which is one more reason the application is never served from
- * a CDN. The host sends the same policy as a response header; this meta tag
- * keeps `vite dev` honest.
+ * Hosted UI (ADR 0016) calls the loopback bridge and an optional anonymous
+ * presence API on api.grokinsider.net (never credentials / bridge secrets).
+ * The loopback-served SPA still ships a tighter response header from
+ * grok-bridge (`connect-src 'self'`), so presence is blocked there.
  */
 export function contentSecurityPolicy(development: boolean): string {
-  // Hosted UI (ADR 0016) calls the loopback bridge; connect-src must allow it.
+  // Loopback bridge + optional public presence host (grok-insider-web).
   const connect = development
-    ? "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*"
-    : "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*";
+    ? "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net"
+    : "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net";
   return [
     "default-src 'self'",
     development ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",

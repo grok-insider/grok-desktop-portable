@@ -44,6 +44,25 @@ pub fn is_loopback_api_host(host: &str, port: u16) -> bool {
     false
 }
 
+/// Whether `origin` is a same-port loopback document origin for this install.
+///
+/// Accepts `http://127.0.0.1:<port>`, `http://localhost:<port>`, and
+/// `http://[::1]:<port>`. Browsers often open the embedded SPA on these hosts
+/// when `*.grok-light.localhost` resolves only to IPv6 while the API also
+/// listens on IPv4 (or vice versa). Pairing and mutations must still work.
+#[must_use]
+pub fn is_loopback_document_origin(origin: &str, port: u16) -> bool {
+    let expected_port = format!(":{port}");
+    for name in ["127.0.0.1", "localhost", "[::1]"] {
+        if origin == format!("http://{name}{expected_port}")
+            || (port == 80 && origin == format!("http://{name}"))
+        {
+            return true;
+        }
+    }
+    false
+}
+
 /// Lowest port considered for allocation.
 ///
 /// Chosen below the Linux default ephemeral range start (32768) so a routine
@@ -151,14 +170,15 @@ impl LocalOrigin {
             return Err(OriginError::OriginMismatch);
         }
         let loopback_doc = self.origin_header();
+        let origin_ok = |value: &str| {
+            value == loopback_doc
+                || is_allowed_web_origin(value)
+                || is_loopback_document_origin(value, self.port)
+        };
         match (kind, origin) {
             (RequestKind::Safe, None) => Ok(()),
-            (RequestKind::Safe, Some(value))
-                if value == loopback_doc || is_allowed_web_origin(value) =>
-            {
-                Ok(())
-            }
-            (_, Some(value)) if value == loopback_doc || is_allowed_web_origin(value) => Ok(()),
+            (RequestKind::Safe, Some(value)) if origin_ok(value) => Ok(()),
+            (_, Some(value)) if origin_ok(value) => Ok(()),
             _ => Err(OriginError::OriginMismatch),
         }
     }
@@ -382,6 +402,39 @@ mod tests {
                 "host {host} with production web origin must be accepted"
             );
         }
+    }
+
+    #[test]
+    fn loopback_document_origins_pair_on_api_hosts() {
+        let origin = origin();
+        for doc in [
+            "http://127.0.0.1:20001",
+            "http://localhost:20001",
+            "http://[::1]:20001",
+        ] {
+            assert!(
+                super::is_loopback_document_origin(doc, 20001),
+                "classifier must accept {doc}"
+            );
+            assert!(
+                origin
+                    .verify_request(
+                        RequestKind::Mutation,
+                        Some("127.0.0.1:20001"),
+                        Some(doc)
+                    )
+                    .is_ok(),
+                "pairing Origin {doc} must be accepted"
+            );
+        }
+        assert!(!super::is_loopback_document_origin(
+            "http://127.0.0.1:20002",
+            20001
+        ));
+        assert!(!super::is_loopback_document_origin(
+            "http://evil.example:20001",
+            20001
+        ));
     }
 
     #[test]

@@ -7,7 +7,12 @@
  * recovery and streaming without mounting the shell.
  */
 
-import type { EventEnvelope, PlanEntryProjection } from "./protocol";
+import type {
+  EventEnvelope,
+  PlanEntryProjection,
+  SnapshotMember,
+  SnapshotWorkflow,
+} from "./protocol";
 import type {
   ReviewRecord,
   SessionPhase,
@@ -26,6 +31,10 @@ export interface Projection {
   phase: SessionPhase;
   /** Latest agent plan for this conversation, or empty when none published. */
   plan: PlanEntryProjection[];
+  /** Nested members (subagents) for this parent session. */
+  members: SnapshotMember[];
+  /** Workflow runs under this session. */
+  workflows: SnapshotWorkflow[];
 }
 
 /** Empty projection used before any event and after a hard reset. */
@@ -36,6 +45,8 @@ export const EMPTY_PROJECTION: Projection = {
   reviews: [],
   phase: "idle",
   plan: [],
+  members: [],
+  workflows: [],
 };
 
 /**
@@ -226,6 +237,12 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
       // Prefer host-assigned seq when present so tools interleave with turns.
       // Fall back to negative indices so rehydrate still sorts before live events.
       const fallbackBase = -(restored.length + restoredTools.length);
+      const members = (event.members ?? []).filter(
+        (member) => typeof member.id === "string" && member.id.length > 0,
+      );
+      const workflows = (event.workflows ?? []).filter(
+        (workflow) => typeof workflow.runId === "string" && workflow.runId.length > 0,
+      );
       return {
         transcript: restored.map((message, index) => ({
           id: `restored-${index}`,
@@ -257,6 +274,8 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
         phase: "idle",
         // Plan is live ACP state, not rehydrated from the transcript snapshot.
         plan: [],
+        members,
+        workflows,
       };
     }
     // Handled before the fold, in App.handleEvent, because they change host or

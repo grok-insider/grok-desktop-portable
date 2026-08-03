@@ -57,6 +57,18 @@ CLI’s multi-phase research dashboard. To match the CLI UX we need new
 `light.local.v1` events (or a deliberate subset of `x.ai/*` session updates)
 and SPA panels for phases / subagents / claim tables.
 
+### Catalog membership (partially addressed)
+
+Workflow subagents are **full session directories** under the same cwd, with
+`session_kind: "subagent"` (and often `parent/subagents/<id>/`). The CLI resume
+picker hides them via `Summary::is_hidden`. Portable’s `ListSessions` now uses
+the same rule: only **primary** sessions appear on the home rail; primary rows
+may include `memberCount` for nested agents.
+
+Still open for full parity: parent-scoped member roster + workflow phase strip
+on `sessionSnapshot`, and live `_x.ai/session/update` projection
+(`workflow_updated`, `subagent_*`) — see the session-membership plan / ADR.
+
 ## Background tasks, goals, subagents
 
 From CLI tool runtime + pager:

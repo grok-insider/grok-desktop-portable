@@ -25,22 +25,39 @@ workspace cwd (CLI and Light), not only sessions Light created.
    Build (`/` → `%2F`, unreserved characters unescaped).
 2. **Scope** listing to an enrolled workspace id. The host resolves the
    canonical path; the browser never sends a path (ADR 0009).
-3. **Project** only metadata: session id, title, timestamps, message count.
-   Never transcript bodies, never absolute paths, in list responses.
-4. **Resume** uses ACP `session/load` with the enrolled cwd, then **rehydrates**
+3. **Project** only metadata: session id, title, timestamps, message count,
+   optional kind, and member count. Never transcript bodies, never absolute
+   paths, in list responses.
+4. **Visibility is membership-aware (amended).** The home rail is not “every
+   directory with a summary.” It lists **primary** sessions only, using the
+   same rule as Grok Build’s resume picker (`Summary::is_hidden`):
+
+   - explicit `hidden: true` → omit from primary list
+   - explicit `hidden: false` → list even if kind looks nested
+   - else if `session_kind` starts with `subagent` → omit (members)
+   - else → primary (`conversation`, `fork`, `worktree`, missing kind, …)
+
+   Nested agents remain on disk under the same cwd (and under
+   `parent/subagents/<id>/`). They are **members** of a parent, not peer chats.
+   Primary rows may carry `memberCount` so the UI can badge nested work without
+   promoting each child to a rail row. Parent-scoped member/workflow projection
+   (snapshot + live events) is specified in the session-membership ADR.
+5. **Resume** uses ACP `session/load` with the enrolled cwd, then **rehydrates**
    the browser transcript by reading `updates.jsonl` on the host
    (`user_message_chunk` / `agent_message_chunk` only; thoughts dropped) and
    emitting `sessionSnapshot` with messages.
-5. **Bounds:** list size and rehydrate character total are defined in
+6. **Bounds:** list size and rehydrate character total are defined in
    `grok_bridge::bounds`. Corrupt summaries are skipped, not fatal.
 
 ## Consequences
 
 - Light history matches the TUI for the same directory without inventing a
-  second transcript store.
-- Light is coupled to the on-disk layout of Grok sessions. If Grok renames
-  `summary.json` or encoding, listing degrades (empty/partial) until updated;
-  load via ACP remains the source of session identity.
+  second transcript store, including **hiding subagent sessions** that would
+  otherwise flood the rail after `/deep-research` and similar workflows.
+- Light is coupled to the on-disk layout of Grok sessions **and** to summary
+  fields `session_kind`, `hidden`, and `parent_session_id`. If Grok renames
+  those fields or changes `is_hidden`, listing must be updated; contract tests
+  pin the visibility rule.
 - `ListSessions` requires `workspaceId` on the wire.
 - Rehydrate is best-effort: a missing `updates.jsonl` yields an empty
   transcript after a successful load.

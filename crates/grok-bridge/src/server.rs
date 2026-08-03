@@ -504,7 +504,12 @@ impl HostState {
                 continue;
             }
             self.emit_event(
-                crate::session_catalog::snapshot_from_rehydrate(session_id, restored),
+                crate::session_catalog::snapshot_from_rehydrate_in(
+                    &crate::session_catalog::grok_home(),
+                    Some(path.as_path()),
+                    session_id,
+                    restored,
+                ),
                 None,
             )
             .await;
@@ -713,32 +718,68 @@ pub fn router(state: Arc<HostState>) -> Router {
         .with_state(state)
 }
 
-/// Bind the loopback listener for a canonical origin.
+/// Bound loopback listeners for one origin (IPv4 required, IPv6 when available).
 ///
-/// Binds `127.0.0.1` only. The caller owns the returned listener so the
+/// Many systems resolve `*.localhost` to `::1` only. Binding solely to
+/// `127.0.0.1` makes the printed `*.grok-light.localhost` URL fail to connect
+/// while `http://127.0.0.1:<port>` still works. We bind both loopback stacks.
+#[derive(Debug)]
+pub struct LoopbackListeners {
+    /// Always bound — primary API and SPA host.
+    pub v4: tokio::net::TcpListener,
+    /// Bound when the platform allows `::1` on the same port; otherwise `None`.
+    pub v6: Option<tokio::net::TcpListener>,
+}
+
+/// Bind the loopback listener(s) for a canonical origin.
+///
+/// Always binds `127.0.0.1`. Also tries `::1` so hostname URLs that resolve to
+/// IPv6 still reach the host. The caller owns the returned listeners so the
 /// instance lock can be held across the bind.
 ///
 /// # Errors
 ///
-/// Returns the IO error when the port is unavailable, which the caller
-/// distinguishes from an origin conflict per ADR light 0006.
-pub async fn bind(origin: &LocalOrigin) -> std::io::Result<tokio::net::TcpListener> {
-    tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, origin.port())).await
+/// Returns the IO error when the IPv4 port is unavailable, which the caller
+/// distinguishes from an origin conflict per ADR light 0006. IPv6 bind failure
+/// is non-fatal (logged by the caller if desired).
+pub async fn bind(origin: &LocalOrigin) -> std::io::Result<LoopbackListeners> {
+    let v4 =
+        tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, origin.port())).await?;
+    let v6 = tokio::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, origin.port()))
+        .await
+        .ok();
+    Ok(LoopbackListeners { v4, v6 })
 }
 
-/// Serve the router on an already-bound loopback listener.
+/// Serve the router on already-bound loopback listener(s).
 ///
 /// # Errors
 ///
 /// Returns the IO error that terminated the accept loop.
-pub async fn serve(
-    listener: tokio::net::TcpListener,
-    state: Arc<HostState>,
-) -> std::io::Result<()> {
+pub async fn serve(listeners: LoopbackListeners, state: Arc<HostState>) -> std::io::Result<()> {
+    let app = router(Arc::clone(&state));
     let signal = Arc::clone(&state);
-    axum::serve(listener, router(state))
-        .with_graceful_shutdown(async move { signal.shutdown_requested().await })
-        .await
+    let shutdown = async move { signal.shutdown_requested().await };
+
+    match listeners.v6 {
+        Some(v6) => {
+            let serve_v4 = axum::serve(listeners.v4, app.clone()).with_graceful_shutdown({
+                let shutdown = Arc::clone(&state);
+                async move { shutdown.shutdown_requested().await }
+            });
+            let serve_v6 = axum::serve(v6, app).with_graceful_shutdown(shutdown);
+            // Either stack exiting (error or graceful stop) ends the host.
+            tokio::select! {
+                result = serve_v4 => result,
+                result = serve_v6 => result,
+            }
+        }
+        None => {
+            axum::serve(listeners.v4, app)
+                .with_graceful_shutdown(shutdown)
+                .await
+        }
+    }
 }
 
 /// Uniform rejection. The host never reveals which check failed.
@@ -1201,9 +1242,24 @@ async fn apply_command_effects(
             .pending_rehydrate
             .take()
             .unwrap_or_default();
+        // Parent-scoped members/workflows need the workspace cwd; resolve from
+        // the open session's enrolled workspace when present.
+        let cwd = {
+            let guard = state.session.lock().await;
+            guard
+                .sessions
+                .get(&session_id)
+                .and_then(|live| guard.workspaces.get(&live.workspace_id))
+                .map(|ws| ws.path.clone())
+        };
         state
             .emit_event(
-                crate::session_catalog::snapshot_from_rehydrate(session_id.clone(), restored),
+                crate::session_catalog::snapshot_from_rehydrate_in(
+                    &crate::session_catalog::grok_home(),
+                    cwd.as_deref(),
+                    session_id.clone(),
+                    restored,
+                ),
                 None,
             )
             .await;
