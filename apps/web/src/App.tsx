@@ -30,6 +30,7 @@ import {
   shouldShowWork,
 } from "./services/surfaceGate";
 import { LandingView } from "./views/LandingView";
+import { AvatarPresence } from "./components/aether/AvatarPresence";
 import {
   startPresenceLoop,
   type PresenceStats,
@@ -1282,12 +1283,15 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // Injected test clients with empty base + successful resume set probe ready.
   if (!shouldShowWork(probe, paired)) {
     return (
-      <LandingView
-        probe={probe}
-        onRetry={runProbeAndPair}
-        hadPort={hasStoredPort()}
-        presence={presence}
-      />
+      <>
+        <LandingView
+          probe={probe}
+          onRetry={runProbeAndPair}
+          hadPort={hasStoredPort()}
+          presence={presence}
+        />
+        <AvatarPresence phase="idle" />
+      </>
     );
   }
 
@@ -1322,61 +1326,64 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // optionally resumes), and only then does the Work view appear.
   if (sessionId === null) {
     return (
-      <WorkShell
-        surface="home"
-        connected={connected}
-        tabs={shellTabs}
-        activeTabId={null}
-        onGoHome={() => {
-          setRefusal(undefined);
-          setSessionId(null);
-        }}
-        onSelectTab={(id) => {
-          setRefusal(undefined);
-          setSessionId(id);
-        }}
-        onCloseTab={closeSession}
-        onNewTab={() => {
-          setRefusal(undefined);
-          setSessionId(null);
-        }}
-      >
-        {connectionStrip}
-        <HomeView
-          workspaces={workspaces}
-          projects={projects}
-          sessions={selectedWorkspaceId === null ? [] : sessions}
-          selectedWorkspaceId={selectedWorkspaceId}
-          selectedWorkspaceName={workspaceName}
-          busy={busy}
-          error={refusal}
-          banner={
-            <ReviewBanner
-              reviews={pendingReviews}
-              busy={busy}
-              onAcknowledge={acknowledgeReview}
-            />
-          }
-          onOpenPicker={openPicker}
-          onRefreshProjects={refreshWorkspaces}
-          onRefreshSessions={() => {
-            if (selectedWorkspaceId !== null) {
-              refreshSessions(selectedWorkspaceId);
-            }
+      <>
+        <WorkShell
+          surface="home"
+          connected={connected}
+          tabs={shellTabs}
+          activeTabId={null}
+          onGoHome={() => {
+            setRefusal(undefined);
+            setSessionId(null);
           }}
-          onSelectProject={openWorkspace}
-          onNewSession={() => {
-            if (selectedWorkspaceId !== null) {
-              startSession(selectedWorkspaceId);
-            }
+          onSelectTab={(id) => {
+            setRefusal(undefined);
+            setSessionId(id);
           }}
-          onResumeSession={(id) => {
-            if (selectedWorkspaceId !== null) {
-              resumeSession(selectedWorkspaceId, id);
-            }
+          onCloseTab={closeSession}
+          onNewTab={() => {
+            setRefusal(undefined);
+            setSessionId(null);
           }}
-        />
-      </WorkShell>
+        >
+          {connectionStrip}
+          <HomeView
+            workspaces={workspaces}
+            projects={projects}
+            sessions={selectedWorkspaceId === null ? [] : sessions}
+            selectedWorkspaceId={selectedWorkspaceId}
+            selectedWorkspaceName={workspaceName}
+            busy={busy}
+            error={refusal}
+            banner={
+              <ReviewBanner
+                reviews={pendingReviews}
+                busy={busy}
+                onAcknowledge={acknowledgeReview}
+              />
+            }
+            onOpenPicker={openPicker}
+            onRefreshProjects={refreshWorkspaces}
+            onRefreshSessions={() => {
+              if (selectedWorkspaceId !== null) {
+                refreshSessions(selectedWorkspaceId);
+              }
+            }}
+            onSelectProject={openWorkspace}
+            onNewSession={() => {
+              if (selectedWorkspaceId !== null) {
+                startSession(selectedWorkspaceId);
+              }
+            }}
+            onResumeSession={(id) => {
+              if (selectedWorkspaceId !== null) {
+                resumeSession(selectedWorkspaceId, id);
+              }
+            }}
+          />
+        </WorkShell>
+        <AvatarPresence phase="idle" />
+      </>
     );
   }
 
@@ -1594,6 +1601,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       {prompt !== null ? (
         <PermissionDialog prompt={prompt} onDecide={decide} busy={deciding} />
       ) : null}
+      <AvatarPresence phase={shown.phase} />
     </>
   );
 }

@@ -32,7 +32,8 @@ Portable is a sibling of Grok Desktop (Electron), not a Desktop surface
 | [protocol.md](protocol.md) | `light.local.v1` |
 | [threat-model.md](threat-model.md) | Trust boundaries, accepted risks, non-claims |
 | [ui.md](ui.md) | Landing vs Work; probe states |
-| [adr/](adr/) | Architecture decisions (0016 = hosted UI) |
+| [aether-presence.md](aether-presence.md) | In-SPA Aether avatar (ADR 0020) |
+| [adr/](adr/) | Architecture decisions (0016 = hosted UI; 0020 = Aether presence) |
 | [hosted-demo.md](hosted-demo.md) | Stub preview host only (not production) |
 
 ## Naming
@@ -77,6 +78,8 @@ Portable may state:
   tokens, API keys, `auth.json`) or raw ACP.
 - Portable does not modify Grok configuration from the web surface.
 - Portable cannot create a persistent permission grant.
+- An optional in-SPA **visual** character (Aether WASM) may idle and react to
+  session phase; it is not a voice pipeline (ADR light 0020).
 
 ## Non-claims
 
@@ -93,7 +96,9 @@ Light may **not** state, and must not imply:
   secrets the agent read;
 - that the origin hostname can never reach a resolver on an unsupported client;
 - that visiting an ordinary HTTP URL can start a stopped native process;
-- that any sync, backup, or remote execution exists.
+- that any sync, backup, or remote execution exists;
+- that the in-SPA character captures microphone or system audio, runs TTS, or
+  is a separate voice product.
 
 The honest one-line description is in the
 [threat model](threat-model.md#1-what-light-is): Light gives a local browser tab

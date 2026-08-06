@@ -16,6 +16,7 @@ production UI is a Work-only shell at **`https://desktop.grok.me`** talking to
 | Conversation sidebar, review panel, prompt queue (ADR 0011) | Editing a queued message in place |
 | Configured MCP integrations, read-only projection | |
 | Recovery banners, review records | |
+| Optional in-SPA Aether avatar (landing + Work; ADR 0020) | System-audio capture, TTS, native widget packaging |
 
 ## Probe states (hosted UI)
 

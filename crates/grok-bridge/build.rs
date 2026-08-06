@@ -55,6 +55,8 @@ fn content_type_for(path: &str) -> &'static str {
         Some("woff2") => "font/woff2",
         Some("png") => "image/png",
         Some("ico") => "image/x-icon",
+        // Aether in-SPA runtime (ADR light 0020)
+        Some("wasm") => "application/wasm",
         _ => "application/octet-stream",
     }
 }

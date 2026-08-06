@@ -61,12 +61,15 @@ pub const CSRF_HEADER: &str = "x-grok-light-csrf";
 ///
 /// `connect-src 'self'` holds unchanged because the document and the socket
 /// share one loopback origin (ADR light 0002).
+/// `wasm-unsafe-eval` allows the Aether in-SPA avatar (ADR light 0020) to
+/// instantiate WebAssembly; assets remain same-origin only.
 pub const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; \
-     script-src 'self'; \
+     script-src 'self' 'wasm-unsafe-eval'; \
      style-src 'self'; \
-     img-src 'self' data:; \
+     img-src 'self' data: blob:; \
      font-src 'self'; \
-     connect-src 'self'; \
+     worker-src 'self' blob:; \
+     connect-src 'self' blob:; \
      object-src 'none'; \
      base-uri 'none'; \
      form-action 'self'; \
@@ -2424,6 +2427,10 @@ mod tests {
             "the loopback origin must not need a widened connect-src"
         );
         assert!(CONTENT_SECURITY_POLICY.contains("frame-ancestors 'none'"));
+        assert!(
+            CONTENT_SECURITY_POLICY.contains("wasm-unsafe-eval"),
+            "Aether in-SPA avatar needs wasm instantiate (ADR 0020)"
+        );
     }
 
     #[tokio::test]

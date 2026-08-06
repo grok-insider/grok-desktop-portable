@@ -108,6 +108,8 @@ pub fn content_type_for(path: &str) -> &'static str {
         Some("woff2") => "font/woff2",
         Some("png") => "image/png",
         Some("ico") => "image/x-icon",
+        // Aether in-SPA runtime (ADR light 0020)
+        Some("wasm") => "application/wasm",
         _ => "application/octet-stream",
     }
 }
@@ -184,6 +186,7 @@ mod tests {
         assert_eq!(content_type_for("/a.js"), "text/javascript; charset=utf-8");
         assert_eq!(content_type_for("/a.css"), "text/css; charset=utf-8");
         assert_eq!(content_type_for("/a.woff2"), "font/woff2");
+        assert_eq!(content_type_for("/a.wasm"), "application/wasm");
         assert_eq!(content_type_for("/a.weird"), "application/octet-stream");
         assert_eq!(content_type_for("/noextension"), "application/octet-stream");
     }

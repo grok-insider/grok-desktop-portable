@@ -51,7 +51,7 @@ function patchSpaIndex(indexPath, { demoMount } = { demoMount: false }) {
       /http-equiv=(["'])Content-Security-Policy\1[^>]*content=(["'])([\s\S]*?)\2/gi,
       (_full, q1, q2) => {
         const c =
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+          "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; worker-src 'self' blob:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
         return `http-equiv=${q1}Content-Security-Policy${q1} content=${q2}${c.replace(/'/g, "&#39;")}${q2}`;
       },
     );

@@ -479,3 +479,76 @@
   flex-shrink: 0;
 }
 
+/* In-SPA Aether avatar (ADR light 0020) — large, left, transparent plate. */
+.aether-presence {
+  position: fixed;
+  z-index: 40;
+  left: max(0.25rem, env(safe-area-inset-left, 0px));
+  bottom: max(0rem, env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.aether-presence-controls {
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-left: 0.75rem;
+}
+
+.aether-presence-toggle {
+  pointer-events: auto;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  line-height: 1.2;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.aether-presence-toggle:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.aether-studio-open[aria-pressed="true"] {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.aether-presence-canvas {
+  pointer-events: none;
+  width: min(38vw, 26rem);
+  height: min(82vh, 40rem);
+  max-width: 26rem;
+  max-height: 40rem;
+  border-radius: 0;
+  background: transparent !important;
+  /* three-vrm alpha framebuffer — no plate, no CSS color grade. */
+  mask-image: none;
+  -webkit-mask-image: none;
+  filter: none;
+  image-rendering: auto;
+}
+
+@media (max-width: 900px) {
+  .aether-presence-canvas {
+    width: min(44vw, 18rem);
+    height: min(72vh, 28rem);
+  }
+}
+
+@media (max-width: 680px) {
+  .aether-presence-canvas {
+    width: min(50vw, 13rem);
+    height: min(58vh, 20rem);
+  }
+}
+

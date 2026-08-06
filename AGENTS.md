@@ -23,6 +23,17 @@ Read this before changing the repository.
 - Credentials never enter the SPA, protocol, or logs.
 - Supported browsers: Chromium and Firefox 84+. WebKit unsupported. Hosted mode
   needs local-network permission where the browser requires it.
+- Optional **visual** Aether avatar may ship in the SPA (ADR light 0020). No
+  mic/system-audio capture, no Electron widget, no model filesystem paths from
+  the browser. Pin wasm under `apps/web/public/assets/aether/` via
+  `scripts/sync-aether-wasm.sh` (see [docs/aether-presence.md](docs/aether-presence.md)).
+- **Aether Studio dogfood:** open with `?aetherStudio=1`. Asset library under
+  `apps/web/public/assets/aether/library/` (`catalog.json`, VRMA pack). Re-sync
+  from Downloads: `./scripts/sync-aether-library.sh`.
+- **Agent debug (when gate allows):** after avatar ready,
+  `window.__AETHER_STUDIO__` — `getMetrics()`, `listLibrary()`,
+  `loadAnimation(id)`, `setActivity()`, `openPanel()`, `help()`. Example:
+  `agent-browser eval 'JSON.stringify(window.__AETHER_STUDIO__.getMetrics())'`.
 
 ## Branch model (Model A)
 

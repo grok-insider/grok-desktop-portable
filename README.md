@@ -88,6 +88,12 @@ cargo run -p grok-bridge -- serve
 | `GROK_BRIDGE_STATE_DIR` | Host state directory |
 | `GROK_BRIDGE_AGENT` | Path to `grok` (default: `grok` on `PATH`) |
 
+## Optional character (Aether)
+
+The SPA can show an in-tab Aether avatar on landing and Work (visual only; no
+mic or system audio). See [docs/aether-presence.md](docs/aether-presence.md) and
+ADR light 0020. Pin wasm with `./scripts/sync-aether-wasm.sh`.
+
 ## Non-claims
 
 Portable is a control surface, not a sandbox. Your CLI config (plugins, hooks,

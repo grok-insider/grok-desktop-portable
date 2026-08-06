@@ -6,9 +6,10 @@
 .pnpm-store
 node_modules
 
-# SPA build outputs (Vite → public/; legacy dist)
-# Vercel outputDirectory is public/; never commit built HTML/assets.
-public/
+# SPA build outputs (Vite → apps/web/dist; prepare-public → repo-root public/)
+# Vercel outputDirectory is the repo-root public/; never commit that tree.
+# apps/web/public/ is Vite's static publicDir (committed assets e.g. Aether wasm).
+/public/
 apps/web/dist
 
 # Env / local secrets
@@ -47,3 +48,7 @@ scripts/preview-proxy-deps/
 
 # Local CLI source for UI/protocol research (not part of the product)
 examples/grok-build/
+
+# Local Aether character (e.g. Ani) — not redistributed; see docs/aether-presence.md
+apps/web/public/assets/aether/avatar.vrm
+apps/web/dist/assets/aether/avatar.vrm

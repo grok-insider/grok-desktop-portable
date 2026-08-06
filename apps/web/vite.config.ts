@@ -13,15 +13,24 @@ import { defineConfig } from "vitest/config";
  */
 export function contentSecurityPolicy(development: boolean): string {
   // Loopback bridge + optional public presence host (grok-insider-web).
+  // blob: for three.js GLTFLoader texture blobs (VRM).
   const connect = development
-    ? "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net"
-    : "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net";
+    ? "connect-src 'self' blob: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net"
+    : "connect-src 'self' blob: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net";
+  // 'wasm-unsafe-eval': Aether in-SPA avatar (ADR light 0020). Required by
+  // Chromium to instantiate WebAssembly under a non-empty script-src.
+  const script = development
+    ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"
+    : "script-src 'self' 'wasm-unsafe-eval'";
   return [
     "default-src 'self'",
-    development ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
+    script,
     development ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
-    "img-src 'self' data:",
+    // blob: required by three.js GLTFLoader for VRM embedded textures (ADR 0020).
+    "img-src 'self' data: blob:",
     "font-src 'self'",
+    // Web workers / blob URLs used by loaders.
+    "worker-src 'self' blob:",
     connect,
     "object-src 'none'",
     "base-uri 'none'",

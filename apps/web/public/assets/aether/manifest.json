@@ -1,0 +1,7 @@
+{
+  "id": "portable-ani",
+  "modelPath": "avatar.vrm",
+  "displayName": "Ani",
+  "distributionAllowed": true,
+  "notes": "Local Ani.vrm (copy from ~/dev/opensource/grok-insider/Ani.vrm). Not for public redistrib unless license cleared; gitignored from the repo."
+}

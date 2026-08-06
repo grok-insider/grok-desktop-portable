@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "credit": "Animation credits to pixiv Inc.'s VRoid Project (VRMA Motion Pack)",
+  "models": [
+    {
+      "id": "product-ani",
+      "label": "Ani (product default)",
+      "path": "../avatar.vrm",
+      "tags": ["product", "default"]
+    }
+  ],
+  "animations": [
+    {
+      "id": "vrma-01",
+      "label": "Show full body",
+      "path": "animations/VRMA_01_show_full_body.vrma",
+      "tags": ["gesture", "full-body"],
+      "suggestedSlot": "custom"
+    },
+    {
+      "id": "vrma-02",
+      "label": "Greeting",
+      "path": "animations/VRMA_02_greeting.vrma",
+      "tags": ["gesture", "idle-ish"],
+      "suggestedSlot": "idle"
+    },
+    {
+      "id": "vrma-03",
+      "label": "Peace sign",
+      "path": "animations/VRMA_03_peace_sign.vrma",
+      "tags": ["gesture"],
+      "suggestedSlot": "custom"
+    },
+    {
+      "id": "vrma-04",
+      "label": "Shoot",
+      "path": "animations/VRMA_04_shoot.vrma",
+      "tags": ["gesture"],
+      "suggestedSlot": "custom"
+    },
+    {
+      "id": "vrma-05",
+      "label": "Spin",
+      "path": "animations/VRMA_05_spin.vrma",
+      "tags": ["gesture"],
+      "suggestedSlot": "custom"
+    },
+    {
+      "id": "vrma-06",
+      "label": "Model pose",
+      "path": "animations/VRMA_06_model_pose.vrma",
+      "tags": ["pose"],
+      "suggestedSlot": "idle"
+    },
+    {
+      "id": "vrma-07",
+      "label": "Squat",
+      "path": "animations/VRMA_07_squat.vrma",
+      "tags": ["gesture"],
+      "suggestedSlot": "custom"
+    }
+  ]
+}
