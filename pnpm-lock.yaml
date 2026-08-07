@@ -12,7 +12,7 @@ importers:
     dependencies:
       '@aether/studio':
         specifier: file:../../../aether/packages/studio
-        version: file:../aether/packages/studio(@pixiv/three-vrm-animation@3.5.5(three@0.185.1))(@pixiv/three-vrm@3.5.5(three@0.185.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.185.1)
+        version: file:../aether/packages/studio(@pixiv/three-vrm-animation@3.5.5(three@0.185.1))(@pixiv/three-vrm@3.5.5(three@0.185.1))(camera-controls@3.1.2(three@0.185.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.185.1)
       '@fontsource-variable/ibm-plex-sans':
         specifier: 5.2.8
         version: 5.2.8
@@ -28,6 +28,9 @@ importers:
       '@pixiv/three-vrm-animation':
         specifier: 3.5.5
         version: 3.5.5(three@0.185.1)
+      camera-controls:
+        specifier: ^3.1.2
+        version: 3.1.2(three@0.185.1)
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -109,6 +112,7 @@ packages:
     peerDependencies:
       '@pixiv/three-vrm': ^3.0.0
       '@pixiv/three-vrm-animation': ^3.0.0
+      camera-controls: ^3.0.0
       react: '>=18'
       react-dom: '>=18'
       three: ^0.180.0
@@ -826,6 +830,12 @@ packages:
 
   bidi-js@1.0.3:
     resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
+
+  camera-controls@3.1.2:
+    resolution: {integrity: sha512-xkxfpG2ECZ6Ww5/9+kf4mfg1VEYAoe9aDSY+IwF0UEs7qEzwy0aVRfs2grImIECs/PoBtWFrh7RXsQkwG922JA==}
+    engines: {node: '>=22.0.0', npm: '>=10.5.1'}
+    peerDependencies:
+      three: '>=0.126.1'
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -1673,10 +1683,11 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@aether/studio@file:../aether/packages/studio(@pixiv/three-vrm-animation@3.5.5(three@0.185.1))(@pixiv/three-vrm@3.5.5(three@0.185.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.185.1)':
+  '@aether/studio@file:../aether/packages/studio(@pixiv/three-vrm-animation@3.5.5(three@0.185.1))(@pixiv/three-vrm@3.5.5(three@0.185.1))(camera-controls@3.1.2(three@0.185.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.185.1)':
     dependencies:
       '@pixiv/three-vrm': 3.5.5(three@0.185.1)
       '@pixiv/three-vrm-animation': 3.5.5(three@0.185.1)
+      camera-controls: 3.1.2(three@0.185.1)
       three: 0.185.1
     optionalDependencies:
       react: 19.2.7
@@ -2272,6 +2283,10 @@ snapshots:
   bidi-js@1.0.3:
     dependencies:
       require-from-string: 2.0.2
+
+  camera-controls@3.1.2(three@0.185.1):
+    dependencies:
+      three: 0.185.1
 
   ccount@2.0.1: {}
 

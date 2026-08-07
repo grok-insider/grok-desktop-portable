@@ -8,9 +8,12 @@ class of stack as the VRoid Hub viewer). Soft-raster Aether WASM remains
 available as a fallback path for headless/CI tooling, not for product fidelity.
 
 **CPU vs GPU:** draws go through the GPU via WebGL. High main-thread CPU was
-mostly from unbounded `requestAnimationFrame` + large drawing buffers + VRM
-spring/bone JS updates. The product path caps idle at ~24 FPS, speaking at ~30,
-and caps the WebGL buffer long edge (~720) with a modest DPR budget.
+historically from unbounded `requestAnimationFrame` + large buffers + VRM
+spring/bone JS updates. Product default is now **`product-balanced`**: ~**60 FPS**
+idle/speak, buffer long edge up to **1440**, DPR up to **1.75**, antialias on,
+and **`vroid-hub-ani`** lighting (Room IBL + studio key/fill/rim). Ladder presets
+(60 / 120 / 144 / uncapped lab) are available in Studio — **no hard 60 ceiling**
+in the FPS control.
 
 **Animation:** multi-bone humanoid idle/speaking clips via `AnimationMixer`
 (`@aether/studio`). Optional authored VRMA:
@@ -38,9 +41,24 @@ tools for model/anim/camera/lights plus a live **metrics strip** (consumption).
 | Keyboard | `` ` `` or `Alt+A` toggle · **Esc** closes panel |
 
 Panel tabs: Stage, Model, Anim, Camera (orbit/zoom/pan), Lights, Debug
-(metrics: FPS, tick/render ms, draw calls, tris, buffer, heap, clip, GPU).
-Frame ms &gt; 20 is highlighted. While the panel is open, FPS cap rises (~45)
-for dogfood, then restores product 24/30.
+(metrics: FPS, target, tick/render ms, draws, tris, buffer, heap, preset, GPU).
+Frame ms &gt; 20 is highlighted. Opening Studio applies **`studio-dogfood`** (~120 FPS)
+then restores **`product-balanced`** on close.
+
+### Quality / lighting presets
+
+| Preset | FPS | Lighting | Notes |
+|--------|-----|----------|-------|
+| `legacy` | 24/30 | legacy | Frozen baseline for benches |
+| `product-balanced` | 60 | **vroid-hub-ani** | **Product default** |
+| `product-max` | 144 | vroid-hub-ani | Max quality cap |
+| `studio-dogfood` | 120 | vroid-hub-ani | While Studio open |
+| `bench-60` / `120` / `144` | fixed | vroid-hub-ani | Ladder |
+| `bench-uncapped-360` | uncapped | vroid-hub-ani | Lab only |
+
+Agent: `__AETHER_STUDIO__.applyPreset('bench-120')`,
+`.applyLightingProfile('vroid-hub-ani')`,
+`.runScenario('spin')`, `.runScenarioSuite()`.
 
 **Library folder** (pick models / animations in Studio):
 
@@ -63,11 +81,15 @@ When the stage is ready **and** Studio gate is allowed, Portable attaches an
 agent bridge (no panel required):
 
 ```js
-// agent-browser / CDP
+// Prefer chrome-devtools / chrome-daily (GPU) for WebGL dogfood — not SwiftShader
 await __AETHER_STUDIO__.help()
 JSON.stringify(__AETHER_STUDIO__.getMetrics())
+__AETHER_STUDIO__.applyPreset('bench-120')
+__AETHER_STUDIO__.applyLightingProfile('vroid-hub-ani')
 await __AETHER_STUDIO__.listLibrary()
 await __AETHER_STUDIO__.loadAnimation('vrma-05', 'custom')  // Spin
+await __AETHER_STUDIO__.runScenario('spin', { seconds: 3 })
+await __AETHER_STUDIO__.runScenarioSuite({ seconds: 2 })
 __AETHER_STUDIO__.setActivity('streaming', 0.8)
 __AETHER_STUDIO__.openPanel()
 ```

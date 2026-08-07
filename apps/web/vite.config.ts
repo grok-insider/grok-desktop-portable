@@ -75,6 +75,11 @@ export default defineConfig(({ command }) => ({
   server: {
     strictPort: true,
   },
+  // file: linked monorepo package — always transform source, never freeze a
+  // stale prebundle (camera framing fixes were invisible under optimizeDeps).
+  optimizeDeps: {
+    exclude: ["@aether/studio"],
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

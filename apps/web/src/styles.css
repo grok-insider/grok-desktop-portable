@@ -536,6 +536,19 @@
   -webkit-mask-image: none;
   filter: none;
   image-rendering: auto;
+  /* Keep wheel on the canvas (dolly zoom) instead of scrolling the page. */
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+/* Studio open: canvas must receive LMB orbit, RMB truck, and scroll dolly. */
+.aether-presence[data-studio="open"] .aether-presence-canvas {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.aether-presence[data-studio="open"] .aether-presence-canvas:active {
+  cursor: grabbing;
 }
 
 @media (max-width: 900px) {

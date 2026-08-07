@@ -162,7 +162,9 @@ export function AvatarPresence({
           const stage = await createStage(canvas, url, {
             width: CANVAS_W,
             height: CANVAS_H,
-            maxFps: 24,
+            // product-balanced: Hub lighting + ~60 FPS, higher buffer/DPR
+            qualityPreset: "product-balanced",
+            lightingProfile: "vroid-hub-ani",
             studioControls: false,
             idleVrmaUrl: assetUrl("assets/aether/animations/idle.vrma"),
             speakingVrmaUrl: assetUrl("assets/aether/animations/speaking.vrma"),

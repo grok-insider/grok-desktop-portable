@@ -14,9 +14,14 @@ vi.mock("@aether/studio", () => ({
     setSize: vi.fn(),
     enableControls: vi.fn(),
     setMaxFps: vi.fn(),
+    applyPreset: vi.fn(() => true),
+    applyLightingProfile: vi.fn(() => true),
+    getQualityPresetId: vi.fn(() => "product-balanced"),
+    getLightingProfileId: vi.fn(() => "vroid-hub-ani"),
+    getConfiguredFpsCap: vi.fn(() => 60),
     getModelLabel: vi.fn(() => "test.vrm"),
     getMetrics: vi.fn(() => ({
-      fps: 24,
+      fps: 60,
       frameMs: 10,
       tickMs: 2,
       renderMs: 4,
@@ -34,6 +39,10 @@ vi.mock("@aether/studio", () => ({
       heapMb: null,
       webgl: "test",
       engine: "three-vrm",
+      configuredFpsCap: 60,
+      targetFps: 60,
+      presetId: "product-balanced",
+      lightingProfileId: "vroid-hub-ani",
     })),
     onMetrics: vi.fn(() => () => {}),
   })),
@@ -64,9 +73,19 @@ vi.mock("../../services/aether/studioGate", () => ({
   AETHER_STUDIO_QUERY: "aetherStudio",
 }));
 
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 describe("AvatarPresence", () => {
   beforeEach(() => {
     localStorage.removeItem(AETHER_VISIBLE_KEY);
+    vi.clearAllMocks();
+    // jsdom has no ResizeObserver; product path uses it after stage ready.
+    globalThis.ResizeObserver =
+      ResizeObserverStub as unknown as typeof ResizeObserver;
   });
 
   it("renders toggle and canvas by default", () => {
@@ -78,6 +97,24 @@ describe("AvatarPresence", () => {
     expect(
       screen.getByRole("img", { name: /assistant character/i }),
     ).toBeInTheDocument();
+  });
+
+  it("createStage uses product-balanced + vroid-hub-ani defaults", async () => {
+    const { createStage } = await import("@aether/studio");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, status: 200 }) as Response),
+    );
+    render(<AvatarPresence phase="idle" />);
+    await vi.waitFor(() => {
+      expect(createStage).toHaveBeenCalled();
+    });
+    const opts = vi.mocked(createStage).mock.calls[0]?.[2] as {
+      qualityPreset?: string;
+      lightingProfile?: string;
+    };
+    expect(opts.qualityPreset).toBe("product-balanced");
+    expect(opts.lightingProfile).toBe("vroid-hub-ani");
   });
 
   it("hides canvas when toggled off", async () => {
