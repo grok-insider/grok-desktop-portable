@@ -1,22 +1,18 @@
 name: Release
 
-# Automated patch-line versioning + GitHub Releases (open-sessionbar model).
+# Patch-line versioning + GitHub Releases. The version lives in the root
+# package.json. No binary assets: desktop.grok.me deploys from Vercel and the
+# local host ships with Spanreed.
 #
-# Flow when a PR into master is merged (or workflow_dispatch):
-#   * release-pr          — OUR OWN job: opens/updates the "release PR" that
-#                           bumps workspace version to the next PATCH, refreshes
-#                           Cargo.lock, and writes the CHANGELOG section via
-#                           release-changelog-action@v1. Only feat/fix commits
-#                           since the last tag trigger it.
-#   * release-plz-release — when a release PR (auto or manual) is merged (or the
-#                           tip version is still untagged), creates the `vX.Y.Z`
-#                           tag + GitHub Release from CHANGELOG.md.
-#   * resolve / artifacts — build `grok-bridge` for linux-x64, darwin-arm64,
-#                           and windows-x64 (SPA embedded), upload flat assets
-#                           + checksums.txt.
-#
-# Nothing is published to crates.io (`git_only` + `publish = false`).
-# Windows uses a named-pipe control plane (owner-only DACL).
+#   * release-pr — after a PR into master is merged (or workflow_dispatch):
+#                  opens/updates the release PR `release-plz-v<next>` that bumps
+#                  package.json to the next PATCH and writes the CHANGELOG
+#                  section via release-changelog-action@v1. Only feat/fix
+#                  commits since the last tag trigger it.
+#   * release    — when a release PR (head `release-plz-*`) is merged (or
+#                  workflow_dispatch): tags `v<package.json version>` at the
+#                  merge commit if untagged and publishes the GitHub Release
+#                  from the CHANGELOG section.
 
 on:
   pull_request:
@@ -33,9 +29,6 @@ on:
 permissions:
   contents: read
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   release-pr:
     name: release PR (patch line)
@@ -43,7 +36,8 @@ jobs:
       github.repository_owner == 'grok-insider'
       && (github.event_name == 'workflow_dispatch'
           || (github.event_name == 'pull_request'
-              && github.event.pull_request.merged == true))
+              && github.event.pull_request.merged == true
+              && !startsWith(github.event.pull_request.head.ref, 'release-plz-')))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -53,7 +47,6 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
-      CARGO_NET_RETRY: "10"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,8 +55,6 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: true
           token: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Decide the next version
         id: decide
@@ -71,14 +62,14 @@ jobs:
           FORCE: ${{ inputs.force == true && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          current="$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)"
+          current="$(jq -r '.version' package.json)"
           if [[ ! "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "::error::Cargo.toml version '$current' is not x.y.z."
+            echo "::error::package.json version '$current' is not x.y.z."
             exit 1
           fi
           major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" patch="${BASH_REMATCH[3]}"
           if ! git rev-parse -q --verify "refs/tags/v${current}" >/dev/null; then
-            echo "::notice::v${current} is not tagged yet — this push is releasing it; no new release PR."
+            echo "::notice::v${current} is not tagged yet; the release job tags it. No new release PR."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -108,10 +99,9 @@ jobs:
           NEXT: ${{ steps.decide.outputs.next }}
         run: |
           set -euo pipefail
-          sed -i -E "0,/^version = \"[^\"]+\"/s//version = \"${NEXT}\"/" Cargo.toml
-          cargo update --workspace
-          if git diff --quiet -- Cargo.toml Cargo.lock; then
-            echo "::error::Version bump produced no Cargo.toml or Cargo.lock changes."
+          npm version "$NEXT" --no-git-tag-version --allow-same-version
+          if git diff --quiet -- package.json; then
+            echo "::error::Version bump produced no package.json change."
             exit 1
           fi
 
@@ -122,8 +112,7 @@ jobs:
           version: ${{ steps.decide.outputs.next }}
           range: v${{ steps.decide.outputs.current }}..HEAD
           openrouter-api-key: ${{ secrets.OPENROUTER_API_KEY }}
-          project-description: "Local grok-bridge for Grok Desktop Portable: Work UI over loopback to the user's Grok Build CLI"
-          # Keep a Changelog headings are the action default (no post-sed needed).
+          project-description: "Grok Desktop Portable: the desktop.grok.me Work UI that drives the user's Grok Build CLI through the local Spanreed agent host, plus the Spanreed installers"
 
       - name: Open or update the release PR
         if: ${{ steps.decide.outputs.skip == 'false' }}
@@ -137,7 +126,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add Cargo.toml Cargo.lock CHANGELOG.md
+          git add package.json CHANGELOG.md
+          if ! git diff --quiet -- pnpm-lock.yaml; then
+            git add pnpm-lock.yaml
+          fi
           git commit -m "chore: release v${NEXT}"
           git push --force --set-upstream origin "$branch"
 
@@ -149,8 +141,8 @@ jobs:
           {
             echo "Automated patch-line release PR: **v${CURRENT} -> v${NEXT}**."
             echo
-            echo "Bumps the workspace package version + \`Cargo.lock\`, and adds the"
-            echo "AI-generated \`CHANGELOG.md\` section for the commits since v${CURRENT}."
+            echo "Bumps the \`package.json\` version and adds the AI-generated"
+            echo "\`CHANGELOG.md\` section for the commits since v${CURRENT}."
             echo "Regenerated from master on every push until merged."
             echo
             if [ "$BREAKING" = "true" ]; then
@@ -160,8 +152,8 @@ jobs:
               echo "Manual Version Bump workflow."
               echo
             fi
-            echo "Merging tags \`v${NEXT}\` + creates the GitHub Release (release-plz"
-            echo "\`release_always\`) and attaches \`grok-bridge\` binaries + \`checksums.txt\`."
+            echo "Merging tags \`v${NEXT}\` at the merge commit and publishes the GitHub"
+            echo "Release from the CHANGELOG section. No binary assets."
           } > "$body"
 
           existing="$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')"
@@ -181,157 +173,81 @@ jobs:
             gh pr close "$stale" --comment "Superseded by the release PR for v${NEXT}." --delete-branch
           done
 
-  release-plz-release:
-    name: release-plz release
+  release:
+    name: tag and GitHub Release
     if: >
       github.repository_owner == 'grok-insider'
       && (github.event_name == 'workflow_dispatch'
           || (github.event_name == 'pull_request'
-              && github.event.pull_request.merged == true))
+              && github.event.pull_request.merged == true
+              && startsWith(github.event.pull_request.head.ref, 'release-plz-')))
     runs-on: ubuntu-latest
     permissions:
       contents: write
     concurrency:
-      group: release-plz-release
+      group: release
       cancel-in-progress: false
-    outputs:
-      releases_created: ${{ steps.release-plz.outputs.releases_created }}
-      releases: ${{ steps.release-plz.outputs.releases }}
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Run release-plz (release)
-        id: release-plz
-        uses: release-plz/action@v0.5
-        with:
-          command: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: true
+          token: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
 
-  resolve:
-    name: resolve release tag
-    needs: release-plz-release
-    if: needs.release-plz-release.outputs.releases_created == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.r.outputs.tag }}
-      version: ${{ steps.r.outputs.version }}
-    steps:
-      - id: r
-        env:
-          RELEASES: ${{ needs.release-plz-release.outputs.releases }}
+      - name: Tag the package.json version
+        id: tag
         run: |
           set -euo pipefail
-          echo "tag=$(echo "$RELEASES" | jq -r '.[0].tag')" >> "$GITHUB_OUTPUT"
-          echo "version=$(echo "$RELEASES" | jq -r '.[0].version')" >> "$GITHUB_OUTPUT"
-
-  artifacts:
-    name: ${{ matrix.asset }}
-    needs: [release-plz-release, resolve]
-    if: needs.release-plz-release.outputs.releases_created == 'true'
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            asset: grok-bridge-linux-x64
-            binary: grok-bridge
-          - os: macos-latest
-            asset: grok-bridge-darwin-arm64
-            binary: grok-bridge
-          - os: windows-latest
-            asset: grok-bridge-windows-x64.exe
-            binary: grok-bridge.exe
-    runs-on: ${{ matrix.os }}
-    env:
-      TAG: ${{ needs.resolve.outputs.tag }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout the released tag
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.tag }}
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: dtolnay/rust-toolchain@stable
-      - run: pnpm install --frozen-lockfile
-      - name: Build Work SPA for embed
-        run: pnpm build:web:dist
-      - name: Release build
-        run: cargo build -p grok-bridge --release
-      - name: Assert SPA embedded (fail closed)
-        shell: bash
-        run: bash scripts/assert-spa-embedded.sh "target/release/${{ matrix.binary }}"
-      - name: Stage asset and upload
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist-release
-          src="target/release/${{ matrix.binary }}"
-          dst="dist-release/${{ matrix.asset }}"
-          cp "$src" "$dst"
-          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
-            chmod +x "$dst"
-            strip "$dst" || true
+          version="$(jq -r '.version' package.json)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version '$version' is not x.y.z."
+            exit 1
           fi
-          bash scripts/assert-spa-embedded.sh "$dst"
-          gh release upload "$TAG" "$dst" --clobber
+          tag="v${version}"
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "::notice::${tag} already exists; nothing to release."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! grep -qE "^## \[?${version//./\\.}\]?( |$)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for ${version}."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "$tag" HEAD
+          git push origin "refs/tags/${tag}"
+          echo "created=true" >> "$GITHUB_OUTPUT"
 
-  checksums:
-    name: checksums.txt
-    needs: [release-plz-release, resolve, artifacts]
-    if: needs.release-plz-release.outputs.releases_created == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      TAG: ${{ needs.resolve.outputs.tag }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Download release assets and publish checksums
-        env:
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # No checkout needed; pass -R so gh does not require a local git repo.
-          mkdir -p release
-          cd release
-          for a in grok-bridge-linux-x64 grok-bridge-darwin-arm64 grok-bridge-windows-x64.exe; do
-            gh release download "$TAG" -R "$GH_REPO" --pattern "$a" --clobber
-            test -f "$a"
-          done
-          sha256sum grok-bridge-linux-x64 grok-bridge-darwin-arm64 grok-bridge-windows-x64.exe | tee checksums.txt
-          test -s checksums.txt
-          gh release upload "$TAG" checksums.txt -R "$GH_REPO" --clobber
-          ls -la
-
-  release-notes:
-    name: publish release notes
-    needs: [release-plz-release, resolve, checksums]
-    if: needs.release-plz-release.outputs.releases_created == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout the released tag
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.resolve.outputs.tag }}
-      # Extract CHANGELOG section for this version + install footer → GH Release body.
-      - name: Publish CHANGELOG section to GitHub Release
+      - name: Publish the CHANGELOG section as the GitHub Release
+        id: notes
+        if: ${{ steps.tag.outputs.created == 'true' }}
         uses: grok-insider/release-changelog-action@v1
         with:
-          version: ${{ needs.resolve.outputs.version }}
+          version: ${{ steps.tag.outputs.version }}
+          tag: ${{ steps.tag.outputs.tag }}
           skip-generate: true
           publish-github-release: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.resolve.outputs.tag }}
+          create-if-missing: true
+          github-token: ${{ secrets.RELEASE_PLZ_TOKEN || secrets.GITHUB_TOKEN }}
           notes-footer-file: site/release-footer.md
+
+      - name: Verify the GitHub Release exists
+        if: ${{ steps.tag.outputs.created == 'true' }}
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          PUBLISHED: ${{ steps.notes.outputs.published }}
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISHED" != "true" ] || ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::GitHub Release ${TAG} was not published."
+            exit 1
+          fi
