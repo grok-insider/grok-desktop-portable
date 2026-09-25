@@ -1,7 +1,7 @@
 /**
  * `light.local.v1` — the browser half of the local protocol.
  *
- * Mirrors `crates/grok-bridge/src/protocol.rs`. The union is closed on
+ * Mirrors `src/protocol.rs` in `fabrials-agent-host`. The union is closed on
  * purpose: there is no operation that sends raw ACP, runs a process, edits
  * configuration, or supplies a filesystem path. A workspace is always an
  * opaque id the host resolves.

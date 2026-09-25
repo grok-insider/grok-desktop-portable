@@ -343,9 +343,9 @@ describe("landing gate and demotion", () => {
       "data-had-port",
       "1",
     );
-    expect(screen.getByText(/remembers a local bridge port/i)).toBeInTheDocument();
+    expect(screen.getByText(/remembers a local host port/i)).toBeInTheDocument();
     expect(screen.getByTestId("landing-install")).toHaveTextContent(
-      "grok-bridge serve",
+      "spanreed agent serve",
     );
     expect(screen.getByTestId("landing-install")).not.toHaveTextContent(
       "install.sh",

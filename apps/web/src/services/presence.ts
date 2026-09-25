@@ -1,7 +1,7 @@
 /**
  * Anonymous presence for the hosted landing badge.
  *
- * Talks to grok-insider-web (api.grokinsider.net), never to grok-bridge.
+ * Talks to grok-insider-web (api.grokinsider.net), never to the local host.
  * Payload is only an opaque client_id (UUID). No paths, ports, tokens, or
  * install-id.
  */

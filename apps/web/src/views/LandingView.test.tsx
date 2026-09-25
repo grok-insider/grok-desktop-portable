@@ -4,16 +4,16 @@ import userEvent from "@testing-library/user-event";
 import { LandingView } from "./LandingView";
 
 describe("LandingView", () => {
-  it("shows install guidance when the bridge is missing", () => {
+  it("shows install guidance when the host is missing", () => {
     render(<LandingView probe={{ kind: "bridge_missing" }} onRetry={() => {}} />);
     expect(screen.getByTestId("landing-view")).toHaveAttribute(
       "data-probe-kind",
       "bridge_missing",
     );
-    expect(screen.getByRole("heading", { name: /Start the local bridge/i })).toBeTruthy();
-    expect(screen.getByText(/Install and run grok-bridge/i)).toBeTruthy();
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge serve");
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge open");
+    expect(screen.getByRole("heading", { name: /Start the local host/i })).toBeTruthy();
+    expect(screen.getByText(/Install Spanreed and run spanreed agent serve/i)).toBeTruthy();
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent serve");
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent open");
     expect(screen.queryByText(/Disconnected/i)).toBeNull();
     expect(screen.queryByText(/Pick a project/i)).toBeNull();
   });
@@ -28,19 +28,19 @@ describe("LandingView", () => {
     expect(screen.getByText(/blocked connections from desktop\.grok\.me/i)).toBeTruthy();
   });
 
-  it("shows pairing instructions when bridge is up but unpaired", () => {
+  it("shows pairing instructions when the host is up but unpaired", () => {
     render(<LandingView probe={{ kind: "needs_pairing" }} onRetry={() => {}} />);
     expect(screen.getByTestId("landing-view")).toHaveAttribute(
       "data-probe-kind",
       "needs_pairing",
     );
     expect(screen.getByRole("heading", { name: /Pair this browser/i })).toBeTruthy();
-    expect(screen.getByText(/The bridge is running/i)).toBeTruthy();
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge open");
+    expect(screen.getByText(/The local host is running/i)).toBeTruthy();
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent open");
     expect(screen.getByTestId("landing-install")).not.toHaveTextContent("install.sh");
   });
 
-  it("emphasizes serve when a port was known but the bridge is down", () => {
+  it("emphasizes serve when a port was known but the host is down", () => {
     render(
       <LandingView
         probe={{ kind: "bridge_missing" }}
@@ -49,9 +49,9 @@ describe("LandingView", () => {
       />,
     );
     expect(screen.getByTestId("landing-view")).toHaveAttribute("data-had-port", "1");
-    expect(screen.getByText(/remembers a local bridge port/i)).toBeTruthy();
+    expect(screen.getByText(/remembers a local host port/i)).toBeTruthy();
     expect(screen.getByTestId("landing-install")).not.toHaveTextContent("install.sh");
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge serve");
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent serve");
   });
 
   it("shows checking state without Work chrome", () => {
@@ -60,7 +60,7 @@ describe("LandingView", () => {
       "data-probe-kind",
       "checking",
     );
-    expect(screen.getByRole("heading", { name: /Looking for the local bridge/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Looking for the local host/i })).toBeTruthy();
     expect(screen.queryByText(/Pick a project/i)).toBeNull();
   });
 
