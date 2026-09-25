@@ -2,7 +2,7 @@
 
 Status: revised 2026-07-30 for ADR light 0016 (hosted UI + local bridge).
 
-Scope: `grok-bridge`, the Work SPA at `https://desktop.grok.me`, optional
+Scope: the local host (`spanreed agent`, crate `fabrials-agent-host`), the Work SPA at `https://desktop.grok.me`, optional
 loopback fallback SPA, the `light.local.v1` protocol, and the supervised Grok
 Build child process. Grok Desktop (Electron), its daemon, vault, and Isolated
 Guest are out of scope.
@@ -15,7 +15,7 @@ layer over the CLI.
 
 The honest one-line description: Portable gives a browser tab at
 `https://desktop.grok.me` the ability to drive the Grok Build CLI that the user
-installed and authenticated, via a local `grok-bridge`, with the same authority
+installed and authenticated, via the local `spanreed agent` host, with the same authority
 that CLI already has.
 
 Pairing and approvals improve user control. They do not create containment.
@@ -121,9 +121,10 @@ strictly smaller opening.
   ambiguous outcome.
 - An ambiguous non-idempotent effect terminates in `interrupted_needs_review`
   and is never retried by Light.
-- Session history repair (`DiagnoseSession` / `RepairSession`) is user opt-in
-  only, never auto on load, and never a substitute for reviewing interrupted
-  side effects (light ADR 0015).
+- Session history **repair apply** (`RepairSession` with `dryRun: false`) is
+  user opt-in only, never auto on load, and never a substitute for reviewing
+  interrupted side effects. Dry-run diagnose may run automatically for
+  discoverability; it does not mutate history (light ADR 0015).
 - Pending permissions are denied when the controlling tab or the child is lost,
   using the single-use rejection and never a persistent one.
 - Every boundary bounds size, queue depth, concurrency, output, and retention.

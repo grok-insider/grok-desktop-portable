@@ -6,7 +6,7 @@
     <title>Grok Desktop Portable</title>
     <meta
       name="description"
-      content="Local Work UI for the Grok Build CLI you already use. One bridge binary; no cloud app."
+      content="Work UI for the Grok Build CLI you already use, driven through the local Spanreed agent host; no cloud agent."
     />
     <style>
       :root {
@@ -107,8 +107,8 @@
       <h1>Grok Desktop Portable</h1>
       <p class="lead">
         A local Work interface for the Grok Build CLI you already installed.
-        One bridge binary runs on your machine and serves the UI over loopback.
-        This page is only for download and docs — it never runs your agent.
+        Spanreed runs the agent host on your machine; this site talks to it over
+        loopback and never runs your agent itself.
       </p>
 
       <div class="card">
@@ -128,10 +128,10 @@
 
       <h2>First run</h2>
       <div class="card">
-        <pre>grok-bridge doctor
-grok-bridge serve
+        <pre>spanreed agent doctor
+spanreed agent serve
 # other terminal:
-grok-bridge open</pre>
+spanreed agent open</pre>
       </div>
 
       <h2>What this is not</h2>
@@ -141,9 +141,9 @@ grok-bridge open</pre>
         <li>Not a CDN-hosted app talking to localhost</li>
       </ul>
       <p class="note">
-        The bridge runs with the same authority as your CLI, including plugins,
+        The Spanreed agent host runs with the same authority as your CLI, including plugins,
         hooks, and MCP servers you configured. Read the
-        <a href="https://github.com/grok-insider/grok-desktop-portable/blob/main/docs/threat-model.md"
+        <a href="https://github.com/grok-insider/grok-desktop-portable/blob/master/docs/threat-model.md"
           >threat model</a
         >.
       </p>

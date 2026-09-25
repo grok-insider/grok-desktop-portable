@@ -3,9 +3,24 @@
  *
  * Diagnosis and repair must never leak across conversations: a dry-run of A
  * cannot authorize an apply on B, and a late response for A must not paint B.
+ *
+ * Dry-run may run automatically when a conversation settles (discoverability).
+ * Apply remains user opt-in only — never on load or bootstrap.
  */
 
 import type { SessionDiagnosis } from "./outcomes";
+
+/**
+ * Whether an automatic dry-run should paint a banner for this result.
+ *
+ * Only **corrupt** is actionable for the user (Repair history). Healthy is
+ * silent so a permanent Check button is unnecessary. Unsupported is silent
+ * here too: setup/doctor already reports the CLI floor, and auto-bannering
+ * every session on an older CLI would spam.
+ */
+export function shouldSurfaceAutoDiagnosis(diagnosis: SessionDiagnosis): boolean {
+  return diagnosis.status === "corrupt";
+}
 
 /**
  * Which diagnosis, if any, the active conversation may show.

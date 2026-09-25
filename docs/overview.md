@@ -5,22 +5,25 @@
 > protocol-stable names in v0, not the product name.
 
 Grok Desktop Portable lets a browser tab at **`https://desktop.grok.me`** drive
-the **Grok Build CLI** the user already installed and authenticated, through a
-local **`grok-bridge`**. Scope is Work only.
+the **Grok Build CLI** the user already installed and authenticated, through the
+local agent host that ships with Spanreed (**`spanreed agent`**). Scope is Work
+only. This repository holds the SPA and the installers; the host is the crate
+`fabrials-agent-host` in `grok-insider/fabrials-libs`.
 
 ```text
 https://desktop.grok.me     Work SPA / landing (public)
         │  fetch + WebSocket → loopback
         ▼
-  grok-bridge               closed light.local.v1 API
+  spanreed agent            closed light.local.v1 API
         │  ACP stdio
         ▼
   grok                      user's CLI + GROK_HOME + config
 ```
 
-- **No bridge / no pairing** → site shows **landing** (install, start bridge).
-- **Bridge + pairing** → **Work UI** against the local CLI.
-- The only shipped **binary** is the bridge (GitHub Releases + install scripts).
+- **No host / no pairing** → site shows **landing** (install Spanreed, start the host).
+- **Host + pairing** → **Work UI** against the local CLI.
+- The native binary is Spanreed (its GitHub Releases, fetched by the install
+  scripts). This repo's releases carry notes only.
 - The cloud never runs the CLI and never holds OAuth/API secrets.
 
 Architecture decision: [ADR light 0016](adr/0016-hosted-ui-local-bridge.md).
@@ -40,23 +43,25 @@ Portable is a sibling of Grok Desktop (Electron), not a Desktop surface
 | Thing | Name | Note |
 |-------|------|------|
 | Product | Grok Desktop Portable | Marketing / repo name |
-| Bridge binary | `grok-bridge` | Only native artifact on GitHub Releases |
+| Local host | `spanreed agent` | Spanreed CLI; `grok-bridge` remains an alias name |
 | Production UI | `https://desktop.grok.me` | Hosted Work SPA + landing (ADR 0016) |
 | App package | `@grok-desktop-portable/web` | Built for site deploy; also embeddable for fallback |
 | App path | `apps/web` | SPA source |
-| Host crate | `crates/grok-bridge` | Loopback API + ACP composition root |
-| User CLI (bridge) | `grok-bridge` | `serve`, `open`, `status`, `doctor`, `stop`, `repair` |
-| Local protocol | `light.local.v1` | Browser ↔ bridge (not ACP) |
+| Host crate | `fabrials-agent-host` (`grok-insider/fabrials-libs`) | Loopback API + ACP composition root |
+| User CLI (host) | `spanreed agent` | `serve`, `open`, `status`, `doctor`, `stop`, `repair`, `workspace` |
+| Local protocol | `light.local.v1` | Browser ↔ host (not ACP) |
 | ACP client identifier | `grok-light` | Via `GROK_CLIENT_NAME` → `ClientType::Generic` |
 | Docs root | `docs/` | ADRs under `docs/adr/` |
 
-The `@grok-desktop/` npm scope reflects the workspace, not the product. Anything
-user-facing says Grok Light and never implies it is the desktop application.
+The `@grok-desktop/` npm scope reflects the workspace, not the product.
+User-facing copy says **Grok Desktop Portable** and never implies it is the
+Electron Grok Desktop application. Wire names (`light.local.v1`, `grok-light`)
+stay protocol-stable in v0.
 
 ## Positioning
 
-| Dimension | Grok Desktop | Grok Light |
-|-----------|--------------|------------|
+| Dimension | Grok Desktop | Grok Desktop Portable |
+|-----------|--------------|------------------------|
 | Surfaces | Chat, Research, Work, library, automations, integrations | Work only |
 | Presentation | Electron renderer | User's browser against a local origin |
 | Executor | Rust daemon, pinned ACP component, managed policy | The user's Grok Build CLI |
@@ -66,15 +71,15 @@ user-facing says Grok Light and never implies it is the desktop application.
 
 ## Claims
 
-Light may state:
+Portable may state:
 
-- The Light UI and host run locally; the application is served from the
-  installed binary, not from a website.
-- Light speaks only the ACP contract of the qualified Grok Build CLI.
+- The Portable UI is served from `desktop.grok.me` (or the host's embedded
+  fallback); the host and CLI run locally on the user's machine.
+- Portable speaks only the ACP contract of the qualified Grok Build CLI.
 - The browser never receives authentication credentials (OAuth tokens, refresh
   tokens, API keys, `auth.json`) or raw ACP.
-- Light does not modify Grok configuration from the web surface.
-- Light cannot create a persistent permission grant.
+- Portable does not modify Grok configuration from the web surface.
+- Portable cannot create a persistent permission grant.
 
 ## Non-claims
 
@@ -100,12 +105,14 @@ with the same authority that CLI already has.
 
 ## Requirements
 
-- Grok Build CLI, installed and authenticated by the user, at a qualified version.
+- Grok Build CLI (**≥ 0.2.115**), installed and authenticated by the user.
+  Portable does **not** install `grok`; that is a separate product/installer.
 - A conforming browser: Chromium, or Firefox 84 or later. WebKit, including
   Safari, is unsupported — see
-  [ADR light 0008](adr/0008-supported-browser-engines.md).
-- Linux is the first qualification platform. Windows and macOS follow their own
-  gates.
+  [ADR light 0008](adr/0008-supported-browser-engines.md). Edge is fine on Windows.
+- Spanreed for Linux x86_64, macOS (arm64, x86_64) or native Windows x64,
+  installed via `install.sh` / `install.ps1` from the site.
+- Start the host with `spanreed agent serve` (or the Spanreed tray).
 
 Light is not an offline product: Grok Build needs its configured services to
 authenticate and produce responses.
@@ -120,11 +127,10 @@ authenticate and produce responses.
 | Pairing, sessions, CSRF | Implemented and unit-tested |
 | Control lease and epochs | Implemented and unit-tested |
 | Journal, idempotency, event cursor, review records | Implemented and unit-tested |
-| HTTP and WebSocket server | Implemented in `crates/grok-light-host` |
-| SPA (`apps/light`) | Implemented Work shell: Home, Session, Setup, tools, composer, review |
+| HTTP and WebSocket server | Implemented in `fabrials-agent-host` |
+| SPA (`apps/web`) | Implemented Work shell: Home, Session, Setup, tools, composer, review |
 | ACP session-update projection | Pure module `projection` → `light.local.v1` events (tools, plan, commands) |
-| Session history repair (`x.ai/session/repair`) | Implemented: `DiagnoseSession` / `RepairSession`, ADR 0015, SPA opt-in banner |
-| Packaging | GitHub Releases multi-OS + `install.sh` / `install.ps1` (unsigned FOSS) |
-| User service / autostart | Not started (manual `serve` for beta) |
+| Session history repair (`x.ai/session/repair`) | Implemented: auto dry-run diagnose + opt-in `RepairSession` apply (ADR 0015) |
+| Packaging | Spanreed releases + `install.sh` / `install.ps1` (unsigned FOSS) |
 
-`grok-bridge doctor` reports the installed CLI against the qualified minimum.
+`spanreed agent doctor` reports the installed CLI against the qualified minimum.

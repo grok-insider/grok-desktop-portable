@@ -1,16 +1,18 @@
 # Grok Desktop Portable
 
 Drive the [Grok Build](https://grok.com) CLI you already installed from
-**`https://desktop.grok.me`**, through a small local **`grok-bridge`**.
+**`https://desktop.grok.me`**, through the local agent host that ships with
+[Spanreed](https://github.com/grok-insider/spanreed) (`spanreed agent`).
 
 ```text
-https://desktop.grok.me  →  grok-bridge (127.0.0.1)  →  grok CLI
+https://desktop.grok.me  →  spanreed agent (127.0.0.1)  →  grok CLI
 ```
 
 | Piece | Role |
 |-------|------|
-| `https://desktop.grok.me` | Production Work UI + landing |
-| `grok-bridge` | Only shipped native binary; loopback API + ACP to your CLI |
+| `https://desktop.grok.me` | Production Work UI + landing (this repo, deployed by Vercel) |
+| `site/install.sh`, `site/install.ps1` | Public installers served at `desktop.grok.me`; they install Spanreed |
+| `spanreed agent` | Loopback API + ACP to your CLI. Code: crate `fabrials-agent-host` in `grok-insider/fabrials-libs` |
 | `server.mjs` | Optional **stub** demo without a real CLI ([docs/hosted-demo.md](docs/hosted-demo.md)) |
 
 This is **not** Grok Desktop (the Electron app). No Desktop daemon, vault, or
@@ -19,60 +21,69 @@ managed `GROK_HOME`. Architecture: [docs/adr/0016-hosted-ui-local-bridge.md](doc
 ## Requirements
 
 - Grok Build CLI installed and authenticated (`grok`), version **≥ 0.2.115**
-- Chromium or Firefox 84+ (Safari / WebKit unsupported)
-- Linux (primary); macOS bridge binary available; Windows bridge not in beta yet
+- Chromium or Firefox 84+ (Safari / WebKit unsupported; Edge is fine on Windows)
+- Linux x86_64, macOS (arm64 and x86_64) or native Windows x64
 - For hosted UI: allow **local network** access when the browser asks
 
-## Install bridge
+## Install Spanreed
 
 ```sh
 curl -fsSL https://desktop.grok.me/install.sh | sh
 ```
 
-Or download from
-[GitHub Releases](https://github.com/grok-insider/grok-desktop-portable/releases)
-and verify `checksums.txt`. Unsigned FOSS builds.
+Windows (PowerShell):
 
-Assets: `grok-bridge-linux-x64`, `grok-bridge-darwin-arm64`.
+```powershell
+irm https://desktop.grok.me/install.ps1 | iex
+```
+
+The installers download the newest
+[Spanreed release](https://github.com/grok-insider/spanreed/releases) and verify
+its SHA-256 checksum. They also add a `grok-bridge` name that runs
+`spanreed agent`, so older commands keep working. For forks, pinned tags or
+custom directories, use `install/install.sh` / `install/install.ps1` from a
+clone (they read `VERSION`, `SPANREED_REPO`, `SPANREED_INSTALL_DIR`,
+`INSTALL_DRY_RUN`).
+
+## First run
+
+`grok` must already be on your `PATH` and authenticated (separate from this
+installer). A bookmark cannot start a stopped host.
+
+```sh
+spanreed agent doctor
+spanreed agent serve       # leave running
+spanreed agent open        # prints https://desktop.grok.me/#pair=…
+```
+
+Open the pair URL in **Chrome or Firefox 84+** (Edge OK on Windows; Safari
+unsupported), allow local network if prompted, complete pairing, and work.
+Without a running host the site shows **landing only**.
+
+Enrol a workspace if needed (Linux may also use the in-UI folder picker):
+
+```sh
+spanreed agent workspace add /path/to/project
+```
 
 ## Contributing
 
 Default branch is **`master`**. Open feature/fix PRs against **`dev`**. When a
 batch is ready, open one integration PR from `dev` into `master`. Releases are
-cut by the Release workflow (patch auto; minor/major via Manual Version Bump).
-See [AGENTS.md](AGENTS.md).
-
-## First run
-
-```sh
-grok-bridge doctor
-grok-bridge serve          # leave running
-grok-bridge open           # prints https://desktop.grok.me/#pair=… (once implemented)
-```
-
-Then open **https://desktop.grok.me**, allow local network if prompted, complete
-pairing, and work. Without a running bridge the site shows **landing only**.
-
-Enrol a workspace if needed:
-
-```sh
-grok-bridge workspace add /path/to/project
-```
+cut by the Release workflow from the `package.json` version (patch auto;
+minor/major via Manual Version Bump). See [AGENTS.md](AGENTS.md).
 
 ## Develop
 
 ```sh
 pnpm install
-pnpm test
-pnpm build:web:dist        # SPA for bridge embed / site pipeline
-cargo test -p grok-bridge
-cargo run -p grok-bridge -- serve
+pnpm test                  # web tests, public/ assembly, installer tests
+pnpm build                 # SPA + installers into public/ (what Vercel serves)
+pnpm build:web:dist        # SPA only, into apps/web/dist
 ```
 
-| Variable | Purpose |
-|----------|---------|
-| `GROK_BRIDGE_STATE_DIR` | Host state directory |
-| `GROK_BRIDGE_AGENT` | Path to `grok` (default: `grok` on `PATH`) |
+`apps/web/dist` can be embedded in a Spanreed build as the loopback fallback
+UI: build Spanreed with `FABRIALS_AGENT_HOST_WEB_DIST` pointing at it.
 
 ## Non-claims
 

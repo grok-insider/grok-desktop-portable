@@ -1,5 +1,5 @@
 /**
- * Presentation theme for Grok Light.
+ * Presentation theme for Grok Desktop Portable.
  *
  * Preference is browser-local only (localStorage). It is not host state, not
  * protocol, and never carries credentials — only the string

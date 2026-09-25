@@ -1,22 +1,48 @@
 /**
- * Docked session composer: MCPs, model/effort, bash bang mode, and the `@` / `/`
- * completion menu.
+ * Docked session composer: MCPs, model/effort, bash bang mode, + attach menu,
+ * and the `@` / `/` completion menu.
  *
- * Leading `!` enters bash mode (Grok Build CLI shell). Model/effort are
- * Grok-only host projections. Behaviour matches docs/light/ui.md.
- *
- * A completion is only ever *text* inserted into the draft: `@path` and
- * `/command` go to the agent exactly as typed, and the host neither parses nor
- * acts on them (light ADR 0013).
+ * Visual language matches OpenCode’s compact floating card (soft ring, ~96px
+ * idle height, icon-only send). Leading `!` enters bash mode (Grok Build CLI
+ * shell): left toolbar fades out, mono placeholder, return-key send icon —
+ * card geometry stays put. Model/effort are Grok-only host projections. A
+ * completion is only ever *text* inserted into the draft: `@path` and
+ * `/command` go to the agent exactly as typed (light ADR 0013). Browser-picked
+ * files are inlined as text/base64 in the draft — the protocol has no binary
+ * attachment channel.
  */
 
-import { Plus, Plug, Send, Square, Terminal, Zap } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Button, IconButton, cn } from "../../components/ui";
+import {
+  ArrowUp,
+  AtSign,
+  Check,
+  ChevronDown,
+  CornerDownLeft,
+  FileUp,
+  Image,
+  Plus,
+  Plug,
+  Slash,
+  Square,
+  Terminal,
+  Zap,
+} from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { IconButton, cn } from "../../components/ui";
+import { formatAttachments } from "../../services/attachments";
 import {
   applyDraftForBash,
   bashBody,
   bashCommandReady,
+  enterBashMode,
   isBashMode,
   shouldExitBashOnKey,
 } from "../../services/bashMode";
@@ -33,6 +59,12 @@ import { effortsForModel } from "../../services/models";
 import type { SessionPhase } from "../SessionView";
 import { MentionMenu } from "./MentionMenu";
 import { PromptQueue } from "./PromptQueue";
+
+const PROMPT_PLACEHOLDER = "Ask anything, / for commands, @ for context…";
+const SHELL_PLACEHOLDER = "Enter shell command… git status";
+/** OpenCode-like input zone: 60px min, 180px max. */
+const INPUT_MIN_PX = 60;
+const INPUT_MAX_PX = 180;
 
 export function SessionComposer({
   connected,
@@ -84,6 +116,7 @@ export function SessionComposer({
   const canSend = connected && (bash ? bashCommandReady(draft) : draft.trim().length > 0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
   const [caret, setCaret] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -91,6 +124,7 @@ export function SessionComposer({
   // menu for the mention being typed without disabling completion for the
   // rest of the message.
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const [attachNotice, setAttachNotice] = useState<string | null>(null);
 
   // Bash mode is a shell command, not a prompt: `@` and `/` are ordinary shell
   // characters there and must not open a menu.
@@ -134,6 +168,29 @@ export function SessionComposer({
     setActiveIndex((current) => (current >= options.length ? 0 : current));
   }, [options.length]);
 
+  useEffect(() => {
+    if (attachNotice === null) {
+      return;
+    }
+    const timer = setTimeout(() => setAttachNotice(null), 4_000);
+    return () => clearTimeout(timer);
+  }, [attachNotice]);
+
+  // Grow the textarea with content up to INPUT_MAX_PX (OpenCode max-h-[180px]).
+  const displayValue = bash ? bashBody(draft) : draft;
+  useLayoutEffect(() => {
+    const element = inputRef.current;
+    if (element === null) {
+      return;
+    }
+    element.style.height = "0px";
+    const next = Math.min(
+      INPUT_MAX_PX,
+      Math.max(INPUT_MIN_PX, element.scrollHeight),
+    );
+    element.style.height = `${next}px`;
+  }, [displayValue, bash]);
+
   /** Track the caret so the menu follows it, including on click and arrows. */
   function syncCaret() {
     const element = inputRef.current;
@@ -145,6 +202,33 @@ export function SessionComposer({
     setCaret(element.selectionStart ?? 0);
   }
 
+  function focusAt(nextCaret: number) {
+    requestAnimationFrame(() => {
+      const element = inputRef.current;
+      if (element === null) {
+        return;
+      }
+      element.focus();
+      element.setSelectionRange(nextCaret, nextCaret);
+      setCaret(nextCaret);
+    });
+  }
+
+  /** Insert plain text at the caret (or replace the selection). */
+  function insertAtCaret(text: string) {
+    if (bash) {
+      return;
+    }
+    const element = inputRef.current;
+    const start = element?.selectionStart ?? draft.length;
+    const end = element?.selectionEnd ?? start;
+    const next = `${draft.slice(0, start)}${text}${draft.slice(end)}`;
+    const nextCaret = start + text.length;
+    onDraftChange(next);
+    setDismissedAt(null);
+    focusAt(nextCaret);
+  }
+
   function choose(option: MentionOption) {
     if (mention === null) {
       return;
@@ -154,15 +238,7 @@ export function SessionComposer({
     setDismissedAt(null);
     // The caret must land after the inserted text, which React will not do on
     // its own once the value is replaced from outside.
-    requestAnimationFrame(() => {
-      const element = inputRef.current;
-      if (element === null) {
-        return;
-      }
-      element.focus();
-      element.setSelectionRange(applied.caret, applied.caret);
-      setCaret(applied.caret);
-    });
+    focusAt(applied.caret);
   }
 
   /**
@@ -205,36 +281,90 @@ export function SessionComposer({
     return false;
   }
 
-  /**
-   * Insert `@` at the caret so the workspace-file menu opens.
-   *
-   * Light never takes a filesystem path from the browser (light ADR 0013);
-   * this only types a mention the agent resolves, the same as the user would.
-   */
   function insertFileMention() {
+    insertAtCaret("@");
+  }
+
+  function insertCommandMention() {
+    // Commands only open at the start of the message (mentions.ts / CLI).
     if (bash) {
       return;
+    }
+    if (draft.trim().length === 0) {
+      onDraftChange("/");
+      setDismissedAt(null);
+      focusAt(1);
+      return;
+    }
+    // Already mid-message: put `/` at the start so the menu can open.
+    const next = draft.startsWith("/") ? draft : `/${draft}`;
+    onDraftChange(next);
+    setDismissedAt(null);
+    focusAt(1);
+  }
+
+  function enterShell() {
+    if (bash) {
+      return;
+    }
+    const next = enterBashMode(draft);
+    onDraftChange(next);
+    focusAt(bashBody(next).length);
+  }
+
+  const hasMcp = configTools.some(
+    (tool) => tool.kind === "mcp" && tool.name.length > 0,
+  );
+
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  async function onFilesPicked(list: FileList | null) {
+    if (list === null || list.length === 0 || bash) {
+      return;
+    }
+    const { text, attached, skipped } = await formatAttachments(list);
+    if (fileInputRef.current !== null) {
+      fileInputRef.current.value = "";
+    }
+    if (attached === 0) {
+      setAttachNotice(
+        skipped > 0
+          ? "Those files were too large to attach (200 KB each, 600 KB total)."
+          : "No files could be attached.",
+      );
+      return;
+    }
+    if (skipped > 0) {
+      setAttachNotice(
+        `Attached ${attached}; skipped ${skipped} over the size limit.`,
+      );
+    } else {
+      setAttachNotice(null);
     }
     const element = inputRef.current;
     const start = element?.selectionStart ?? draft.length;
     const end = element?.selectionEnd ?? start;
-    const next = `${draft.slice(0, start)}@${draft.slice(end)}`;
-    const caret = start + 1;
+    const padBefore = start > 0 && !/\s$/.test(draft.slice(0, start)) ? "\n\n" : "";
+    const padAfter = end < draft.length && !/^\s/.test(draft.slice(end)) ? "\n" : "";
+    const insert = `${padBefore}${text}${padAfter}`;
+    const next = `${draft.slice(0, start)}${insert}${draft.slice(end)}`;
     onDraftChange(next);
-    setDismissedAt(null);
-    requestAnimationFrame(() => {
-      const target = inputRef.current;
-      if (target === null) {
-        return;
-      }
-      target.focus();
-      target.setSelectionRange(caret, caret);
-      setCaret(caret);
-    });
+    focusAt(start + insert.length);
   }
 
+  const modelOptions = models.map((model) => ({
+    id: model.id,
+    label: model.name,
+  }));
+  const effortOptions = efforts.map((effort) => ({
+    id: effort.id,
+    label: effort.label,
+  }));
+
   return (
-    <div className="shrink-0 border-t border-border px-6 pb-4 pt-3">
+    <div className="shrink-0 px-3 pb-3 pt-1">
       <div className="relative mx-auto w-[min(760px,100%)]">
         {menuOpen ? (
           <MentionMenu
@@ -249,61 +379,69 @@ export function SessionComposer({
 
         <PromptQueue queued={queued} onRemove={onRemoveQueued} />
 
+        {attachNotice !== null ? (
+          <p
+            className="mb-2 truncate px-1 font-mono text-label text-subtle-foreground"
+            aria-live="polite"
+          >
+            {attachNotice}
+          </p>
+        ) : null}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="sr-only"
+          tabIndex={-1}
+          accept="image/*,.txt,.md,.json,.jsonc,.yml,.yaml,.toml,.xml,.html,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.rs,.go,.java,.sh,.bash,.sql,.csv,.svg,.pdf,.bin,text/*,application/json,application/pdf"
+          aria-hidden="true"
+          onChange={(event) => {
+            void onFilesPicked(event.target.files);
+          }}
+        />
+
         {/*
-          MCP sits *outside* the raised composer card (left of it), so the
-          card's toolbar stays model/effort/send. The plug is ambient context
-          for the conversation, not a prompt control.
+          MCP sits *outside* the raised composer card (left of it). A fixed-width
+          slot keeps the card from shifting when bash mode fades the control.
         */}
         <div className="flex items-end gap-2">
-          {bash ? null : (
-            <div className="mb-2 shrink-0 self-center">
+          {hasMcp ? (
+            <div
+              data-composer-chrome="mcp-slot"
+              className={cn(
+                "mb-2 flex h-7 w-16 shrink-0 items-center self-center transition-opacity duration-200",
+                bash && "pointer-events-none opacity-0",
+              )}
+              aria-hidden={bash ? true : undefined}
+              // Boolean only — empty-string inert is treated as false in React 19.
+              inert={bash ? true : undefined}
+            >
               <McpControl tools={configTools} />
             </div>
-          )}
+          ) : null}
           <div
             role="group"
             aria-label="Prompt composer"
+            data-composer-chrome="card"
             className={cn(
-              "flex min-h-24 min-w-0 flex-1 flex-col rounded-xl border bg-card shadow-overlay",
-              "transition-[border-color,box-shadow] duration-150 ease-fluid",
-              bash ? "border-warning/50" : "border-input focus-within:border-input-hover",
+              "flex min-h-24 min-w-0 flex-1 flex-col rounded-xl bg-card shadow-composer",
+              "transition-[box-shadow] duration-150 ease-fluid",
             )}
           >
-          {bash ? (
-            <p
-              className="flex items-center gap-1.5 px-4 pt-1 font-mono text-label font-semibold text-warning"
-              role="status"
-            >
-              <Terminal size={12} aria-hidden="true" />
-              Bash mode — runs a shell command with your authority
-            </p>
-          ) : null}
-
-          <label htmlFor="composer" className="sr-only">
-            {bash ? "Shell command" : "Message the agent"}
-          </label>
-          <div className="flex flex-1 items-start gap-1 px-2">
-            {bash ? (
-              <span
-                className="select-none pl-2 pt-2 font-mono text-body-lg font-semibold text-warning"
-                aria-hidden="true"
-              >
-                !
-              </span>
-            ) : null}
+            <label htmlFor="composer" className="sr-only">
+              {bash ? "Shell command" : "Message the agent"}
+            </label>
             <textarea
               id="composer"
               ref={inputRef}
-              rows={3}
-              value={bash ? bashBody(draft) : draft}
+              rows={1}
+              value={displayValue}
               disabled={!connected}
+              spellCheck={!bash}
               // Deliberately not `role="combobox"`: that would override the
               // textarea's own role and lose multiline semantics for what is
               // a multiline prompt first and a completion field second.
-              //
-              // `aria-expanded` goes with it — ARIA does not allow it on a
-              // textbox. The open menu is still reachable and announced
-              // through `aria-controls` and `aria-activedescendant`.
               aria-controls={menuOpen ? listboxId : undefined}
               aria-activedescendant={
                 menuOpen && options.length > 0
@@ -315,8 +453,6 @@ export function SessionComposer({
               onClick={syncCaret}
               onChange={(event) => {
                 setCaret(event.target.selectionStart ?? 0);
-                // Any edit reopens a menu the user dismissed, because they are
-                // now typing a different mention than the one they closed.
                 setDismissedAt(null);
                 const body = event.target.value;
                 if (bash) {
@@ -328,21 +464,27 @@ export function SessionComposer({
                 onDraftChange(applyDraftForBash(body, draft));
               }}
               onKeyDown={(event) => {
-                // The menu takes arrows, Enter, Tab, and Escape first, so
-                // accepting a completion cannot also send the prompt.
                 if (handleMenuKey(event)) {
                   return;
                 }
-                // Grok Build pager: empty bash prompt + Backspace/Esc/Ctrl+W/U/C
-                // returns to Normal mode.
+                // Ctrl/Cmd+U opens the file picker (OpenCode parity).
+                if (
+                  !bash &&
+                  event.key.toLowerCase() === "u" &&
+                  (event.ctrlKey || event.metaKey) &&
+                  !event.shiftKey &&
+                  !event.altKey
+                ) {
+                  event.preventDefault();
+                  openFilePicker();
+                  return;
+                }
                 if (shouldExitBashOnKey(draft, event)) {
                   event.preventDefault();
                   onDraftChange("");
                   return;
                 }
                 if (event.key !== "Enter" || event.shiftKey) {
-                  // Arrows move the caret, so the menu has to follow it. The
-                  // event fires before the move lands, hence the deferral.
                   requestAnimationFrame(syncCaret);
                   return;
                 }
@@ -353,120 +495,360 @@ export function SessionComposer({
                 }
                 onSubmit();
               }}
-              placeholder={
-                bash
-                  ? "shell command… (Backspace exits when empty)"
-                  : "Describe the task — @ for files, / for commands, ! for bash"
-              }
-              className="min-h-[4.5rem] flex-1 resize-none bg-transparent px-2 pb-1 pt-2.5 text-body-lg text-foreground outline-none placeholder:text-subtle-foreground"
-            />
-          </div>
-
-          {/*
-            The control bar. Send now and Stop are icon-only: they are
-            modifiers on the one action the user came here to take, and as three
-            equal filled buttons they weighed more than the message itself.
-            Their meaning is carried by `title` as well as the accessible name,
-            because an icon alone does not explain itself.
-          */}
-          <div className="flex h-11 items-center gap-1 px-2">
-            {bash ? null : (
-              <IconButton
-                size="sm"
-                onClick={insertFileMention}
-                disabled={!connected}
-                title="Mention a workspace file (@)"
-                aria-label="Add workspace file mention"
-              >
-                <Plus size={14} aria-hidden="true" />
-              </IconButton>
-            )}
-            {models.length === 0 ? null : (
-              <select
-                value={modelId ?? ""}
-                disabled={!connected || bash}
-                onChange={(event) => onModelChange(event.target.value)}
-                className={SELECT_CLASS}
-                aria-label="Model"
-              >
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {efforts.length === 0 ? null : (
-              <select
-                value={effortId ?? ""}
-                disabled={!connected || bash}
-                onChange={(event) => onEffortChange(event.target.value)}
-                className={SELECT_CLASS}
-                aria-label="Reasoning effort"
-              >
-                {efforts.map((effort) => (
-                  <option key={effort.id} value={effort.id}>
-                    {effort.label}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              {phase === "streaming" ? (
-                <>
-                  <IconButton
-                    size="sm"
-                    onClick={onSendNow}
-                    disabled={!canSend}
-                    title="Stop the current turn and run this message next (Ctrl+Enter)"
-                    aria-label="Stop the current turn and send this now"
-                  >
-                    <Zap size={14} aria-hidden="true" />
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    onClick={onCancel}
-                    title="Stop the current turn and send nothing"
-                    aria-label="Stop the current turn"
-                  >
-                    <Square size={14} aria-hidden="true" />
-                  </IconButton>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={onSubmit}
-                    disabled={!canSend}
-                    title="Wait for the turn in flight, then send (Enter)"
-                    aria-label="Queue this message"
-                  >
-                    <Send size={14} aria-hidden="true" />
-                    Queue
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={onSubmit}
-                  disabled={!canSend}
-                  aria-label={bash ? "Run shell command" : "Send prompt"}
-                >
-                  <Send size={14} aria-hidden="true" />
-                  {bash ? "Run" : "Send"}
-                </Button>
+              placeholder={bash ? SHELL_PLACEHOLDER : PROMPT_PLACEHOLDER}
+              className={cn(
+                "w-full resize-none overflow-y-auto bg-transparent px-4 pb-2 pt-4",
+                "text-body leading-5 text-foreground outline-none",
+                "placeholder:text-subtle-foreground",
+                bash && "font-mono",
               )}
-            </div>
-          </div>
+              style={{ minHeight: INPUT_MIN_PX, maxHeight: INPUT_MAX_PX }}
+            />
 
-          {bash ? (
-            <p className="px-4 pb-2 font-mono text-label text-subtle-foreground">
-              Esc exits bash · runs with your authority
-            </p>
-          ) : null}
+            <div className="flex h-11 shrink-0 items-center px-2">
+              {/*
+                OpenCode technique: left tools stay mounted and fade out in bash
+                so the card never jumps height or toolbar width.
+              */}
+              <div
+                data-composer-chrome="left-toolbar"
+                className={cn(
+                  "flex min-w-0 flex-1 items-center gap-1 transition-opacity duration-200",
+                  bash && "pointer-events-none opacity-0",
+                )}
+                aria-hidden={bash ? true : undefined}
+                // Boolean only — empty-string inert is treated as false in React 19.
+                inert={bash ? true : undefined}
+              >
+                <ComposerPlusMenu
+                  disabled={!connected || bash}
+                  onAttachFiles={openFilePicker}
+                  onCommands={insertCommandMention}
+                  onContext={insertFileMention}
+                  onShell={enterShell}
+                />
+                {modelOptions.length === 0 ? null : (
+                  <ComposerSelect
+                    label="Model"
+                    value={modelId ?? ""}
+                    options={modelOptions}
+                    disabled={!connected || bash}
+                    onChange={onModelChange}
+                  />
+                )}
+                {effortOptions.length === 0 ? null : (
+                  <ComposerSelect
+                    label="Reasoning effort"
+                    value={effortId ?? ""}
+                    options={effortOptions}
+                    disabled={!connected || bash}
+                    onChange={onEffortChange}
+                  />
+                )}
+              </div>
+
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                {phase === "streaming" ? (
+                  <>
+                    <IconButton
+                      size="sm"
+                      onClick={onSendNow}
+                      disabled={!canSend}
+                      title="Stop the current turn and run this message next (Ctrl+Enter)"
+                      aria-label="Stop the current turn and send this now"
+                    >
+                      <Zap size={14} aria-hidden="true" />
+                    </IconButton>
+                    <IconButton
+                      size="sm"
+                      onClick={onCancel}
+                      title="Stop the current turn and send nothing"
+                      aria-label="Stop the current turn"
+                    >
+                      <Square size={14} aria-hidden="true" />
+                    </IconButton>
+                    <ComposerSendButton
+                      bash={bash}
+                      disabled={!canSend}
+                      onClick={onSubmit}
+                      queue
+                    />
+                  </>
+                ) : (
+                  <ComposerSendButton
+                    bash={bash}
+                    disabled={!canSend}
+                    onClick={onSubmit}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Icon-only primary send: ArrowUp for prompts, CornerDownLeft (return) for
+ * shell — matches OpenCode’s 28×28 plate.
+ */
+function ComposerSendButton({
+  bash,
+  disabled,
+  onClick,
+  queue = false,
+}: {
+  bash: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  queue?: boolean;
+}) {
+  const label = queue
+    ? "Queue this message"
+    : bash
+      ? "Run shell command"
+      : "Send prompt";
+  const title = queue
+    ? "Wait for the turn in flight, then send (Enter)"
+    : bash
+      ? "Run shell command (Enter)"
+      : "Send prompt (Enter)";
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      title={title}
+      aria-label={label}
+      className={cn(
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-md",
+        "bg-primary text-primary-foreground shadow-raised",
+        "transition-[background-color,opacity,transform] duration-150 ease-fluid",
+        "hover:bg-primary-hover active:scale-[.98]",
+        "disabled:cursor-not-allowed disabled:opacity-48",
+      )}
+    >
+      {bash && !queue ? (
+        <CornerDownLeft size={14} aria-hidden="true" />
+      ) : (
+        <ArrowUp size={14} aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/** + menu: attach files, slash commands, @ context, shell bang. */
+function ComposerPlusMenu({
+  disabled,
+  onAttachFiles,
+  onCommands,
+  onContext,
+  onShell,
+}: {
+  disabled: boolean;
+  onAttachFiles: () => void;
+  onCommands: () => void;
+  onContext: () => void;
+  onShell: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useDismissOnOutside(open, rootRef, () => setOpen(false));
+
+  const items: {
+    id: string;
+    label: string;
+    shortcut: string;
+    icon: ReactNode;
+    action: () => void;
+  }[] = [
+    {
+      id: "files",
+      label: "Images and files",
+      shortcut: "Ctrl+U",
+      icon: <Image size={14} aria-hidden="true" />,
+      action: onAttachFiles,
+    },
+    {
+      id: "commands",
+      label: "Commands",
+      shortcut: "/",
+      icon: <Slash size={14} aria-hidden="true" />,
+      action: onCommands,
+    },
+    {
+      id: "context",
+      label: "Context",
+      shortcut: "@",
+      icon: <AtSign size={14} aria-hidden="true" />,
+      action: onContext,
+    },
+    {
+      id: "shell",
+      label: "Shell command",
+      shortcut: "!",
+      icon: <Terminal size={14} aria-hidden="true" />,
+      action: onShell,
+    },
+  ];
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <IconButton
+        size="sm"
+        disabled={disabled}
+        aria-label="Add to message"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Add images, files, commands, or shell"
+        onClick={() => setOpen((current) => !current)}
+        className={open ? "bg-accent/60 text-foreground" : undefined}
+      >
+        <Plus size={14} aria-hidden="true" />
+      </IconButton>
+      {open ? (
+        <div
+          role="menu"
+          aria-label="Add to message"
+          className="absolute bottom-full left-0 z-40 mb-2 min-w-[15.5rem] overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-overlay"
+        >
+          {items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="menuitem"
+              className={cn(
+                "flex w-full items-center gap-2.5 px-3 py-2 text-left text-body",
+                "text-foreground transition-colors duration-150 ease-fluid",
+                "hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-none",
+              )}
+              onClick={() => {
+                setOpen(false);
+                item.action();
+              }}
+            >
+              <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+                {item.id === "files" ? (
+                  <FileUp size={14} aria-hidden="true" />
+                ) : (
+                  item.icon
+                )}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="shrink-0 font-mono text-label text-subtle-foreground">
+                {item.shortcut}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Custom model/effort menu — same keyboard and dismiss behaviour as MCP, with
+ * a selected check and raised popover so it is not the browser's bare select.
+ */
+function ComposerSelect({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { id: string; label: string }[];
+  disabled: boolean;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listId = useId();
+
+  useDismissOnOutside(open, rootRef, () => setOpen(false));
+
+  const selected = options.find((option) => option.id === value);
+  const display = selected?.label ?? label;
+
+  return (
+    <div ref={rootRef} className="relative min-w-0 max-w-[11rem] shrink">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        title={display}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          "flex h-7 max-w-full items-center gap-1 rounded-md border px-2",
+          "text-body-sm outline-none transition-[background-color,border-color,color,box-shadow]",
+          "duration-150 ease-fluid disabled:opacity-48",
+          open
+            ? "border-input bg-card text-foreground shadow-raised"
+            : "border-transparent bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{display}</span>
+        <ChevronDown
+          size={12}
+          className={cn(
+            "shrink-0 opacity-70 transition-transform duration-150 ease-fluid",
+            open && "rotate-180",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label={label}
+          className="absolute bottom-full left-0 z-40 mb-2 max-h-56 min-w-full overflow-y-auto rounded-lg border border-border bg-popover py-1 shadow-overlay"
+        >
+          {options.map((option) => {
+            const isSelected = option.id === value;
+            return (
+              <li key={option.id} role="none">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-body-sm",
+                    "transition-colors duration-150 ease-fluid",
+                    isSelected
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  {isSelected ? (
+                    <Check
+                      size={14}
+                      className="shrink-0 text-foreground"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <span className="size-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -484,34 +866,7 @@ function McpControl({ tools }: { tools: ToolProjection[] }) {
   }
   const mcps = Array.from(byName, ([name, enabled]) => ({ name, enabled }));
 
-  // Dismiss like a menu: outside pointer and Escape. Listen only while open so
-  // idle composers do not pay for document listeners.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function onPointerDown(event: PointerEvent) {
-      const root = rootRef.current;
-      if (root === null || !(event.target instanceof Node)) {
-        return;
-      }
-      if (!root.contains(event.target)) {
-        setOpen(false);
-      }
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismissOnOutside(open, rootRef, () => setOpen(false));
 
   if (mcps.length === 0) {
     return null;
@@ -581,17 +936,36 @@ function McpControl({ tools }: { tools: ToolProjection[] }) {
   );
 }
 
-/**
- * Ghost pill until hovered.
- *
- * Native `<select>` on purpose: a hand-rolled menu would need a popover
- * primitive Light does not have, and would have to re-earn the keyboard and
- * screen-reader behaviour the platform control already has.
- */
-const SELECT_CLASS = cn(
-  "h-7 max-w-[12rem] truncate rounded-md border border-transparent bg-transparent px-1.5",
-  "text-body-sm text-muted-foreground outline-none",
-  "transition-[background-color,border-color,color] duration-150 ease-fluid",
-  "hover:bg-accent/60 hover:text-foreground focus:border-input focus:bg-card",
-  "disabled:opacity-48",
-);
+/** Outside pointer + Escape dismiss, only while open. */
+function useDismissOnOutside(
+  open: boolean,
+  rootRef: React.RefObject<HTMLElement | null>,
+  onDismiss: () => void,
+) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function onPointerDown(event: PointerEvent) {
+      const root = rootRef.current;
+      if (root === null || !(event.target instanceof Node)) {
+        return;
+      }
+      if (!root.contains(event.target)) {
+        onDismiss();
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onDismiss();
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, rootRef, onDismiss]);
+}

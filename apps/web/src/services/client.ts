@@ -494,7 +494,7 @@ export function takePairingNonce(): string | null {
   return takePairingFragment()?.nonce ?? null;
 }
 
-/** Fragment params from `grok-bridge open` for hosted UI. */
+/** Fragment params from `spanreed agent open` for hosted UI. */
 export function takePairingFragment(): { nonce: string; port: number | null } | null {
   if (typeof location === "undefined") {
     return null;

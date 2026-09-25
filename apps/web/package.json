@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Grok Desktop Portable Work SPA. Served from the local grok-bridge binary, never from a CDN.",
+  "description": "Grok Desktop Portable Work SPA, hosted at desktop.grok.me and driving the local Spanreed agent host.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
@@ -20,6 +20,7 @@
     "react-dom": "19.2.7",
     "react-markdown": "10.1.0",
     "remark-gfm": "4.0.1",
+    "sonner": "2.0.7",
     "tailwind-merge": "3.4.1"
   },
   "devDependencies": {

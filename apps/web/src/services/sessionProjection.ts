@@ -7,10 +7,17 @@
  * recovery and streaming without mounting the shell.
  */
 
-import type { EventEnvelope, PlanEntryProjection } from "./protocol";
+import type {
+  EventEnvelope,
+  PlanEntryProjection,
+  SnapshotBackgroundTask,
+  SnapshotMember,
+  SnapshotWorkflow,
+} from "./protocol";
 import type {
   ReviewRecord,
   SessionPhase,
+  ThoughtEntry,
   ToolEntry,
   TranscriptEntry,
 } from "../views/SessionView";
@@ -19,31 +26,79 @@ import type {
 export interface Projection {
   transcript: TranscriptEntry[];
   tools: ToolEntry[];
+  /** Streaming reasoning blocks (`thoughtDelta`); never mixed into agent text. */
+  thoughts: ThoughtEntry[];
   reviews: ReviewRecord[];
   phase: SessionPhase;
   /** Latest agent plan for this conversation, or empty when none published. */
   plan: PlanEntryProjection[];
+  /** Nested members (subagents) for this parent session. */
+  members: SnapshotMember[];
+  /** Workflow runs under this session. */
+  workflows: SnapshotWorkflow[];
+  /** Background bash/monitor tasks (CLI Tasks). */
+  backgroundTasks: SnapshotBackgroundTask[];
 }
 
 /** Empty projection used before any event and after a hard reset. */
 export const EMPTY_PROJECTION: Projection = {
   transcript: [],
   tools: [],
+  thoughts: [],
   reviews: [],
   phase: "idle",
   plan: [],
+  members: [],
+  workflows: [],
+  backgroundTasks: [],
 };
 
 /**
  * Fold one event into the projection.
  *
- * Thoughts are intentionally ignored here: they must not land in the agent
- * bubble (host classifies them as `thoughtDelta`). Tools and interruptions
- * accumulate until the user or a later command clears them.
+ * Thoughts stay in their own channel (`thoughtDelta`) so they never glue onto
+ * the agent bubble. Tools and interruptions accumulate until the user or a
+ * later command clears them.
  */
 function projectOne(current: Projection, envelope: EventEnvelope): Projection {
   const event = envelope.event;
   switch (event.kind) {
+    case "thoughtDelta": {
+      // Continue the open thought block only while it is still the latest
+      // timeline item. A message or tool after it starts a new thought block
+      // later in the turn (CLI: thinking → tools → more thinking → answer).
+      const last = current.thoughts.at(-1);
+      const latestOther = Math.max(
+        current.transcript.at(-1)?.seq ?? -1,
+        current.tools.at(-1)?.seq ?? -1,
+      );
+      if (
+        last !== undefined &&
+        current.phase === "streaming" &&
+        last.seq >= latestOther
+      ) {
+        return {
+          ...current,
+          phase: "streaming",
+          thoughts: [
+            ...current.thoughts.slice(0, -1),
+            { ...last, text: last.text + event.text },
+          ],
+        };
+      }
+      return {
+        ...current,
+        phase: "streaming",
+        thoughts: [
+          ...current.thoughts,
+          {
+            id: `th-${envelope.eventSequence}`,
+            text: event.text,
+            seq: envelope.eventSequence,
+          },
+        ],
+      };
+    }
     case "messageDelta": {
       const last = current.transcript.at(-1);
       // Only a turn still in flight continues the previous bubble. Once the
@@ -186,6 +241,15 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
       // Prefer host-assigned seq when present so tools interleave with turns.
       // Fall back to negative indices so rehydrate still sorts before live events.
       const fallbackBase = -(restored.length + restoredTools.length);
+      const members = (event.members ?? []).filter(
+        (member) => typeof member.id === "string" && member.id.length > 0,
+      );
+      const workflows = (event.workflows ?? []).filter(
+        (workflow) => typeof workflow.runId === "string" && workflow.runId.length > 0,
+      );
+      const backgroundTasks = (event.backgroundTasks ?? []).filter(
+        (task) => typeof task.taskId === "string" && task.taskId.length > 0,
+      );
       return {
         transcript: restored.map((message, index) => ({
           id: `restored-${index}`,
@@ -211,10 +275,26 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
               ? tool.seq + fallbackBase
               : restored.length + index + fallbackBase,
         })),
+        // Thoughts are live-only: history rehydrate drops them (ADR 0010).
+        thoughts: [],
         reviews: current.reviews,
         phase: "idle",
         // Plan is live ACP state, not rehydrated from the transcript snapshot.
         plan: [],
+        members,
+        workflows,
+        backgroundTasks,
+      };
+    }
+    case "backgroundTaskUpdated": {
+      const task = event.task;
+      if (!task || typeof task.taskId !== "string" || task.taskId.length === 0) {
+        return current;
+      }
+      const without = current.backgroundTasks.filter((t) => t.taskId !== task.taskId);
+      return {
+        ...current,
+        backgroundTasks: [task, ...without],
       };
     }
     // Handled before the fold, in App.handleEvent, because they change host or
@@ -227,7 +307,6 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
     case "queueChanged":
     case "workspacesChanged":
     case "hostStatus":
-    case "thoughtDelta":
     case "permissionRequest":
     case "error":
       return current;
@@ -248,6 +327,9 @@ export function nextLocalSeq(projection: Projection): number {
   }
   for (const tool of projection.tools) {
     highest = Math.max(highest, tool.seq);
+  }
+  for (const thought of projection.thoughts) {
+    highest = Math.max(highest, thought.seq);
   }
   return highest + 1;
 }

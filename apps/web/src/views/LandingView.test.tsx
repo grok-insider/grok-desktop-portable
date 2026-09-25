@@ -4,16 +4,16 @@ import userEvent from "@testing-library/user-event";
 import { LandingView } from "./LandingView";
 
 describe("LandingView", () => {
-  it("shows install guidance when the bridge is missing", () => {
+  it("shows install guidance when the host is missing", () => {
     render(<LandingView probe={{ kind: "bridge_missing" }} onRetry={() => {}} />);
     expect(screen.getByTestId("landing-view")).toHaveAttribute(
       "data-probe-kind",
       "bridge_missing",
     );
-    expect(screen.getByRole("heading", { name: /Start the local bridge/i })).toBeTruthy();
-    expect(screen.getByText(/Install and run grok-bridge/i)).toBeTruthy();
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge serve");
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge open");
+    expect(screen.getByRole("heading", { name: /Start the local host/i })).toBeTruthy();
+    expect(screen.getByText(/Install Spanreed and run spanreed agent serve/i)).toBeTruthy();
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent serve");
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent open");
     expect(screen.queryByText(/Disconnected/i)).toBeNull();
     expect(screen.queryByText(/Pick a project/i)).toBeNull();
   });
@@ -28,19 +28,19 @@ describe("LandingView", () => {
     expect(screen.getByText(/blocked connections from desktop\.grok\.me/i)).toBeTruthy();
   });
 
-  it("shows pairing instructions when bridge is up but unpaired", () => {
+  it("shows pairing instructions when the host is up but unpaired", () => {
     render(<LandingView probe={{ kind: "needs_pairing" }} onRetry={() => {}} />);
     expect(screen.getByTestId("landing-view")).toHaveAttribute(
       "data-probe-kind",
       "needs_pairing",
     );
     expect(screen.getByRole("heading", { name: /Pair this browser/i })).toBeTruthy();
-    expect(screen.getByText(/The bridge is running/i)).toBeTruthy();
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge open");
+    expect(screen.getByText(/The local host is running/i)).toBeTruthy();
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent open");
     expect(screen.getByTestId("landing-install")).not.toHaveTextContent("install.sh");
   });
 
-  it("emphasizes serve when a port was known but the bridge is down", () => {
+  it("emphasizes serve when a port was known but the host is down", () => {
     render(
       <LandingView
         probe={{ kind: "bridge_missing" }}
@@ -49,9 +49,9 @@ describe("LandingView", () => {
       />,
     );
     expect(screen.getByTestId("landing-view")).toHaveAttribute("data-had-port", "1");
-    expect(screen.getByText(/remembers a local bridge port/i)).toBeTruthy();
+    expect(screen.getByText(/remembers a local host port/i)).toBeTruthy();
     expect(screen.getByTestId("landing-install")).not.toHaveTextContent("install.sh");
-    expect(screen.getByTestId("landing-install")).toHaveTextContent("grok-bridge serve");
+    expect(screen.getByTestId("landing-install")).toHaveTextContent("spanreed agent serve");
   });
 
   it("shows checking state without Work chrome", () => {
@@ -60,7 +60,7 @@ describe("LandingView", () => {
       "data-probe-kind",
       "checking",
     );
-    expect(screen.getByRole("heading", { name: /Looking for the local bridge/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Looking for the local host/i })).toBeTruthy();
     expect(screen.queryByText(/Pick a project/i)).toBeNull();
   });
 
@@ -89,5 +89,45 @@ describe("LandingView", () => {
     render(<LandingView probe={{ kind: "bridge_missing" }} onRetry={() => {}} />);
     expect(screen.getAllByText(/Grok Desktop Portable/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/not a sandbox/i)).toBeTruthy();
+  });
+
+  it("exposes X and GitHub links in the bottom corners", () => {
+    render(<LandingView probe={{ kind: "bridge_missing" }} onRetry={() => {}} />);
+    const x = screen.getByRole("link", { name: /GrokInsider on X/i });
+    expect(x).toHaveAttribute("href", "https://x.com/GrokInsider");
+    expect(x).toHaveAttribute("target", "_blank");
+    expect(x.getAttribute("rel") ?? "").toMatch(/noopener/);
+
+    const github = screen.getByRole("link", { name: /Source on GitHub/i });
+    expect(github).toHaveAttribute(
+      "href",
+      "https://github.com/grok-insider/grok-desktop-portable",
+    );
+    expect(github).toHaveAttribute("target", "_blank");
+    expect(github.getAttribute("rel") ?? "").toMatch(/noopener/);
+  });
+
+  it("shows anonymous presence when stats are available", () => {
+    render(
+      <LandingView
+        probe={{ kind: "bridge_missing" }}
+        onRetry={() => {}}
+        presence={{ active: 12, total: 1284, window_sec: 300 }}
+      />,
+    );
+    expect(screen.getByTestId("landing-presence")).toHaveTextContent(
+      /12 online · 1\.3k total/,
+    );
+  });
+
+  it("hides presence when stats are null", () => {
+    render(
+      <LandingView
+        probe={{ kind: "bridge_missing" }}
+        onRetry={() => {}}
+        presence={null}
+      />,
+    );
+    expect(screen.queryByTestId("landing-presence")).toBeNull();
   });
 });

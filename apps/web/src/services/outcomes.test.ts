@@ -3,6 +3,9 @@ import {
   asSessionChanges,
   asSessionInspector,
   failureMessage,
+  asSessionCreated,
+  isEphemeralFailure,
+  isEphemeralRefusal,
   refusalMessage,
 } from "./outcomes";
 
@@ -18,7 +21,7 @@ describe("failure messages", () => {
   });
 
   it("explains a lost pairing instead of a generic failure", () => {
-    expect(failureMessage({ kind: "not_paired" }, "fallback")).toMatch(/grok-bridge open/);
+    expect(failureMessage({ kind: "not_paired" }, "fallback")).toMatch(/spanreed agent open/);
   });
 
   it("passes a refusal through to its own wording", () => {
@@ -66,7 +69,7 @@ describe("refusal messages", () => {
 
   it("gives every code the host can emit its own explanation", () => {
     // Kept in step with `DispatchError::code` in
-    // crates/grok-bridge/src/dispatch.rs. A code with no wording here
+    // fabrials-agent-host src/dispatch.rs. A code with no wording here
     // reaches the user as "the host refused the request", which explains
     // nothing and hides a limit they could act on.
     const codes = [
@@ -104,9 +107,31 @@ describe("concurrency limits", () => {
     expect(refusalMessage("unknown_session")).toMatch(/no longer open/i);
   });
 
-  it("no longer claims Grok Light runs one conversation at a time", () => {
+  it("no longer claims Portable runs one conversation at a time", () => {
     // That wording predates light ADR 0011 and is now false.
     expect(refusalMessage("session_already_active")).not.toMatch(/one at a time/i);
+  });
+
+  it("classifies situational refusals as ephemeral toasts", () => {
+    expect(isEphemeralRefusal("picker_already_open")).toBe(true);
+    expect(isEphemeralRefusal("queue_full")).toBe(true);
+    expect(isEphemeralRefusal("unknown_session")).toBe(true);
+    // Navigate-only (not toast): already-open is handled by focusing the tab.
+    expect(isEphemeralRefusal("session_already_active")).toBe(false);
+    // Sticky / page-level: keep banners or demotion, not toast-only.
+    expect(isEphemeralRefusal("agent_failed")).toBe(false);
+    expect(isEphemeralRefusal("unsupported")).toBe(false);
+    expect(isEphemeralFailure({ kind: "refused", code: "queue_full" })).toBe(true);
+    expect(isEphemeralFailure({ kind: "unreachable" })).toBe(false);
+  });
+
+  it("narrows sessionCreated outcomes", () => {
+    expect(asSessionCreated({ outcome: "sessionCreated", sessionId: "s-1" })).toEqual({
+      outcome: "sessionCreated",
+      sessionId: "s-1",
+    });
+    expect(asSessionCreated({ outcome: "ok" })).toBeNull();
+    expect(asSessionCreated({ outcome: "sessionCreated", sessionId: "" })).toBeNull();
   });
 });
 

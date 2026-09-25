@@ -1,6 +1,6 @@
 /**
- * Entry point. The SPA is served by `grok-bridge` from its own loopback
- * origin; there is no other deployment target (light ADR 0002).
+ * Entry point. The SPA is hosted at desktop.grok.me (light ADR 0016); the
+ * `spanreed agent` host can also serve it from its own loopback origin.
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -10,6 +10,7 @@ import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";
 import "./styles.css";
 import { App } from "./App";
+import { HostToaster } from "./components/HostToaster";
 import { ThemeProvider } from "./theme/ThemeProvider";
 
 const container = document.getElementById("root");
@@ -20,6 +21,7 @@ createRoot(container).render(
   <StrictMode>
     <ThemeProvider>
       <App />
+      <HostToaster />
     </ThemeProvider>
   </StrictMode>,
 );

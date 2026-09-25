@@ -1,7 +1,7 @@
 /**
  * `light.local.v1` — the browser half of the local protocol.
  *
- * Mirrors `crates/grok-bridge/src/protocol.rs`. The union is closed on
+ * Mirrors `src/protocol.rs` in `fabrials-agent-host`. The union is closed on
  * purpose: there is no operation that sends raw ACP, runs a process, edits
  * configuration, or supplies a filesystem path. A workspace is always an
  * opaque id the host resolves.
@@ -136,6 +136,64 @@ export interface CommandEnvelope {
   operation: Operation;
 }
 
+/** Nested agent belonging to a parent session (opaque ids only). */
+export interface SnapshotMember {
+  id: string;
+  title?: string;
+  kind?: string;
+  label?: string;
+  status?: string;
+  messageCount?: number;
+}
+
+/** One phase in a workflow strip. */
+export interface SnapshotWorkflowPhase {
+  title: string;
+  state: string;
+}
+
+/** Workflow run projected onto a parent session. */
+export interface SnapshotWorkflow {
+  runId: string;
+  name?: string;
+  status?: string;
+  objective?: string;
+  phases?: SnapshotWorkflowPhase[];
+  currentPhase?: string;
+  agentsUsed?: number;
+  agentBudget?: number;
+  elapsedMs?: number;
+  resultSummary?: string;
+}
+
+/** Background bash/monitor task (CLI Tasks pane). */
+export type BackgroundTaskKind = "bash" | "monitor";
+
+/** Lifecycle of a background task. */
+export type BackgroundTaskStatus =
+  | "running"
+  | "killing"
+  | "completed"
+  | "failed";
+
+/** One background task row (no filesystem paths). */
+export interface SnapshotBackgroundTask {
+  taskId: string;
+  toolCallId?: string;
+  kind: BackgroundTaskKind;
+  status: BackgroundTaskStatus;
+  title?: string;
+  command?: string;
+  startedAtMs: number;
+  endedAtMs?: number;
+  elapsedMs: number;
+  exitCode?: number;
+  signal?: string;
+  lineCount?: number;
+  truncated?: boolean;
+  restoredFromReplay?: boolean;
+}
+
 /** Server-to-client events. */
 export type LightEvent =
   | { kind: "hostStatus"; state: string }
@@ -155,6 +213,17 @@ export type LightEvent =
         failed: boolean;
         seq: number;
       }>;
+      /** Nested subagent sessions for this parent (not home-rail peers). */
+      members?: SnapshotMember[];
+      /** Workflow runs under this session. */
+      workflows?: SnapshotWorkflow[];
+      /** Background bash/monitor tasks (CLI Tasks pane). */
+      backgroundTasks?: SnapshotBackgroundTask[];
+    }
+  | {
+      kind: "backgroundTaskUpdated";
+      sessionId: string;
+      task: SnapshotBackgroundTask;
     }
   | { kind: "sessionStatus"; sessionId: string; state: string }
   | { kind: "messageDelta"; sessionId: string; text: string }

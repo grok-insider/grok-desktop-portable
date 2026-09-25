@@ -1,7 +1,7 @@
 /**
  * Dispatch outcomes, as the host serialises them.
  *
- * Mirrors `DispatchOutcome` in `crates/grok-bridge/src/dispatch.rs`. A
+ * Mirrors `DispatchOutcome` in `fabrials-agent-host` (`src/dispatch.rs`). A
  * workspace here is an opaque id and a label; the host never sends a path.
  */
 
@@ -39,6 +39,16 @@ export interface SessionSummary {
   title: string;
   updatedAt: string;
   messageCount: number;
+  /**
+   * Session kind from the host (`conversation`, `fork`, `worktree`, …).
+   * Subagent kinds never appear here — they are not primary list peers.
+   */
+  kind?: string;
+  /**
+   * Nested member sessions (e.g. workflow subagents) belonging to this primary
+   * chat. Used for a rail badge; children are not listed as peer chats.
+   */
+  memberCount?: number;
 }
 
 /**
@@ -369,6 +379,21 @@ export function asSessions(
   return null;
 }
 
+/** New or already-open conversation after createSession / loadSession. */
+export function asSessionCreated(
+  value: unknown,
+): Extract<DispatchOutcome, { outcome: "sessionCreated" }> | null {
+  if (
+    !isRecord(value) ||
+    value.outcome !== "sessionCreated" ||
+    typeof value.sessionId !== "string" ||
+    value.sessionId.length === 0
+  ) {
+    return null;
+  }
+  return value as Extract<DispatchOutcome, { outcome: "sessionCreated" }>;
+}
+
 /** Narrow an unknown response to a models list. */
 export function asModels(
   value: unknown,
@@ -655,9 +680,9 @@ export function failureMessage(failure: ClientFailure, fallback: string): string
     case "protocol_mismatch":
       return `This page speaks protocol ${PROTOCOL_VERSION} and the host speaks ${failure.hostVersion}. Reload to pick up the host's version.`;
     case "not_paired":
-      return "This browser is no longer paired. Run `grok-bridge open` to pair it again.";
+      return "This browser is no longer paired. Run `spanreed agent open` to pair it again.";
     case "unreachable":
-      return "The local host stopped responding. Start it with `grok-bridge serve`.";
+      return "The local host stopped responding. Start it with `spanreed agent serve`.";
     default:
       return fallback;
   }
@@ -693,7 +718,7 @@ export function refusalMessage(code: string): string {
     case "not_replayable":
       return "That action was interrupted and will not be retried automatically.";
     case "permission_not_answerable":
-      return "Grok Light cannot answer that permission option.";
+      return "Grok Desktop Portable cannot answer that permission option.";
     case "picker_already_open":
       return "A directory picker is already open. Finish or close it first.";
     case "unknown_permission":
@@ -701,4 +726,35 @@ export function refusalMessage(code: string): string {
     default:
       return "The host refused the request.";
   }
+}
+
+/**
+ * Refusals that are situational feedback, not page-level sticky errors.
+ *
+ * These must not live as full-width banners that survive Home ↔ session
+ * navigation (they break layout and show on the wrong surface). Surface them
+ * as short-lived toasts instead.
+ */
+export function isEphemeralRefusal(code: string): boolean {
+  switch (code) {
+    // session_already_active: navigate to the tab (no toast) — handled in App.
+    case "too_many_sessions":
+    case "queue_full":
+    case "unknown_queue_entry":
+    case "unknown_session":
+    case "unknown_review_record":
+    case "already_completed":
+    case "picker_already_open":
+    case "permission_not_answerable":
+    case "unknown_permission":
+    case "no_session":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** True when a client failure should be a toast, not a sticky Work banner. */
+export function isEphemeralFailure(failure: ClientFailure): boolean {
+  return failure.kind === "refused" && isEphemeralRefusal(failure.code);
 }

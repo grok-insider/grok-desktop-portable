@@ -7,7 +7,7 @@
  *   public/install.ps1
  *   public/demo/                  optional stub-demo SPA for server.mjs previews
  *
- * Bridge embed still uses apps/web/dist (crates/grok-bridge/build.rs).
+ * Spanreed can embed apps/web/dist through FABRIALS_AGENT_HOST_WEB_DIST.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -51,7 +51,7 @@ function patchSpaIndex(indexPath, { demoMount } = { demoMount: false }) {
       /http-equiv=(["'])Content-Security-Policy\1[^>]*content=(["'])([\s\S]*?)\2/gi,
       (_full, q1, q2) => {
         const c =
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
         return `http-equiv=${q1}Content-Security-Policy${q1} content=${q2}${c.replace(/'/g, "&#39;")}${q2}`;
       },
     );
@@ -64,7 +64,7 @@ function patchSpaIndex(indexPath, { demoMount } = { demoMount: false }) {
         : meta + html;
     }
     if (!html.includes("data-demo-banner")) {
-      const banner = `<div data-demo-banner style="position:fixed;z-index:9999;left:0;right:0;top:0;padding:6px 12px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif;background:#1a1a1f;color:#c8c8d0;border-bottom:1px solid #2a2a32;text-align:center">Stub demo — production is desktop.grok.me + local grok-bridge. <a href="/" style="color:#9fd4b0">Product UI</a></div><style data-demo-banner>body{padding-top:32px !important}</style>`;
+      const banner = `<div data-demo-banner style="position:fixed;z-index:9999;left:0;right:0;top:0;padding:6px 12px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif;background:#1a1a1f;color:#c8c8d0;border-bottom:1px solid #2a2a32;text-align:center">Stub demo — production is desktop.grok.me + the local Spanreed agent host. <a href="/" style="color:#9fd4b0">Product UI</a></div><style data-demo-banner>body{padding-top:32px !important}</style>`;
       html = html.replace("<body>", `<body>${banner}`);
     }
   }

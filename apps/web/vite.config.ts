@@ -4,19 +4,18 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 /**
- * Content Security Policy for the Grok Light SPA.
+ * Content Security Policy for the Grok Desktop Portable SPA.
  *
- * `connect-src 'self'` holds unchanged because the document and the local API
- * share one loopback origin (light ADR 0002). A hosted deployment would need
- * this widened, which is one more reason the application is never served from
- * a CDN. The host sends the same policy as a response header; this meta tag
- * keeps `vite dev` honest.
+ * Hosted UI (ADR 0016) calls the loopback bridge and an optional anonymous
+ * presence API on api.grokinsider.net (never credentials / bridge secrets).
+ * The loopback-served SPA still ships a tighter response header from
+ * the host (`connect-src 'self'`), so presence is blocked there.
  */
 export function contentSecurityPolicy(development: boolean): string {
-  // Hosted UI (ADR 0016) calls the loopback bridge; connect-src must allow it.
+  // Loopback bridge + optional public presence host (grok-insider-web).
   const connect = development
-    ? "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*"
-    : "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*";
+    ? "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net"
+    : "connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* https://api.grokinsider.net https://grokinsider.net";
   return [
     "default-src 'self'",
     development ? "script-src 'self' 'unsafe-inline'" : "script-src 'self'",
@@ -58,7 +57,7 @@ export default defineConfig(({ command }) => ({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
-    // Product bridge embeds apps/web/dist (see crates/grok-bridge/build.rs).
+    // Spanreed can embed apps/web/dist via FABRIALS_AGENT_HOST_WEB_DIST.
     // Hosted demo is assembled later by scripts/prepare-public.mjs → public/demo.
     outDir: "dist",
     emptyOutDir: true,

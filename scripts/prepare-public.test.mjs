@@ -49,11 +49,11 @@ assert.ok(installSh.startsWith("#!/usr/bin/env sh"));
 assert.ok(!installSh.includes("<!doctype"));
 assert.ok(!installSh.includes("releases/latest/download"));
 assert.ok(installSh.includes("api.github.com/repos/"));
-assert.ok(installSh.includes("grok-insider/grok-desktop-portable"));
+assert.ok(installSh.includes("grok-insider/spanreed"));
 for (const knob of [
-  "GROK_BRIDGE_REPO",
-  "GROK_BRIDGE_FALLBACK_TAG",
-  "GROK_BRIDGE_INSTALL_DIR",
+  "SPANREED_REPO",
+  "SPANREED_FALLBACK_TAG",
+  "SPANREED_INSTALL_DIR",
   "INSTALL_DRY_RUN",
   "VERSION:-",
 ]) {
@@ -66,7 +66,7 @@ assert.ok(
   installPs1.includes("$ErrorActionPreference") || installPs1.includes("Invoke-WebRequest"),
 );
 assert.ok(!installPs1.includes("releases/latest/download"));
-assert.ok(!installPs1.includes("env:GROK_BRIDGE"));
+assert.ok(!installPs1.includes("env:SPANREED"));
 assert.ok(!installPs1.includes("env:VERSION"));
 assert.ok(!installPs1.includes("env:INSTALL_DRY_RUN"));
 

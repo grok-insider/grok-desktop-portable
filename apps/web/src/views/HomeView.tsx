@@ -10,7 +10,7 @@
  * user's GROK_HOME. Listing every folder the Grok Build CLI had touched put a
  * long tail of one-off directories above the two the user actually works in,
  * and disclosed their names to the browser for no gain (light ADR 0014).
- * Enrolment is the host picker or `grok-bridge workspace add`; the browser
+ * Enrolment is the host picker or `spanreed agent workspace add`; the browser
  * never names a directory and only sends opaque ids (light ADR 0009).
  */
 
@@ -269,7 +269,7 @@ export function HomeView({
                   </Button>
                 )}
                 <p className="font-mono text-label text-subtle-foreground">
-                  or: grok-bridge workspace add &lt;path&gt;
+                  or: spanreed agent workspace add &lt;path&gt;
                 </p>
               </div>
             ) : (
@@ -321,8 +321,8 @@ export function HomeView({
 
             <div className="shrink-0">
               <Disclosure>
-                Grok Light runs the agent with your own authority and your own
-                Grok configuration. It is a control surface, not a sandbox.
+                Grok Desktop Portable runs the agent with your own authority and
+                your own Grok configuration. It is a control surface, not a sandbox.
               </Disclosure>
             </div>
           </aside>
@@ -426,6 +426,14 @@ export function HomeView({
                                 <span className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
                                   {title}
                                 </span>
+                                {(session.memberCount ?? 0) > 0 ? (
+                                  <span
+                                    className="w-14 shrink-0 whitespace-nowrap text-right font-mono text-label text-muted-foreground"
+                                    title={`${session.memberCount} nested agents`}
+                                  >
+                                    {session.memberCount} ag
+                                  </span>
+                                ) : null}
                                 {session.messageCount === 0 ? (
                                   <span className="w-16 shrink-0 whitespace-nowrap text-right text-label text-subtle-foreground">
                                     Empty

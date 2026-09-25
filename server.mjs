@@ -1,7 +1,7 @@
 /**
  * Deployable demo host for Grok Desktop Portable.
  *
- * Real product: local Rust `grok-bridge` (loopback + pairing).
+ * Real product: local `spanreed agent` host (loopback + pairing).
  * This Node entrypoint is for Vercel / live preview:
  *   - serves public/ (fallback: apps/web/dist)
  *   - implements enough of light.local.v1 for a playable demo
@@ -171,7 +171,7 @@ function handleCommand(operation) {
         entries: [
           { path: "README.md", kind: "file" },
           { path: "apps/web/src/App.tsx", kind: "file" },
-          { path: "crates/grok-bridge", kind: "directory" },
+          { path: "apps/web", kind: "directory" },
         ],
       };
     case "listSessions":
@@ -246,7 +246,7 @@ function handleCommand(operation) {
       }
       const reply = operation.bash
         ? "```\n$ " + text + "\n(demo host — no real shell)\n```"
-        : `**Demo host**\n\nYou said:\n\n> ${text}\n\nThis is the hosted preview of **Grok Desktop Portable**. On your machine, \`grok-bridge\` drives your real Grok Build CLI over loopback — this deploy is a UI/demo surface only.`;
+        : `**Demo host**\n\nYou said:\n\n> ${text}\n\nThis is the hosted preview of **Grok Desktop Portable**. On your machine, \`spanreed agent\` drives your real Grok Build CLI over loopback — this deploy is a UI/demo surface only.`;
 
       setTimeout(() => {
         broadcast({ kind: "promptSent", sessionId: s.id, text });

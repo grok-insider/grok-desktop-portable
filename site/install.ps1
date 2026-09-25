@@ -1,9 +1,14 @@
-# Public installer for grok-bridge (Grok Desktop Portable).
+# Public installer for the desktop.grok.me local host.
 # Served at: https://desktop.grok.me/install.ps1
+#
+# The host is `spanreed agent` (formerly the standalone grok-bridge). This
+# installs spanreed.exe into %LOCALAPPDATA%\spanreed\bin, plus a
+# grok-bridge.exe copy that runs `spanreed agent` so existing commands keep
+# working.
 #
 # This script does NOT read install policy from environment variables.
 # It always installs the newest release of the official repo (including
-# prereleases) into %LOCALAPPDATA%\grok-bridge\bin.
+# prereleases).
 #
 # Usage:
 #   irm https://desktop.grok.me/install.ps1 | iex
@@ -13,11 +18,13 @@
 $ErrorActionPreference = 'Stop'
 
 # --- fixed product constants (do not read env for these) ---
-$Repo = 'grok-insider/grok-desktop-portable'
-$FallbackTag = 'v0.1.0-beta.2'
-$InstallDir = Join-Path $env:LOCALAPPDATA 'grok-bridge\bin'
-$BinName = 'grok-bridge.exe'
-$Asset = 'grok-bridge-windows-x64.exe'
+$Repo = 'grok-insider/spanreed'
+# Used only if the GitHub API is unreachable: the first release with `spanreed agent`.
+$FallbackTag = 'v0.7.0'
+$InstallDir = Join-Path $env:LOCALAPPDATA 'spanreed\bin'
+$BinName = 'spanreed.exe'
+$LegacyName = 'grok-bridge.exe'
+$Target = 'x86_64-pc-windows-msvc'
 
 $DryRun = $false
 foreach ($a in $args) {
@@ -47,39 +54,44 @@ function Resolve-Tag {
 }
 
 $Version = Resolve-Tag
+$Asset = "spanreed-$($Version.TrimStart('v'))-$Target.zip"
 $Base = "https://github.com/$Repo/releases/download/$Version"
 
 if ($DryRun) {
   Write-Host "RESOLVED_TAG=$Version"
+  Write-Host "TARGET=$Target"
   Write-Host "DOWNLOAD_URL=$Base/$Asset"
-  Write-Host "CHECKSUMS_URL=$Base/checksums.txt"
+  Write-Host "CHECKSUM_URL=$Base/$Asset.sha256"
   Write-Host "INSTALL_DIR=$InstallDir"
   Invoke-WebRequest -Uri "$Base/$Asset" -Method Head -UseBasicParsing | Out-Null
-  Invoke-WebRequest -Uri "$Base/checksums.txt" -Method Head -UseBasicParsing | Out-Null
+  Invoke-WebRequest -Uri "$Base/$Asset.sha256" -Method Head -UseBasicParsing | Out-Null
   Write-Host 'DRY_RUN_OK'
   return
 }
 
-$Tmp = New-Item -ItemType Directory -Path ([System.IO.Path]::GetTempPath()) -Name ("grok-bridge-" + [guid]::NewGuid().ToString('n'))
+$Tmp = New-Item -ItemType Directory -Path ([System.IO.Path]::GetTempPath()) -Name ("spanreed-" + [guid]::NewGuid().ToString('n'))
 try {
-  $BinPath = Join-Path $Tmp.FullName $Asset
-  $SumPath = Join-Path $Tmp.FullName 'checksums.txt'
+  $ZipPath = Join-Path $Tmp.FullName $Asset
+  $SumPath = "$ZipPath.sha256"
   Write-Host "Downloading $Asset ($Version) from $Repo…"
-  Invoke-WebRequest -Uri "$Base/$Asset" -OutFile $BinPath -UseBasicParsing
-  Invoke-WebRequest -Uri "$Base/checksums.txt" -OutFile $SumPath -UseBasicParsing
-  $line = Select-String -Path $SumPath -Pattern ([regex]::Escape($Asset)) | Select-Object -First 1
-  if (-not $line) { throw "$Asset not listed in checksums.txt" }
-  $expected = ($line.Line -split '\s+')[0].Trim().ToLowerInvariant()
-  $actual = (Get-FileHash -Algorithm SHA256 -Path $BinPath).Hash.ToLowerInvariant()
+  Invoke-WebRequest -Uri "$Base/$Asset" -OutFile $ZipPath -UseBasicParsing
+  Invoke-WebRequest -Uri "$Base/$Asset.sha256" -OutFile $SumPath -UseBasicParsing
+  $fields = (Get-Content -Path $SumPath -TotalCount 1) -split '\s+'
+  if ($fields.Count -lt 2 -or $fields[1] -ne $Asset) { throw "$Asset.sha256 does not describe $Asset" }
+  $expected = $fields[0].Trim().ToLowerInvariant()
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $ZipPath).Hash.ToLowerInvariant()
   if ($actual -ne $expected) {
     throw "checksum mismatch for $Asset`n  expected: $expected`n  actual:   $actual"
   }
   Write-Host 'Checksum OK'
 
+  $Unpacked = Join-Path $Tmp.FullName 'unpacked'
+  Expand-Archive -Path $ZipPath -DestinationPath $Unpacked
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   $Dest = Join-Path $InstallDir $BinName
-  Copy-Item -Force -Path $BinPath -Destination $Dest
-  Write-Host "Installed $Dest"
+  Copy-Item -Force -Path (Join-Path $Unpacked $BinName) -Destination $Dest
+  Copy-Item -Force -Path $Dest -Destination (Join-Path $InstallDir $LegacyName)
+  Write-Host "Installed $Dest (and $LegacyName, which runs spanreed agent)"
 
   $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
   if ($UserPath -notlike "*$InstallDir*") {
@@ -90,13 +102,12 @@ try {
 
   Write-Host ''
   Write-Host 'Next:'
-  Write-Host '  1. Install and authenticate the Grok Build CLI (grok).'
-  Write-Host '  2. grok-bridge doctor'
-  Write-Host '  3. grok-bridge serve'
-  Write-Host '  4. grok-bridge open   # open the URL in Chrome/Firefox (not Safari)'
+  Write-Host '  1. Install and authenticate the Grok Build CLI (grok) separately.'
+  Write-Host '  2. Open a new shell so User PATH includes this install dir, then: spanreed agent doctor'
+  Write-Host '  3. spanreed agent serve   # leave running'
+  Write-Host '  4. spanreed agent open    # open the URL in Chrome, Firefox 84+, or Edge (not Safari)'
   Write-Host ''
-  Write-Host 'Unsigned FOSS build — prefer verifying checksums and source tags.'
-  Write-Host 'Windows SmartScreen may warn; use More info → Run anyway after verifying.'
+  Write-Host 'Windows SmartScreen may warn; use More info → Run anyway after verifying the checksum.'
 } finally {
   Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
 }

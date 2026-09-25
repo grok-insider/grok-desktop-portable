@@ -1,8 +1,8 @@
-# Landing site (`desktop.grok.me`)
+# Site sources (`desktop.grok.me`)
 
-Static files only: marketing, install scripts, links to GitHub Releases.
+`install.sh` and `install.ps1` are the public installers for Spanreed, the
+local agent host. `scripts/prepare-public.mjs` copies them next to the Work SPA
+in `public/`, which Vercel serves at `https://desktop.grok.me`.
 
-**Never** host the Work SPA here (ADR: locally served application).
-
-Deploy this directory (and the copied `install.sh` / `install.ps1`) to the
-origin that answers `https://desktop.grok.me`.
+`release-footer.md` is appended to GitHub Release notes. `index.html` is a
+static landing page kept for reference; the deployed root is the SPA.

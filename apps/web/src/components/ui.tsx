@@ -1,5 +1,5 @@
 /**
- * Minimal primitives for Grok Light, built against the Grok Desktop tokens.
+ * Minimal primitives for Grok Desktop Portable, built against Grok Desktop tokens.
  *
  * Read `apps/desktop/DESIGN.md` before changing anything here. These follow
  * §5 (component stylings) and §4 (spacing, radius, elevation) and use only

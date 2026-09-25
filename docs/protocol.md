@@ -1,9 +1,11 @@
 # `light.local.v1` — Grok Desktop Portable local protocol
 
 Status: draft aligned with ADR light 0016 (hosted UI + local bridge).
-Implementation: `crates/grok-bridge`.
+Implementation: crate `fabrials-agent-host` (`grok-insider/fabrials-libs`),
+shipped as `spanreed agent`.
 
-Scope: protocol between the browser client and `grok-bridge`. It is **not** ACP.
+Scope: protocol between the browser client and the local host (`spanreed agent`,
+called "the bridge" below). It is **not** ACP.
 The browser never sends or receives ACP; the bridge translates.
 
 ## 1. Transport
@@ -63,7 +65,7 @@ CORS is unused.
 
 ### 1.4 Pairing
 
-`grok-bridge open` mints a single-use nonce (owner-only control socket) and
+`spanreed agent open` mints a single-use nonce (owner-only control socket) and
 prints a URL for the **document** origin, e.g.
 `https://desktop.grok.me/#pair=<nonce>`. The SPA redeems the nonce on the
 loopback pair endpoint; the bridge sets `HttpOnly` cookie on that loopback
@@ -161,7 +163,8 @@ prompt shown in another.
 | `RevokeBrowserPairing` | no | yes |
 
 `DiagnoseSession` / `RepairSession` map to ACP `x.ai/session/repair` (light
-ADR 0015). Apply is user opt-in and journaled; never auto on load.
+ADR 0015). Apply is user opt-in and journaled; never auto on load. Dry-run
+diagnose may be invoked automatically by the SPA when a session settles.
 
 `DecidePermission` accepts only option ids the host recorded as offered and
 still active for that request, restricted to the set in ADR light 0007.

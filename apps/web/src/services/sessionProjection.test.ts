@@ -112,13 +112,64 @@ describe("project", () => {
   it("leaves the projection untouched for events it does not render", () => {
     for (const event of [
       { kind: "hostStatus", state: "ok" },
-      { kind: "thoughtDelta", sessionId: S, text: "thinking" },
       { kind: "toolProgress", sessionId: S, toolCallId: "t-1" },
       { kind: "error", code: "boom" },
     ] satisfies LightEvent[]) {
       const start = open(S);
       expect(project(start, envelope(event))).toBe(start);
     }
+  });
+
+  it("streams thoughtDelta into a separate Thinking block, not the agent bubble", () => {
+    let state = project(
+      open(S),
+      envelope({ kind: "thoughtDelta", sessionId: S, text: "consider " }, 1),
+    );
+    expect(one(state).thoughts).toEqual([
+      { id: "th-1", text: "consider ", seq: 1 },
+    ]);
+    expect(one(state).transcript).toEqual([]);
+
+    state = project(
+      state,
+      envelope({ kind: "thoughtDelta", sessionId: S, text: "options" }, 2),
+    );
+    expect(one(state).thoughts[0]?.text).toBe("consider options");
+
+    state = project(
+      state,
+      envelope({ kind: "messageDelta", sessionId: S, text: "Done." }, 3),
+    );
+    expect(one(state).transcript[0]?.text).toBe("Done.");
+    expect(one(state).thoughts[0]?.text).toBe("consider options");
+  });
+
+  it("opens a new thought block after a tool runs mid-turn", () => {
+    let state = project(
+      open(S),
+      envelope({ kind: "thoughtDelta", sessionId: S, text: "first" }, 1),
+    );
+    state = project(
+      state,
+      envelope(
+        {
+          kind: "toolStart",
+          sessionId: S,
+          toolCallId: "t-1",
+          name: "search",
+          action: "search",
+          readOnly: true,
+        },
+        2,
+      ),
+    );
+    state = project(
+      state,
+      envelope({ kind: "thoughtDelta", sessionId: S, text: "second" }, 3),
+    );
+    expect(one(state).thoughts).toHaveLength(2);
+    expect(one(state).thoughts[0]?.text).toBe("first");
+    expect(one(state).thoughts[1]?.text).toBe("second");
   });
 
   it("keeps tools for a conversation when another is opened", () => {

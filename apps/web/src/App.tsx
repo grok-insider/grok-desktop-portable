@@ -1,5 +1,5 @@
 /**
- * Grok Light application shell.
+ * Grok Desktop Portable application shell.
  *
  * Pairs on first load if the launcher put a nonce in the fragment, opens the
  * event channel, and projects host events into the session view. All durable
@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { showHostToast } from "./components/HostToaster";
 import { detectBrowserSupport } from "./services/browser";
 import {
   type BridgeProbeState,
@@ -29,6 +30,10 @@ import {
   shouldShowWork,
 } from "./services/surfaceGate";
 import { LandingView } from "./views/LandingView";
+import {
+  startPresenceLoop,
+  type PresenceStats,
+} from "./services/presence";
 import { isBashMode, bashSendText } from "./services/bashMode";
 import {
   pickDefaultEffort,
@@ -40,6 +45,7 @@ import {
   asHostStatus,
   asModels,
   asSessionChanges,
+  asSessionCreated,
   asSessionDiagnosis,
   asSessionInspector,
   asSessionRepair,
@@ -47,6 +53,7 @@ import {
   asTools,
   asWorkspaces,
   failureMessage,
+  isEphemeralFailure,
   type ContextEntry,
   type ProjectProjection,
   type ReviewProjection,
@@ -63,6 +70,7 @@ import {
   canApplyRepair,
   diagnosisForSession,
   retainDiagnoses,
+  shouldSurfaceAutoDiagnosis,
   storeDiagnosis,
 } from "./services/sessionDiagnosis";
 import {
@@ -108,7 +116,7 @@ function hostErrorMessage(code: string): string {
     case "controller_held":
       return "Another tab is already controlling this host. Close it or wait for the lease to expire.";
     case "picker_unavailable":
-      return "The directory picker could not open. Enrol a path with `grok-bridge workspace add` instead.";
+      return "The directory picker could not open. Enrol a path with `spanreed agent workspace add` instead.";
     case "workspace_enrolment_failed":
       return "That directory could not be enrolled.";
     case "picker_already_open":
@@ -116,10 +124,15 @@ function hostErrorMessage(code: string): string {
     case "queued_prompt_failed":
       return "A message that was waiting could not be sent. The rest are still queued.";
     case "agent_exited":
-      return "The Grok Build CLI stopped. Every open conversation closed with it; restart the host with `grok-bridge serve`, then resume from the session list.";
+      return "The Grok Build CLI stopped and every open conversation closed with it. The host starts it again on its own; resume from the session list.";
     default:
       return `The host reported an error (${code}).`;
   }
+}
+
+/** Host WS error codes that should toast rather than pin a sticky banner. */
+function isEphemeralHostError(code: string): boolean {
+  return code === "picker_already_open" || code === "queued_prompt_failed";
 }
 
 
@@ -192,11 +205,21 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const [deciding, setDeciding] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
   const [wsGeneration, setWsGeneration] = useState(0);
+  /** Anonymous public presence (hosted SPA only); null when unavailable. */
+  const [presence, setPresence] = useState<PresenceStats | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   /** Sequences `listContext` replies so a slow one cannot overwrite a newer. */
   const contextTicket = useRef(0);
   const inspectorTickets = useRef<Record<string, number>>({});
   const changesTickets = useRef<Record<string, number>>({});
+  /**
+   * Sessions that already received an automatic history dry-run this page life.
+   * Prevents re-nagging after dismiss and avoids diagnose spam on every
+   * listWorkspaces refresh. Force (prompt failure / Check again) bypasses.
+   */
+  const autoDiagnosedRef = useRef<Set<string>>(new Set());
+  /** In-flight dry-runs keyed by conversation — de-dupe concurrent triggers. */
+  const diagnoseInFlightRef = useRef<Set<string>>(new Set());
   const browserSupport = detectBrowserSupport();
   const activeChangeMode = sessionId === null ? "git" : (changeModes[sessionId] ?? "git");
   const activeInspector = sessionId === null ? undefined : inspectors[sessionId];
@@ -204,6 +227,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     sessionId === null ? undefined : sessionChanges[sessionId]?.[activeChangeMode];
   const activeReviewRevision =
     sessionId === null ? 0 : (reviewRevisions[sessionId] ?? 0);
+
+  // Hosted SPA: anonymous heartbeat to grok-insider-web (landing + Work).
+  // Never sends bridge secrets; soft-fails when the public API is down.
+  useEffect(() => {
+    return startPresenceLoop({ onStats: setPresence });
+  }, []);
 
   /** Leave Work for landing when pairing dies or the host is gone. */
   const demoteToLanding = useCallback(
@@ -224,6 +253,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   /**
    * Soft error inside Work, or demote when the failure means we are no longer
    * a live paired session (ADR 0016 / docs/ui.md demotion rule).
+   *
+   * Ephemeral refusals (already open, queue full, …) are toasts: sticky
+   * banners shift layout and survive Home ↔ session navigation.
    */
   const reportClientFailure = useCallback(
     (failure: ClientFailure, fallback: string) => {
@@ -231,7 +263,19 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         demoteToLanding(probeAfterSessionLoss(failure));
         return;
       }
-      setRefusal(failureMessage(failure, fallback));
+      // Already-open is a navigate intent; callers focus the tab. Never toast.
+      if (
+        failure.kind === "refused" &&
+        failure.code === "session_already_active"
+      ) {
+        return;
+      }
+      const message = failureMessage(failure, fallback);
+      if (isEphemeralFailure(failure)) {
+        showHostToast(message);
+        return;
+      }
+      setRefusal(message);
     },
     [demoteToLanding],
   );
@@ -251,12 +295,26 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       // Silent resume path: restore grant before reading base URL.
       client.restoreFromStorage();
     }
-    const base = client.bridgeBaseUrl || resolveBridgeBaseUrl();
-    if (base && !client.bridgeBaseUrl) {
-      client.setBridgeBaseUrl(base);
+    // Hosted SPA needs an explicit loopback base. When this document *is* the
+    // loopback SPA (empty default base), probe same-origin so a missing pair
+    // nonce becomes "needs pairing" instead of a false "bridge missing".
+    const resolved = client.bridgeBaseUrl || resolveBridgeBaseUrl();
+    // Same-origin probe only for the embedded SPA hosts — not bare
+    // `localhost` (jsdom tests and unrelated dev servers use that name).
+    const onLoopbackDocument =
+      typeof location !== "undefined" &&
+      (location.hostname === "127.0.0.1" ||
+        location.hostname === "[::1]" ||
+        location.hostname.endsWith(".grok-light.localhost"));
+    const base =
+      resolved ||
+      (onLoopbackDocument && typeof location !== "undefined" ? location.origin : "");
+    if (resolved && !client.bridgeBaseUrl) {
+      client.setBridgeBaseUrl(resolved);
     }
     const afterPairAttempt = (isPaired: boolean) => {
-      if (!base && !client.bridgeBaseUrl) {
+      const apiBase = client.bridgeBaseUrl || base;
+      if (!apiBase) {
         // No known API port yet (hosted, never opened) → treat as missing bridge.
         // Same-origin tests inject an empty base with a paired resume → ready.
         setProbe(
@@ -264,7 +322,6 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         );
         return;
       }
-      const apiBase = client.bridgeBaseUrl || base;
       void probeBridge({
         bridgeBaseUrl: apiBase,
         isPaired,
@@ -529,6 +586,18 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         // A conversation the host no longer holds leaves nothing behind: its
         // draft and any request it raised go with it.
         const live = new Set(open.map((session) => session.sessionId));
+        // Closed sessions may reopen later with a new id, or the same id after
+        // a host rebuild — drop auto-diagnose marks so recovery can run again.
+        for (const id of [...autoDiagnosedRef.current]) {
+          if (!live.has(id)) {
+            autoDiagnosedRef.current.delete(id);
+          }
+        }
+        for (const id of [...diagnoseInFlightRef.current]) {
+          if (!live.has(id)) {
+            diagnoseInFlightRef.current.delete(id);
+          }
+        }
         setDrafts((current) =>
           Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id))),
         );
@@ -682,20 +751,33 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setBusy(false);
           setSessionLoading(false);
           if (result.ok) {
+            const created = asSessionCreated(result.value);
+            if (created !== null) {
+              setSessionId(created.sessionId);
+            }
             refreshWorkspaces();
             return;
           }
           reportClientFailure(result.failure, "The host could not start a session.");
         });
     },
-    [client, refreshWorkspaces],
+    [client, refreshWorkspaces, reportClientFailure],
   );
 
   const resumeSession = useCallback(
     (workspaceId: string, agentSessionId: string) => {
+      setRefusal(undefined);
+      // Already live in this host: navigate to that tab — never error/toast.
+      if (openSessions.some((session) => session.sessionId === agentSessionId)) {
+        setSessionId(agentSessionId);
+        return;
+      }
+      // Already viewing it (e.g. home list lag vs shell tabs).
+      if (sessionId === agentSessionId) {
+        return;
+      }
       setBusy(true);
       setSessionLoading(true);
-      setRefusal(undefined);
       // Same loading rule as start: diagnosis is per settled conversation id.
       void client
         .send(
@@ -706,43 +788,128 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setBusy(false);
           setSessionLoading(false);
           if (result.ok) {
+            const created = asSessionCreated(result.value);
+            setSessionId(created?.sessionId ?? agentSessionId);
+            refreshWorkspaces();
+            return;
+          }
+          // Older hosts may still refuse load of an already-open session.
+          // Treat as navigate, not an error.
+          if (
+            result.failure.kind === "refused" &&
+            result.failure.code === "session_already_active"
+          ) {
+            setSessionId(agentSessionId);
+            refreshWorkspaces();
+            return;
+          }
+          // Gone from catalog: refresh the list so the row disappears.
+          if (
+            result.failure.kind === "refused" &&
+            result.failure.code === "unknown_session"
+          ) {
+            showHostToast(failureMessage(result.failure, "That conversation is no longer open."));
+            if (selectedWorkspaceId !== null) {
+              refreshSessions(selectedWorkspaceId);
+            }
             refreshWorkspaces();
             return;
           }
           reportClientFailure(result.failure, "The host could not resume that session.");
         });
     },
-    [client, refreshWorkspaces],
+    [
+      client,
+      openSessions,
+      refreshSessions,
+      refreshWorkspaces,
+      reportClientFailure,
+      selectedWorkspaceId,
+      sessionId,
+    ],
   );
 
+  /**
+   * Dry-run history pairing for one conversation (light ADR 0015).
+   *
+   * - Automatic: silent unless corrupt (banner + opt-in Repair).
+   * - Manual (`surfaceAll`): store every status so "Check again" can report healthy.
+   * - Capture target at send time so a late response cannot paint another tab.
+   */
+  const runDiagnose = useCallback(
+    (
+      target: string,
+      options: { force?: boolean; surfaceAll?: boolean; reportFailure?: boolean } = {},
+    ) => {
+      const force = options.force === true;
+      const surfaceAll = options.surfaceAll === true;
+      const reportFailure = options.reportFailure === true;
+      if (!force && autoDiagnosedRef.current.has(target)) {
+        return;
+      }
+      if (diagnoseInFlightRef.current.has(target)) {
+        return;
+      }
+      autoDiagnosedRef.current.add(target);
+      diagnoseInFlightRef.current.add(target);
+      setRepairBusyBySession((held) => ({ ...held, [target]: true }));
+      if (surfaceAll) {
+        setRefusal(undefined);
+      }
+      void client
+        .send(
+          { kind: "diagnoseSession", sessionId: target },
+          { controllerEpoch: 1 },
+        )
+        .then((result) => {
+          diagnoseInFlightRef.current.delete(target);
+          setRepairBusyBySession((held) => ({ ...held, [target]: false }));
+          if (!result.ok) {
+            // Allow a later settle / prompt-failure to retry automatic dry-run.
+            autoDiagnosedRef.current.delete(target);
+            if (reportFailure) {
+              reportClientFailure(
+                result.failure,
+                "The host could not diagnose this conversation's history.",
+              );
+            }
+            return;
+          }
+          const diagnosis = asSessionDiagnosis(result.value);
+          if (diagnosis === null) {
+            return;
+          }
+          if (!surfaceAll && !shouldSurfaceAutoDiagnosis(diagnosis.diagnosis)) {
+            return;
+          }
+          setDiagnoses((held) =>
+            storeDiagnosis(held, target, diagnosis.diagnosis),
+          );
+        });
+    },
+    [client],
+  );
+
+  /** Banner "Check again" — user-initiated dry-run; surfaces healthy/unsupported too. */
   const diagnoseSession = useCallback(() => {
     if (sessionId === null) {
       return;
     }
-    // Capture the target at send time so a late response cannot paint another
-    // conversation the user switched to while the dry-run was in flight.
-    const target = sessionId;
-    setRepairBusyBySession((held) => ({ ...held, [target]: true }));
-    setRefusal(undefined);
-    void client
-      .send(
-        { kind: "diagnoseSession", sessionId: target },
-        { controllerEpoch: 1 },
-      )
-      .then((result) => {
-        setRepairBusyBySession((held) => ({ ...held, [target]: false }));
-        if (!result.ok) {
-          reportClientFailure(result.failure, "The host could not diagnose this conversation's history.");
-          return;
-        }
-        const diagnosis = asSessionDiagnosis(result.value);
-        if (diagnosis !== null) {
-          setDiagnoses((held) =>
-            storeDiagnosis(held, target, diagnosis.diagnosis),
-          );
-        }
-      });
-  }, [client, sessionId]);
+    runDiagnose(sessionId, {
+      force: true,
+      surfaceAll: true,
+      reportFailure: true,
+    });
+  }, [runDiagnose, sessionId]);
+
+  // Discoverability: when a conversation settles on screen, dry-run once.
+  // Apply is never automatic (ADR 0015).
+  useEffect(() => {
+    if (!paired || sessionId === null || sessionLoading) {
+      return;
+    }
+    runDiagnose(sessionId);
+  }, [paired, runDiagnose, sessionId, sessionLoading]);
 
   const repairSession = useCallback(() => {
     if (sessionId === null) {
@@ -825,7 +992,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // There is no `openProject` here on purpose. The rail lists only projects
   // already enrolled (light ADR 0014), so the browser can never hold the id of
   // an unenrolled one. Enrolment goes through the host picker above, or
-  // `grok-bridge workspace add`. The host operation still exists for the CLI.
+  // `spanreed agent workspace add`. The host operation still exists for the CLI.
 
   const handleEvent = useCallback((envelope: EventEnvelope) => {
     if (envelope.event.kind === "workspacesChanged") {
@@ -867,7 +1034,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     if (envelope.event.kind === "error") {
       // A host error names no session, so every conversation that was
       // streaming is released rather than leaving one stuck showing Stop.
-      setRefusal(hostErrorMessage(envelope.event.code));
+      const hostCode = envelope.event.code;
+      const hostMessage = hostErrorMessage(hostCode);
+      if (isEphemeralHostError(hostCode)) {
+        showHostToast(hostMessage);
+      } else {
+        setRefusal(hostMessage);
+      }
       setProjections((current) =>
         Object.fromEntries(
           Object.entries(current).map(([id, value]) => [
@@ -1034,10 +1207,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             // A refused prompt used to vanish: the composer simply re-enabled
             // and the user was left guessing whether the agent had heard them.
             reportClientFailure(result.failure, "The host did not accept that prompt.");
+            // Pairing corruption often bricks every subsequent prompt (HTTP 400).
+            // Re-run dry-run only; apply stays opt-in if the banner appears.
+            runDiagnose(target, { force: true });
           }
         });
     },
-    [client, refreshWorkspaces, reportClientFailure, sessionId],
+    [client, refreshWorkspaces, reportClientFailure, runDiagnose, sessionId],
   );
 
   const closeSession = useCallback(
@@ -1110,6 +1286,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         probe={probe}
         onRetry={runProbeAndPair}
         hadPort={hasStoredPort()}
+        presence={presence}
       />
     );
   }
@@ -1121,16 +1298,48 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     />
   ) : null;
 
+  // Open conversations stay in the top bar on Home and Session (browser tabs).
+  // Host `running` only updates when the list is re-read; merge live phase so a
+  // turn this page started still shows Working on its tab.
+  const awaitingDecision = new Set(Object.keys(prompts));
+  const sessionsWithActivity = openSessions.map((session) => ({
+    ...session,
+    running:
+      session.running || projections[session.sessionId]?.phase === "streaming",
+    awaitingDecision: awaitingDecision.has(session.sessionId),
+  }));
+  const titles = sessionTitles(projections);
+  const shellTabs = sessionsWithActivity.map((session) => ({
+    sessionId: session.sessionId,
+    title: titles[session.sessionId] ?? "New conversation",
+    workspaceName: session.workspaceName,
+    running: session.running,
+    awaitingDecision: session.awaitingDecision,
+  }));
+
   // A session must exist before the composer means anything, so an unpaired
   // browser sees setup, a paired one without a session picks a workspace (and
   // optionally resumes), and only then does the Work view appear.
   if (sessionId === null) {
     return (
       <WorkShell
+        surface="home"
         connected={connected}
-        workspaceName={
-          selectedWorkspaceId === null ? undefined : workspaceName
-        }
+        tabs={shellTabs}
+        activeTabId={null}
+        onGoHome={() => {
+          setRefusal(undefined);
+          setSessionId(null);
+        }}
+        onSelectTab={(id) => {
+          setRefusal(undefined);
+          setSessionId(id);
+        }}
+        onCloseTab={closeSession}
+        onNewTab={() => {
+          setRefusal(undefined);
+          setSessionId(null);
+        }}
       >
         {connectionStrip}
         <HomeView
@@ -1172,42 +1381,34 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   }
 
   // Only the conversation on screen may raise a modal. One that arrives for a
-  // different conversation is announced in its sidebar row instead: a dialog
-  // for something the user is not looking at is a hijack, and with several
-  // running they would fight for the screen.
-  const prompt = sessionId === null ? null : (prompts[sessionId] ?? null);
-  const awaitingDecision = new Set(Object.keys(prompts));
+  // different conversation is announced on its tab instead: a dialog for
+  // something the user is not looking at is a hijack, and with several running
+  // they would fight for the screen.
+  const prompt = prompts[sessionId] ?? null;
   const shown = projectionFor(projections, sessionId);
   const current = openSessions.find((session) => session.sessionId === sessionId);
-  // The host only reports `running` when the list is re-read, which is not
-  // during a turn. The live signal is the conversation's own phase, so the two
-  // are merged: the host covers a turn this page did not start (a reload
-  // mid-turn), the phase covers the one it did.
-  const sessionsWithActivity = openSessions.map((session) => ({
-    ...session,
-    running:
-      session.running || projections[session.sessionId]?.phase === "streaming",
-    awaitingDecision: awaitingDecision.has(session.sessionId),
-  }));
   const activeDiagnosis = diagnosisForSession(
     diagnoses,
     sessionId,
     sessionLoading,
   );
-  const repairBusy =
-    sessionId === null ? false : (repairBusyBySession[sessionId] ?? false);
+  const repairBusy = repairBusyBySession[sessionId] ?? false;
 
   return (
     <>
       <SessionView
         transcript={shown.transcript}
         tools={shown.tools}
+        thoughts={shown.thoughts}
         // The host is the only source: it knows the operation and the cause,
         // and a live interruption refreshes it. Rendering the id alone would
         // tell the user something was interrupted but not what.
         reviews={pendingReviews}
         phase={shown.phase}
         plan={shown.plan}
+        members={shown.members}
+        workflows={shown.workflows}
+        backgroundTasks={shown.backgroundTasks}
         connected={connected}
         sessionLoading={sessionLoading}
         diagnosis={activeDiagnosis}
@@ -1353,12 +1554,14 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setDrafts((held) => ({ ...held, [sessionId]: text }));
         }}
         activeSessionId={sessionId}
-        sessionTitles={sessionTitles(projections)}
+        sessionTitles={titles}
         onSelectSession={(id) => {
+          setRefusal(undefined);
           setSessionId(id);
         }}
         onCloseSession={closeSession}
         onLeaveSession={() => {
+          setRefusal(undefined);
           setSessionId(null);
         }}
         connectionBanner={connectionStrip}

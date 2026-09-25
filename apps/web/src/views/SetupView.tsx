@@ -42,15 +42,15 @@ function failureTitle(failure: ClientFailure): string {
 function failureMessage(failure: ClientFailure): string {
   switch (failure.kind) {
     case "rejected":
-      return "That pairing link was already used or has expired. Run `grok-bridge open` again for a fresh one.";
+      return "That pairing link was already used or has expired. Run `spanreed agent open` again for a fresh one.";
     case "protocol_mismatch":
       return `This page speaks protocol ${PROTOCOL_VERSION} and the host speaks ${failure.hostVersion}. Reload after rebuilding or restarting the host.`;
     case "unreachable":
-      return "The local host stopped responding. Start it with `grok-bridge serve`, then open a fresh pairing link.";
+      return "The local host stopped responding. Start it with `spanreed agent serve`, then open a fresh pairing link.";
     case "refused":
     case "not_paired":
     case "bad_request":
-      return "The host refused the request. If you expected to be paired, run `grok-bridge open` again.";
+      return "The host refused the request. If you expected to be paired, run `spanreed agent open` again.";
   }
 }
 
@@ -58,24 +58,24 @@ function failureSteps(failure: ClientFailure): string[] {
   switch (failure.kind) {
     case "unreachable":
       return [
-        "In the account that owns the host, run: grok-bridge serve",
-        "Then run: grok-bridge open",
+        "In the account that owns the host, run: spanreed agent serve",
+        "Then run: spanreed agent open",
         "Open the new URL in this browser (Chromium or Firefox 84+).",
       ];
     case "protocol_mismatch":
       return [
-        "Update or rebuild grok-bridge so SPA and host match.",
-        "Restart with: grok-bridge serve",
+        "Update Spanreed (rerun the installer) so the page and host match.",
+        "Restart with: spanreed agent serve",
         "Hard-reload this page (or open a new pairing URL).",
       ];
     case "rejected":
       return [
-        "Run: grok-bridge open",
+        "Run: spanreed agent open",
         "Use the new single-use link once; do not bookmark the #pair= fragment.",
       ];
     default:
       return [
-        "Run: grok-bridge open",
+        "Run: spanreed agent open",
         "Open the printed URL once to pair this browser.",
       ];
   }
@@ -100,12 +100,12 @@ export function SetupView({
     mode.kind === "unsupported_browser"
       ? [
           "Install Chromium or Firefox 84+ on this machine.",
-          "Run grok-bridge open and open the URL in that browser.",
+          "Run spanreed agent open and open the URL in that browser.",
         ]
       : mode.kind === "failure"
         ? failureSteps(mode.failure)
         : [
-            "Run this in a terminal, in the account that owns the host: grok-bridge open",
+            "Run this in a terminal, in the account that owns the host: spanreed agent open",
             "Open the URL it prints. It pairs this browser once, then clears the fragment.",
           ];
 
@@ -115,7 +115,7 @@ export function SetupView({
         <ThemeToggle />
       </div>
       <header className="flex flex-col gap-2">
-        <h1 className="text-title-lg font-semibold text-foreground">Grok Light</h1>
+        <h1 className="text-title-lg font-semibold text-foreground">Grok Desktop Portable</h1>
         <p className="text-body-lg text-muted-foreground">
           A local interface for the Grok Build CLI you already installed and
           authenticated.
@@ -172,8 +172,8 @@ export function SetupView({
                 {index === 0 && mode.kind !== "unsupported_browser" ? (
                   <pre className="mt-2 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">
                     {mode.kind === "failure" && mode.failure.kind === "unreachable"
-                      ? "grok-bridge serve\ngrok-bridge open"
-                      : "grok-bridge open"}
+                      ? "spanreed agent serve\nspanreed agent open"
+                      : "spanreed agent open"}
                   </pre>
                 ) : null}
               </div>
@@ -183,14 +183,14 @@ export function SetupView({
       </Card>
 
       <Disclosure>
-        Grok Light runs the agent with your own authority, using your own Grok
-        configuration. It is a control surface, not a sandbox. Supported
+        Grok Desktop Portable runs the agent with your own authority, using your
+        own Grok configuration. It is a control surface, not a sandbox. Supported
         browsers: Chromium and Firefox 84+. WebKit is not supported.
       </Disclosure>
 
       <p className="text-body-sm text-subtle-foreground">
         Opening this page cannot start a stopped host. Only{" "}
-        <span className="font-mono">grok-bridge serve</span> can.
+        <span className="font-mono">spanreed agent serve</span> can.
       </p>
     </main>
   );
