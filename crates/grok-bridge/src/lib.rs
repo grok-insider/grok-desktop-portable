@@ -61,12 +61,12 @@ pub mod session_catalog;
 pub mod session_runtime;
 pub mod state;
 pub mod tools;
-pub mod xai_runtime;
 #[cfg(windows)]
 pub mod win_acl;
 #[cfg(windows)]
 pub mod win_job;
 pub mod workspace;
+pub mod xai_runtime;
 
 /// Host wall clock in milliseconds since the Unix epoch.
 ///

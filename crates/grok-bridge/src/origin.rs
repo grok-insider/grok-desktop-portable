@@ -418,11 +418,7 @@ mod tests {
             );
             assert!(
                 origin
-                    .verify_request(
-                        RequestKind::Mutation,
-                        Some("127.0.0.1:20001"),
-                        Some(doc)
-                    )
+                    .verify_request(RequestKind::Mutation, Some("127.0.0.1:20001"), Some(doc))
                     .is_ok(),
                 "pairing Origin {doc} must be accepted"
             );

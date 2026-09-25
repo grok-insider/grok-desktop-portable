@@ -124,7 +124,7 @@ function hostErrorMessage(code: string): string {
     case "queued_prompt_failed":
       return "A message that was waiting could not be sent. The rest are still queued.";
     case "agent_exited":
-      return "The Grok Build CLI stopped. Every open conversation closed with it; restart the host with `grok-bridge serve`, then resume from the session list.";
+      return "The Grok Build CLI stopped and every open conversation closed with it. The host starts it again on its own; resume from the session list.";
     default:
       return `The host reported an error (${code}).`;
   }

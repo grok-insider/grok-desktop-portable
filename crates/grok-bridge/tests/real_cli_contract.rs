@@ -196,14 +196,30 @@ async fn an_unauthenticated_cli_is_not_reported_as_a_missing_capability() {
         .expect("session/new");
     }
 
-    let output = child.wait_with_output().expect("agent output");
+    // Newer CLIs stop on stdin EOF before answering, so stdin stays open until
+    // the reply arrives (or a deadline passes).
+    let stdout = child.stdout.take().expect("stdout");
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        use std::io::BufRead as _;
+        for line in std::io::BufReader::new(stdout)
+            .lines()
+            .map_while(Result::ok)
+        {
+            let Ok(message) = serde_json::from_str::<serde_json::Value>(&line) else {
+                continue;
+            };
+            if message.get("id").and_then(serde_json::Value::as_u64) == Some(2) {
+                let _ = tx.send(message);
+                return;
+            }
+        }
+    });
+    let reply = rx.recv_timeout(std::time::Duration::from_secs(20));
+    let _ = child.kill();
+    let _ = child.wait();
     let _ = std::fs::remove_dir_all(&home);
-
-    let reply = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
-        .find(|message| message.get("id").and_then(serde_json::Value::as_u64) == Some(2))
-        .expect("a reply to session/new");
+    let reply = reply.expect("a reply to session/new");
 
     let Some(error) = reply.get("error") else {
         eprintln!("note: this CLI created a session without authentication");

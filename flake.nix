@@ -18,9 +18,12 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-          # Use absolute filesystem path so apps/web/dist (gitignored) is visible.
+          # The flake source excludes the gitignored apps/web/dist; build.rs then
+          # embeds its placeholder page. Call nix/package.nix with a path to a
+          # checkout that holds a built dist to embed the real SPA.
           grok-bridge = pkgs.callPackage ./nix/package.nix {
-            portableSrc = /home/friend/dev/opensource/grok-desktop-portable;
+            portableSrc = portableRoot;
+            requireWebDist = false;
           };
         in
         {

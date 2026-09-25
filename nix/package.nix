@@ -2,11 +2,11 @@
   lib,
   rustPlatform,
   pkg-config,
-  openssl,
   makeBinaryWrapper,
   # Absolute path preferred so untracked `apps/web/dist` is included for embed.
   # Flake callers may pass `self` (must ensure dist is present or pre-copied).
   portableSrc ? ../.,
+  requireWebDist ? true,
 }:
 
 let
@@ -35,7 +35,7 @@ let
 in
 rustPlatform.buildRustPackage rec {
   pname = "grok-bridge";
-  version = "0.1.0";
+  version = (lib.importTOML (src + "/Cargo.toml")).workspace.package.version;
 
   src = srcRoot;
 
@@ -53,9 +53,7 @@ rustPlatform.buildRustPackage rec {
     pkg-config
     makeBinaryWrapper
   ];
-  buildInputs = [ openssl ];
-
-  preBuild = ''
+  preBuild = lib.optionalString requireWebDist ''
     if [ ! -f apps/web/dist/index.html ]; then
       echo "grok-bridge: apps/web/dist/index.html missing in build source." >&2
       echo "Run: cd portable && pnpm build:web:dist" >&2
