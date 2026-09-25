@@ -4,6 +4,25 @@ All notable, user-facing changes to Grok Desktop Portable are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-09-25
+
+- fix: name spanreed agent in the stub demo reply
+- docs: describe the web-only repo, the Spanreed host and the package.json release flow
+- fix: make the operator install.ps1 install Spanreed instead of only printing the plan
+- feat: point users to Spanreed for the local agent host
+- ci: release from the package.json version without binary assets
+- ci: drop the Rust job and the embedded-SPA check
+- refactor: remove the grok-bridge crate and its Rust and Nix tooling
+- style: cargo fmt
+- fix: phase 5 - say the host restarts the Grok Build CLI on its own
+- feat: phase 5 and 6 - install Spanreed as the desktop.grok.me host, with macOS detection
+- fix: phase 0 - compile agent tests, pass clippy, and build the flake from its own tree
+- fix: rehydrate background tasks from journal sessionUpdate tags
+- feat: session runtime projection for background tasks
+- feat: session membership catalog, workflow strip, and local pairing
+- fix(web,bridge): reopen already-open sessions by focusing the tab
+- fix(web): show ephemeral host refusals as sonner toasts
+
 ## [0.1.2] - 2026-07-31
 
 - docs: Portable UI, auto dry-run diagnosis, and CLI surface gaps
