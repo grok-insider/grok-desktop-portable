@@ -202,7 +202,10 @@ async fn an_unauthenticated_cli_is_not_reported_as_a_missing_capability() {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         use std::io::BufRead as _;
-        for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) {
+        for line in std::io::BufReader::new(stdout)
+            .lines()
+            .map_while(Result::ok)
+        {
             let Ok(message) = serde_json::from_str::<serde_json::Value>(&line) else {
                 continue;
             };

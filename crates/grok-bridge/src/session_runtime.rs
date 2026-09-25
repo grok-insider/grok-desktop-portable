@@ -182,9 +182,7 @@ pub struct RuntimeRegistry {
 impl RuntimeRegistry {
     /// Mutable runtime for a session (creates empty if missing).
     pub fn session_mut(&mut self, session_id: &str) -> &mut SessionRuntime {
-        self.by_session
-            .entry(session_id.to_owned())
-            .or_default()
+        self.by_session.entry(session_id.to_owned()).or_default()
     }
 
     /// Immutable runtime when present.

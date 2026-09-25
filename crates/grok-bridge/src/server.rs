@@ -509,8 +509,7 @@ impl HostState {
                 .session(&session_id)
                 .map(|rt| rt.snapshot_tasks(now))
                 .unwrap_or_default();
-            if !crate::session_catalog::rehydrate_has_content(&restored) && live_tasks.is_empty()
-            {
+            if !crate::session_catalog::rehydrate_has_content(&restored) && live_tasks.is_empty() {
                 continue;
             }
             self.emit_event(
@@ -819,8 +818,7 @@ pub struct LoopbackListeners {
 /// distinguishes from an origin conflict per ADR light 0006. IPv6 bind failure
 /// is non-fatal (logged by the caller if desired).
 pub async fn bind(origin: &LocalOrigin) -> std::io::Result<LoopbackListeners> {
-    let v4 =
-        tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, origin.port())).await?;
+    let v4 = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, origin.port())).await?;
     let v6 = tokio::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, origin.port()))
         .await
         .ok();
