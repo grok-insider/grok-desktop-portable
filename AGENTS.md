@@ -7,24 +7,27 @@ Read this before changing the repository.
 
 ## Host moved to Spanreed
 
-The local host now ships as `spanreed agent` (Spanreed CLI). Its code lives in
-the shared workspace `fabrials-libs` as the crate `fabrials-agent-host`, split
-from `crates/grok-bridge` with its history. `site/install.sh` and
-`site/install.ps1` install Spanreed and keep a `grok-bridge` name that runs
-`spanreed agent`; `scripts/install-resolve.test.sh` checks them offline.
-`crates/grok-bridge` and its release job remain only until the first Spanreed
-release with `spanreed agent` ships; change host code in `fabrials-libs`, not here.
+This repository is web-only: the Work SPA served at `https://desktop.grok.me`
+(Vercel runs `pnpm build` into `public/`, see `vercel.json`) and the installers.
+The local host ships as `spanreed agent` (Spanreed CLI); its code is the crate
+`fabrials-agent-host` in `grok-insider/fabrials-libs`. Change host code there,
+not here. `site/install.sh` and `site/install.ps1` install Spanreed and keep a
+`grok-bridge` name that runs `spanreed agent`; `scripts/install-resolve.test.sh`
+checks them offline. The SPA must stay compatible with the host wire contract
+(`light.local.v1`, storage keys, `mode: "bridge"` in `/healthz`); only
+human-facing text names Spanreed.
 
 ## Product invariants
 
-- Composition root is `crates/grok-bridge` only. There is no Desktop daemon.
-- The bridge executes the **user's** Grok Build CLI against the **user's**
+- The host (`spanreed agent`) is the only composition root. There is no
+  Desktop daemon.
+- The host executes the **user's** Grok Build CLI against the **user's**
   `GROK_HOME`, auth, plugins, hooks, MCP, and endpoints.
 - Production ACP transport is `grok agent --no-leader stdio`. Never expose
   `grok agent serve` to a browser.
 - Never pass `--always-approve` or `--plugin-dir` to the agent.
 - **Production UI** is hosted at `https://desktop.grok.me` and talks to the
-  bridge on **loopback** (ADR light 0016). There is no Portable cloud backend
+  host on **loopback** (ADR light 0016). There is no Portable cloud backend
   that runs the CLI. CORS only for the exact allowlisted web origin(s).
 - Loopback-served SPA remains a **fallback** (dev/offline), not the primary path.
 - Never accept a filesystem path from the browser; workspaces are opaque ids.
@@ -42,9 +45,9 @@ feat/* / fix/*  ──PR──►  dev  ──integration PR──►  master
                                         release bot PR
                                    (version + CHANGELOG + AI notes)
                                               ▼
-                                         tag vX.Y.Z
+                                  tag vX.Y.Z (package.json)
                                               ▼
-                              GitHub Release + grok-bridge assets
+                              GitHub Release (CHANGELOG notes)
 ```
 
 - **Default branch: `master`** — released line only.
@@ -61,10 +64,10 @@ feat/* / fix/*  ──PR──►  dev  ──integration PR──►  master
 
 | Path | Role |
 |------|------|
-| `crates/grok-bridge` | Loopback API + `grok-bridge` binary |
-| `apps/web` | Work SPA (site deploy + optional embed) |
-| `site/` | Static landing assets / install scripts sources (install Spanreed) |
-| `install/` | `install.sh` / `install.ps1` |
+| `apps/web` | Work SPA (site deploy + optional Spanreed loopback embed) |
+| `site/` | Public install scripts (install Spanreed), release notes footer |
+| `install/` | Operator installers with env overrides (`VERSION`, `SPANREED_*`) |
+| `scripts/` | `public/` assembly and installer tests |
 | `docs/` | ADRs (0016 = hosted UI), protocol, threat model, UI |
 | `server.mjs` / `api/` | Stub demo only — not production (docs/hosted-demo.md) |
 
@@ -75,33 +78,30 @@ pnpm install
 pnpm test:web
 pnpm typecheck:web
 pnpm build:web
-cargo fmt --all --check
-cargo clippy -p grok-bridge --all-targets -- -D warnings
-cargo test -p grok-bridge
+pnpm test:public
+pnpm test:install
 ```
 
-Release builds must embed the SPA (`pnpm build:web:dist` before
-`cargo build --release`). CI fails if the embedded bundle is empty on release
-jobs.
+`pnpm build:web:dist` builds only `apps/web/dist`. Spanreed embeds it as the
+loopback fallback UI when built with `FABRIALS_AGENT_HOST_WEB_DIST` pointing at
+that directory; keep the script for that path.
 
 ## Releases
 
-Only the **bridge binary** is published on GitHub Releases plus `checksums.txt`.
-No npm app publish, no crates.io, no code signing.
+The version is the root `package.json` `version`. A release is a git tag
+`vX.Y.Z` plus a GitHub Release whose body is the `CHANGELOG.md` section and
+`site/release-footer.md`. No binary assets, no npm publish, no crates.io.
+desktop.grok.me deploys from Vercel independently of tags.
 
-| Asset | Platform |
-|-------|----------|
-| `grok-bridge-linux-x64` | Linux x86_64 (glibc) |
-| `grok-bridge-darwin-arm64` | macOS Apple Silicon |
-| `grok-bridge-windows-x64.exe` | Windows x86_64 (native named-pipe control plane) |
-| `checksums.txt` | SHA-256 of the above |
-
-Windows is **native** (not WSL-primary): control plane is an owner-only named
-pipe; state uses owner-only DACLs; agent process tree uses a Job Object.
-
-**Pipeline:** merge to `master` → (optional) patch Release PR with
-`grok-insider/release-changelog-action@v1` → merge Release PR →
-`release-plz` tags `vX.Y.Z` → CI builds SPA+bridge and uploads assets.
+**Pipeline** (`.github/workflows/release.yml`): merge a PR into `master` →
+`release-pr` opens/updates the patch Release PR `release-plz-v<next>` (bumps
+`package.json`, writes the CHANGELOG section with
+`grok-insider/release-changelog-action@v1`) when `feat`/`fix` commits landed
+since the last tag → merge the Release PR (head `release-plz-*`) → `release`
+tags `v<package.json version>` at the merge commit if untagged and publishes the
+GitHub Release through the same action (`skip-generate`,
+`publish-github-release`). `manual-version-bump.yml` opens
+`release-plz-manual-v<next>-<run>` PRs for minor/major bumps.
 
 **Do not hand-edit `CHANGELOG.md` outside a Release PR.**
 

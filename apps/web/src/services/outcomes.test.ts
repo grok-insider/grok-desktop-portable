@@ -21,7 +21,7 @@ describe("failure messages", () => {
   });
 
   it("explains a lost pairing instead of a generic failure", () => {
-    expect(failureMessage({ kind: "not_paired" }, "fallback")).toMatch(/grok-bridge open/);
+    expect(failureMessage({ kind: "not_paired" }, "fallback")).toMatch(/spanreed agent open/);
   });
 
   it("passes a refusal through to its own wording", () => {
@@ -69,7 +69,7 @@ describe("refusal messages", () => {
 
   it("gives every code the host can emit its own explanation", () => {
     // Kept in step with `DispatchError::code` in
-    // crates/grok-bridge/src/dispatch.rs. A code with no wording here
+    // fabrials-agent-host src/dispatch.rs. A code with no wording here
     // reaches the user as "the host refused the request", which explains
     // nothing and hides a limit they could act on.
     const codes = [

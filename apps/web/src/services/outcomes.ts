@@ -1,7 +1,7 @@
 /**
  * Dispatch outcomes, as the host serialises them.
  *
- * Mirrors `DispatchOutcome` in `crates/grok-bridge/src/dispatch.rs`. A
+ * Mirrors `DispatchOutcome` in `fabrials-agent-host` (`src/dispatch.rs`). A
  * workspace here is an opaque id and a label; the host never sends a path.
  */
 
@@ -680,9 +680,9 @@ export function failureMessage(failure: ClientFailure, fallback: string): string
     case "protocol_mismatch":
       return `This page speaks protocol ${PROTOCOL_VERSION} and the host speaks ${failure.hostVersion}. Reload to pick up the host's version.`;
     case "not_paired":
-      return "This browser is no longer paired. Run `grok-bridge open` to pair it again.";
+      return "This browser is no longer paired. Run `spanreed agent open` to pair it again.";
     case "unreachable":
-      return "The local host stopped responding. Start it with `grok-bridge serve`.";
+      return "The local host stopped responding. Start it with `spanreed agent serve`.";
     default:
       return fallback;
   }

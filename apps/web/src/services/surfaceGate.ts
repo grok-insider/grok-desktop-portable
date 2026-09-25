@@ -34,7 +34,7 @@ export function probeAfterSessionLoss(failure: ClientFailure): BridgeProbeState 
     case "bad_request":
       return {
         kind: "error",
-        message: "The host refused the request. Pair again with `grok-bridge open`.",
+        message: "The host refused the request. Pair again with `spanreed agent open`.",
       };
   }
 }

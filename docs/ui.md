@@ -3,7 +3,7 @@
 Portable shares the **Grok Desktop design system** where available and does
 **not** invent a second visual language. This note records what differs because
 production UI is a Work-only shell at **`https://desktop.grok.me`** talking to
-**`grok-bridge` on loopback** (ADR light 0016).
+the local host **`spanreed agent` on loopback** (ADR light 0016).
 
 ## Scope
 
@@ -24,9 +24,9 @@ Before Work is shown, the SPA probes the bridge:
 | State | UI |
 |-------|-----|
 | `checking` | Landing: brief “looking for bridge…” (never Work chrome) |
-| `bridge_missing` | Landing: install + `grok-bridge serve`; optional anonymous presence badge (top-right; see [presence.md](presence.md)) |
+| `bridge_missing` | Landing: install Spanreed + `spanreed agent serve`; optional anonymous presence badge (top-right; see [presence.md](presence.md)) |
 | `blocked_lna` | Landing: allow local network for this site |
-| `needs_pairing` | Pair instructions; consume `#pair=` from `grok-bridge open` |
+| `needs_pairing` | Pair instructions; consume `#pair=` from `spanreed agent open` |
 | `ready` | Work shell (home / session) **only if still paired** |
 | `error` | Landing diagnostic; no silent agent actions |
 
@@ -50,7 +50,7 @@ Before Work is shown, the SPA probes the bridge:
   last known loopback port. Shared across tabs and browser restarts. Not a secret.
 - **Session grant** (`localStorage` key `grok-bridge-session.v1`):
   `{ port, sessionToken, csrfToken, savedAtMs }` with soft TTL (default 7 days).
-  Enables silent resume without a new `grok-bridge open` URL.
+  Enables silent resume without a new `spanreed agent open` URL.
 - **On load:** fragment pair if present → else resolve port → probe → restore
   grant → `resume`. Never call the public origin as the bridge API.
 - **Clear tokens** on `not_paired` / rejected / demotion / host unreachable.

@@ -1,5 +1,5 @@
 /**
- * Welcome / landing when the local bridge is missing, blocked, or unpaired.
+ * Welcome / landing when the local host is missing, blocked, or unpaired.
  *
  * ADR light 0016: Work chrome is never shown until probe is ready and paired.
  */
@@ -9,14 +9,17 @@ import type { PresenceStats } from "../services/presence";
 import { LandingPresence } from "./LandingPresence";
 
 const INSTALL_SNIPPET = `curl -fsSL https://desktop.grok.me/install.sh | sh
-grok-bridge doctor
-grok-bridge serve
-grok-bridge open`;
+spanreed agent doctor
+spanreed agent serve
+spanreed agent open`;
 
-const SERVE_SNIPPET = `grok-bridge serve
-grok-bridge open`;
+const SERVE_SNIPPET = `spanreed agent serve
+spanreed agent open`;
 
-const OPEN_SNIPPET = `grok-bridge open`;
+const OPEN_SNIPPET = `spanreed agent open`;
+
+const INSTALL_STEP =
+  "Install Spanreed (on Windows: irm https://desktop.grok.me/install.ps1 | iex), or confirm it is already installed.";
 
 const X_PROFILE_URL = "https://x.com/GrokInsider";
 const GITHUB_REPO_URL =
@@ -77,37 +80,37 @@ export function LandingView({
     "Drive your local Grok Build CLI from the browser. This site is only the UI — install and authentication stay on your machine.";
   let snippet = INSTALL_SNIPPET;
   let steps: string[] = [
-    "Install the bridge (or confirm it is already installed).",
-    "Run grok-bridge serve in a terminal.",
-    "Run grok-bridge open and open the printed URL once to pair.",
+    INSTALL_STEP,
+    "Run spanreed agent serve in a terminal.",
+    "Run spanreed agent open and open the printed URL once to pair.",
   ];
 
   switch (probe.kind) {
     case "checking":
-      title = "Looking for the local bridge…";
-      body = "Checking whether grok-bridge is running on this machine.";
+      title = "Looking for the local host…";
+      body = "Checking whether the Spanreed agent host is running on this machine.";
       snippet = hadPort ? SERVE_SNIPPET : INSTALL_SNIPPET;
       break;
     case "bridge_missing":
       if (hadPort) {
-        title = "Start the local bridge";
+        title = "Start the local host";
         body =
-          "This browser remembers a local bridge port, but nothing answered. Start grok-bridge on this machine, then retry.";
+          "This browser remembers a local host port, but nothing answered. Start spanreed agent serve on this machine, then retry.";
         snippet = SERVE_SNIPPET;
         steps = [
-          "In a terminal, run grok-bridge serve.",
-          "If the port changed, run grok-bridge open and open the new URL once.",
+          "In a terminal, run spanreed agent serve.",
+          "If the port changed, run spanreed agent open and open the new URL once.",
           "Then press Retry.",
         ];
       } else {
-        title = "Start the local bridge";
+        title = "Start the local host";
         body =
-          "Install and run grok-bridge on this machine, then retry. The site only drives your local Grok Build CLI through that bridge.";
+          "Install Spanreed and run spanreed agent serve on this machine, then retry. The site only drives your local Grok Build CLI through that host.";
         snippet = INSTALL_SNIPPET;
         steps = [
-          "Install the bridge (or confirm it is already installed).",
-          "Run grok-bridge serve in a terminal.",
-          "Run grok-bridge open and open the printed URL once to pair.",
+          INSTALL_STEP,
+          "Run spanreed agent serve in a terminal.",
+          "Run spanreed agent open and open the printed URL once to pair.",
         ];
       }
       break;
@@ -121,15 +124,15 @@ export function LandingView({
     case "needs_pairing":
       title = "Pair this browser";
       body =
-        "The bridge is running. Run `grok-bridge open` and open the printed URL (or paste the #pair= link) so this tab can control your CLI.";
+        "The local host is running. Run `spanreed agent open` and open the printed URL (or paste the #pair= link) so this tab can control your CLI.";
       snippet = OPEN_SNIPPET;
       steps = [
-        "Run grok-bridge open in a terminal.",
+        "Run spanreed agent open in a terminal.",
         "Open the printed URL once in this browser.",
       ];
       break;
     case "error":
-      title = "Bridge error";
+      title = "Local host error";
       body = probe.message;
       snippet = hadPort ? SERVE_SNIPPET : INSTALL_SNIPPET;
       break;

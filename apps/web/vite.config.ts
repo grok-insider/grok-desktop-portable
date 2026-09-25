@@ -9,7 +9,7 @@ import { defineConfig } from "vitest/config";
  * Hosted UI (ADR 0016) calls the loopback bridge and an optional anonymous
  * presence API on api.grokinsider.net (never credentials / bridge secrets).
  * The loopback-served SPA still ships a tighter response header from
- * grok-bridge (`connect-src 'self'`), so presence is blocked there.
+ * the host (`connect-src 'self'`), so presence is blocked there.
  */
 export function contentSecurityPolicy(development: boolean): string {
   // Loopback bridge + optional public presence host (grok-insider-web).
@@ -57,7 +57,7 @@ export default defineConfig(({ command }) => ({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
-    // Product bridge embeds apps/web/dist (see crates/grok-bridge/build.rs).
+    // Spanreed can embed apps/web/dist via FABRIALS_AGENT_HOST_WEB_DIST.
     // Hosted demo is assembled later by scripts/prepare-public.mjs → public/demo.
     outDir: "dist",
     emptyOutDir: true,

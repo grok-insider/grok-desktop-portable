@@ -116,7 +116,7 @@ function hostErrorMessage(code: string): string {
     case "controller_held":
       return "Another tab is already controlling this host. Close it or wait for the lease to expire.";
     case "picker_unavailable":
-      return "The directory picker could not open. Enrol a path with `grok-bridge workspace add` instead.";
+      return "The directory picker could not open. Enrol a path with `spanreed agent workspace add` instead.";
     case "workspace_enrolment_failed":
       return "That directory could not be enrolled.";
     case "picker_already_open":
@@ -992,7 +992,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // There is no `openProject` here on purpose. The rail lists only projects
   // already enrolled (light ADR 0014), so the browser can never hold the id of
   // an unenrolled one. Enrolment goes through the host picker above, or
-  // `grok-bridge workspace add`. The host operation still exists for the CLI.
+  // `spanreed agent workspace add`. The host operation still exists for the CLI.
 
   const handleEvent = useCallback((envelope: EventEnvelope) => {
     if (envelope.event.kind === "workspacesChanged") {

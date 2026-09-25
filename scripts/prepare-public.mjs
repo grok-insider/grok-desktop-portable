@@ -7,7 +7,7 @@
  *   public/install.ps1
  *   public/demo/                  optional stub-demo SPA for server.mjs previews
  *
- * Bridge embed still uses apps/web/dist (crates/grok-bridge/build.rs).
+ * Spanreed can embed apps/web/dist through FABRIALS_AGENT_HOST_WEB_DIST.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -64,7 +64,7 @@ function patchSpaIndex(indexPath, { demoMount } = { demoMount: false }) {
         : meta + html;
     }
     if (!html.includes("data-demo-banner")) {
-      const banner = `<div data-demo-banner style="position:fixed;z-index:9999;left:0;right:0;top:0;padding:6px 12px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif;background:#1a1a1f;color:#c8c8d0;border-bottom:1px solid #2a2a32;text-align:center">Stub demo — production is desktop.grok.me + local grok-bridge. <a href="/" style="color:#9fd4b0">Product UI</a></div><style data-demo-banner>body{padding-top:32px !important}</style>`;
+      const banner = `<div data-demo-banner style="position:fixed;z-index:9999;left:0;right:0;top:0;padding:6px 12px;font:12px/1.4 ui-sans-serif,system-ui,sans-serif;background:#1a1a1f;color:#c8c8d0;border-bottom:1px solid #2a2a32;text-align:center">Stub demo — production is desktop.grok.me + the local Spanreed agent host. <a href="/" style="color:#9fd4b0">Product UI</a></div><style data-demo-banner>body{padding-top:32px !important}</style>`;
       html = html.replace("<body>", `<body>${banner}`);
     }
   }

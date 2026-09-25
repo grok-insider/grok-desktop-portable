@@ -49,13 +49,13 @@ export function classifyProbeResult(input: {
   if (input.status !== 200 || !input.body || input.body.ok !== true) {
     return {
       kind: "error",
-      message: `Bridge answered HTTP ${input.status ?? "?"} without a healthy body.`,
+      message: `The local host answered HTTP ${input.status ?? "?"} without a healthy body.`,
     };
   }
   if (input.body.mode && input.body.mode !== "bridge") {
     return {
       kind: "error",
-      message: `Unexpected bridge mode: ${input.body.mode}`,
+      message: `Unexpected host mode: ${input.body.mode}`,
     };
   }
   if (!input.isPaired) {
