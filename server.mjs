@@ -246,7 +246,7 @@ function handleCommand(operation) {
       }
       const reply = operation.bash
         ? "```\n$ " + text + "\n(demo host — no real shell)\n```"
-        : `**Demo host**\n\nYou said:\n\n> ${text}\n\nThis is the hosted preview of **Grok Desktop Portable**. On your machine, \`grok-bridge\` drives your real Grok Build CLI over loopback — this deploy is a UI/demo surface only.`;
+        : `**Demo host**\n\nYou said:\n\n> ${text}\n\nThis is the hosted preview of **Grok Desktop Portable**. On your machine, \`spanreed agent\` drives your real Grok Build CLI over loopback — this deploy is a UI/demo surface only.`;
 
       setTimeout(() => {
         broadcast({ kind: "promptSent", sessionId: s.id, text });
