@@ -119,7 +119,7 @@ impl SessionRuntime {
     #[must_use]
     pub fn snapshot_tasks(&self, now_ms: u64) -> Vec<SnapshotBackgroundTask> {
         let mut rows: Vec<_> = self.tasks.values().map(|t| t.to_snapshot(now_ms)).collect();
-        rows.sort_by(|a, b| b.started_at_ms.cmp(&a.started_at_ms));
+        rows.sort_by_key(|row| std::cmp::Reverse(row.started_at_ms));
         rows
     }
 

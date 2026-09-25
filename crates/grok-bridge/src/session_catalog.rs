@@ -651,7 +651,7 @@ pub fn snapshot_from_rehydrate_with_runtime(
             background_tasks.push(task);
         }
     }
-    background_tasks.sort_by(|a, b| b.started_at_ms.cmp(&a.started_at_ms));
+    background_tasks.sort_by_key(|task| std::cmp::Reverse(task.started_at_ms));
     crate::protocol::Event::SessionSnapshot {
         session_id,
         messages: restored
