@@ -5,6 +5,16 @@ Read this before changing the repository.
 **Docs:** [docs/overview.md](docs/overview.md), [docs/protocol.md](docs/protocol.md),
 [docs/threat-model.md](docs/threat-model.md), [docs/adr/](docs/adr/).
 
+## Host moved to Spanreed
+
+The local host now ships as `spanreed agent` (Spanreed CLI). Its code lives in
+the shared workspace `fabrials-libs` as the crate `fabrials-agent-host`, split
+from `crates/grok-bridge` with its history. `site/install.sh` and
+`site/install.ps1` install Spanreed and keep a `grok-bridge` name that runs
+`spanreed agent`; `scripts/install-resolve.test.sh` checks them offline.
+`crates/grok-bridge` and its release job remain only until the first Spanreed
+release with `spanreed agent` ships; change host code in `fabrials-libs`, not here.
+
 ## Product invariants
 
 - Composition root is `crates/grok-bridge` only. There is no Desktop daemon.
@@ -53,7 +63,7 @@ feat/* / fix/*  ──PR──►  dev  ──integration PR──►  master
 |------|------|
 | `crates/grok-bridge` | Loopback API + `grok-bridge` binary |
 | `apps/web` | Work SPA (site deploy + optional embed) |
-| `site/` | Static landing assets / install scripts sources |
+| `site/` | Static landing assets / install scripts sources (install Spanreed) |
 | `install/` | `install.sh` / `install.ps1` |
 | `docs/` | ADRs (0016 = hosted UI), protocol, threat model, UI |
 | `server.mjs` / `api/` | Stub demo only — not production (docs/hosted-demo.md) |
