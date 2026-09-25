@@ -3,7 +3,7 @@
 > **Not the product.** Production Grok Desktop Portable (ADR light 0016) is:
 >
 > - Work UI at **`https://desktop.grok.me`** (real SPA), and
-> - **`grok-bridge`** on loopback talking to the user's Grok Build CLI.
+> - **`spanreed agent`** on loopback talking to the user's Grok Build CLI.
 >
 > This document describes an optional **stub demo** (`server.mjs`) used for
 > previews and CI without a real CLI. It must not be confused with production
@@ -62,7 +62,7 @@ curl -s localhost:8080/healthz
 | Output Directory | `public` |
 | Production SPA routes | `/`, `/s/:sessionId`, `/setup` → `index.html` |
 | Demo static | `/demo` only |
-| Bridge API | **Not** on Vercel — only `grok-bridge` on loopback (ADR 0016) |
+| Bridge API | **Not** on Vercel — only `spanreed agent` on loopback (ADR 0016) |
 | Serverless `api/*` | Local/demo only. Production **must not** rewrite `/pair` `/session` `/command` `/healthz` to stubs (that made the hosted SPA treat the public origin as a bridge). |
 
 Do not commit `public/` (gitignored). The platform build must produce it.
@@ -75,12 +75,12 @@ In addition to the product [threat model](threat-model.md):
 - Cookies / CSRF exist only to exercise the SPA client; they are not a pairing
   ceremony with a user-owned host.
 - Do not point production users at the demo host as a substitute for
-  `grok-bridge serve` + `grok-bridge open`.
+  `spanreed agent serve` + `spanreed agent open`.
 
 ## Relationship to product invariants
 
 ADR light 0016 **does** ship the production Work SPA from `desktop.grok.me`,
-but that SPA talks only to a **real** `grok-bridge` on loopback — not to
+but that SPA talks only to a **real** `spanreed agent` host on loopback — not to
 `server.mjs` stubs. The demo host here remains a separate, non-product
 entrypoint for previews without a CLI. It must never be the path that drives a
 user's agent. The product still never accepts filesystem paths from the

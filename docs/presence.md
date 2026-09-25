@@ -2,7 +2,7 @@
 
 The Work SPA at `https://desktop.grok.me` may show a small **online · total**
 badge on the welcome landing. Counts come from **`grok-insider-api`**, not from
-`grok-bridge` and not from the marketing site.
+the local host (`spanreed agent`) and not from the marketing site.
 
 Local layout:
 

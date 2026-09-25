@@ -1,7 +1,7 @@
 # CLI surfaces vs Portable Web UI
 
 Development notes from inspecting **Grok Build CLI** (`examples/grok-build/`,
-gitignored clone of `xai-org/grok-build`) against what `grok-bridge` + the Work
+gitignored clone of `xai-org/grok-build`) against what the local host (`spanreed agent`) + the Work
 SPA project today.
 
 ## Already on the wire / in UI
@@ -84,7 +84,7 @@ From CLI tool runtime + pager:
 
 Headless pager decodes e.g. `x.ai/task_backgrounded`, `task_completed`,
 `SubagentSpawned`, `SubagentFinished` (`ext_protocol.rs`).  
-`grok-bridge` `session_update_event` only forwards the closed set in
+The host's `session_update_event` only forwards the closed set in
 `projection.rs` (`agent_message_chunk`, `agent_thought_*`, `tool_call*`,
 `plan`, `available_commands_update`). Everything else is **`None` → drop**.
 
