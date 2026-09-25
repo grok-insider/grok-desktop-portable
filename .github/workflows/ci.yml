@@ -78,3 +78,38 @@ jobs:
         run: |
           cargo build -p grok-bridge --example fake_agent
           cargo test -p grok-bridge
+
+  nix:
+    name: nix build + cache push (x86_64-linux)
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'pull_request'
+          && github.event.action == 'closed'
+          && github.event.pull_request.merged == true
+          && github.event.pull_request.base.ref == 'master')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Build grok-bridge
+        run: nix build .#grok-bridge -L
+
+      - name: Push to cache.fabrials.com
+        env:
+          ATTIC_TOKEN: ${{ secrets.ATTIC_TOKEN }}
+        run: |
+          if [ -z "$ATTIC_TOKEN" ]; then echo "::warning::ATTIC_TOKEN not set; skipping push"; exit 0; fi
+          nix profile install --inputs-from . nixpkgs#attic-client
+          attic login fabrials https://cache.fabrials.com "$ATTIC_TOKEN"
+          mapfile -t paths < <(nix build .#grok-bridge --no-link --print-out-paths)
+          attic push fabrials "${paths[@]}"

@@ -3,6 +3,17 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+  nixConfig = {
+    extra-substituters = [
+      "https://cache.fabrials.com/fabrials"
+      "https://nix-community.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "fabrials:vpcHFnI0zvmDmw7Hetdbew29BbS9JObpVNkzClA8Q3k="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
+  };
+
   outputs =
     { self, nixpkgs }:
     let
