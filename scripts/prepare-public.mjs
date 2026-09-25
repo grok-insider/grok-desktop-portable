@@ -7,7 +7,7 @@
  *   public/install.ps1
  *   public/demo/                  optional stub-demo SPA for server.mjs previews
  *
- * Bridge embed still uses apps/web/dist (crates/grok-bridge/build.rs).
+ * Spanreed can embed apps/web/dist through FABRIALS_AGENT_HOST_WEB_DIST.
  */
 import fs from "node:fs";
 import path from "node:path";
