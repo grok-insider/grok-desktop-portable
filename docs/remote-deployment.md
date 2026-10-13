@@ -97,9 +97,11 @@ The qualification artifact uses
 and static routing, a `MatchableValue.eq` host guard returning 404 on other domains, no alias
 redirect and `X-Robots-Tag: noindex, nofollow, noarchive`. Vercel’s [Build Output API schema](https://vercel.com/docs/build-output-api/configuration)
 uses `MatchableValue.eq` for exact equality; a string matcher may be a regular
-expression. The robots header is an indexing preference, not access control. It must be deployed as a separate prebuilt
-Vercel project at grok.fabrials.com; root `vercel.json` retains production
-behavior. Both hosting configuration files and installers are bound to the
+expression. The robots header is an indexing preference, not access control. Deploy it as a separate prebuilt Vercel project at grok.fabrials.com or use the
+[verified static Coolify adapter](remote-coolify.md) with Cloudflare DNS/CDN.
+The adapter preserves the original payload and source proof and separately binds
+its nginx configuration, license supplement and runtime image. Root `vercel.json`
+retains production behavior. Both hosting configuration files and installers are bound to the
 corresponding-source archive. Validate the real host guard and response headers
 before using pairing links on that deployment.
 
