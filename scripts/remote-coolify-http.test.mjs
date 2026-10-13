@@ -122,10 +122,15 @@ test("real hardened nginx serves only the reviewed shell and source bytes", {tim
       const plain = await request(port, `/${asset}`);
       assert(plain.headers.etag);
       assert.equal((await request(port, `/${asset}`, {headers: {"If-None-Match": plain.headers.etag}})).status, 304);
-      const range = await request(port, `/${asset}`, {headers: {Range: "bytes=0-9"}});
-      assert.equal(range.status, 206);
-      assert.equal(range.body.length, 10);
-      for (const options of [{headers: {Range: "bytes=999999999999-"}}, {method: "POST"}]) {
+      for (const encoding of ["identity", "gzip"]) {
+        const range = await request(port, `/${asset}`, {headers: {Range: "bytes=0-9", "Accept-Encoding": encoding}});
+        assert.equal(range.status, 206, encoding);
+        assert.equal(range.headers["content-encoding"], undefined, encoding);
+        assert.equal(range.body.length, 10);
+        assert.equal(range.headers["content-range"], `bytes 0-9/${(await readFile(join(context, "static", asset))).length}`);
+        assert.deepEqual(range.body, (await readFile(join(context, "static", asset))).subarray(0, 10));
+      }
+      for (const options of [{headers: {Range: "bytes=999999999999-"}}, {headers: {Range: "bytes=999999999999-", "Accept-Encoding": "gzip"}}, {method: "POST"}]) {
         const rejected = await request(port, `/${asset}`, options);
         assert([405, 416].includes(rejected.status));
         assert.deepEqual([...new Set(rejected.headers["cache-control"].split(", "))], ["no-store"]);
@@ -138,6 +143,13 @@ test("real hardened nginx serves only the reviewed shell and source bytes", {tim
       if (process.env.REMOTE_COOLIFY_ADAPTER) {
         const manifest = JSON.parse(await readFile(join(context, "adapter.json"), "utf8"));
         assert(manifest.supplements.length > 0);
+        assert(legal.body.includes(Buffer.from('<link rel="icon" href="/icon-192.png">')));
+        const legalHashes = [...legal.body.toString("utf8").matchAll(/<code>(.*?)<\/code>/g)].map(match => match[1]);
+        assert.equal(legalHashes.length, manifest.inputs.length);
+        for (const [i, hash] of legalHashes.entries()) {
+          assert.match(hash, /^(?:[a-f0-9]{8}<wbr>){7}[a-f0-9]{8}$/);
+          assert.equal(hash.replaceAll("<wbr>", ""), manifest.inputs[i].correspondingSource.split("/").at(-1).replace(".json", ""));
+        }
         for (const [i, item] of manifest.supplements.entries()) {
           assert(legal.body.includes(Buffer.from(item.supplement.path)));
           const descriptor = JSON.parse(await readFile(join(context, item.descriptorPath), "utf8"));

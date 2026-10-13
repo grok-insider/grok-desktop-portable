@@ -15,7 +15,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--adapter', type=pathlib.Path, required=True)
     parser.add_argument('--receipt', type=pathlib.Path, required=True)
-    parser.add_argument('--origin-ip')
+    address = parser.add_mutually_exclusive_group()
+    address.add_argument('--origin-ip')
+    address.add_argument('--edge-ip')
     args = parser.parse_args()
     manifest_bytes = (args.adapter / 'adapter.json').read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -38,12 +40,15 @@ def main():
             headers_path = pathlib.Path(directory) / 'headers'
             body_path = pathlib.Path(directory) / 'body'
             command = ['curl', '--silent', '--show-error', '--path-as-is', '--max-time', '30', '--max-filesize', '268435456', '--user-agent', 'fabrials-grok-remote-qa/1.0', '-H', 'Accept-Encoding: identity', '-D', str(headers_path), '-o', str(body_path), '-w', '%{http_code}']
-            if args.origin_ip:
-                command += ['--resolve', 'grok.fabrials.com:443:' + args.origin_ip]
+            if args.origin_ip or args.edge_ip:
+                command += ['--resolve', 'grok.fabrials.com:443:' + (args.origin_ip or args.edge_ip)]
             if method == 'HEAD':
                 command += ['--head']
             elif method != 'GET':
                 command += ['--request', method]
+            if any(name.lower() == 'accept-encoding' for name, _ in extra_headers):
+                index = command.index('Accept-Encoding: identity')
+                del command[index - 1:index + 1]
             for name, value in extra_headers:
                 command += ['-H', name + ': ' + value]
             command.append(ORIGIN + path)
@@ -121,6 +126,12 @@ def main():
     r = request('/' + asset, extra_headers=[('Range', 'bytes=0-15')])
     expected = (args.adapter / 'static' / asset).read_bytes()[:16]
     check('byte_ranges', r['status'] == 206 and r['bytes'] == 16 and r['sha256'] == hashlib.sha256(expected).hexdigest(), r)
+    for encoding in ['identity', 'gzip']:
+        r = request('/' + asset, extra_headers=[('Range', 'bytes=0-4095'), ('Accept-Encoding', encoding)])
+        expected = (args.adapter / 'static' / asset).read_bytes()[:4096]
+        check('range_with_' + encoding, r['status'] == 206 and r['bytes'] == 4096 and r['sha256'] == hashlib.sha256(expected).hexdigest() and not r['headers'].get('content-encoding') and no_store(r), r)
+        r = request('/' + asset, extra_headers=[('Range', 'bytes=999999999-'), ('Accept-Encoding', encoding)])
+        check('range_error_with_' + encoding, r['status'] == 416 and no_store(r) and security(r), r)
     r = request('/' + asset + '?qualification=cache-key')
     check('query_does_not_change_asset', r['status'] == 200 and r['sha256'] == files[asset], r)
     if not args.origin_ip:
@@ -128,7 +139,7 @@ def main():
         check('cloudflare_serves_immutable_cache', r['headers'].get('cf-cache-status') == 'HIT', r)
         r = request('/')
         check('cloudflare_does_not_cache_shell', r['headers'].get('cf-cache-status') not in ['HIT', 'STALE', 'UPDATING'], r)
-    receipt = {'schema': 1, 'at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'origin': ORIGIN, 'originIp': args.origin_ip, 'adapterSha256': hashlib.sha256(manifest_bytes).hexdigest(), 'checks': checks, 'passed': sum(c['passed'] for c in checks), 'failed': sum(not c['passed'] for c in checks), 'responses': responses}
+    receipt = {'schema': 1, 'at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'origin': ORIGIN, 'originIp': args.origin_ip, 'edgeIp': args.edge_ip, 'adapterSha256': hashlib.sha256(manifest_bytes).hexdigest(), 'checks': checks, 'passed': sum(c['passed'] for c in checks), 'failed': sum(not c['passed'] for c in checks), 'responses': responses}
     args.receipt.parent.mkdir(parents=True, exist_ok=True)
     args.receipt.write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps({'passed': receipt['passed'], 'failed': receipt['failed'], 'receipt': str(args.receipt), 'failures': [c['name'] for c in checks if not c['passed']]}))

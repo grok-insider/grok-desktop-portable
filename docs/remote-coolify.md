@@ -133,3 +133,79 @@ notices, plus the equivalent records for retained versions. Every response links
 to this page through HTTP `Link: </licenses>; rel="license"`; WASM and its wrapper
 also link directly to their immutable supplement. The page contains no scripts,
 external requests or conversation data. Its own route revalidates on each use.
+
+## Deployed qualification instance — 2026-10-13
+
+`grok.fabrials.com` runs on **fabrials-1** as the Coolify Compose service
+`grok-remote-qa`, UUID `em7w9gpwwbnznm6eyoaw4skp`, application `web`. Its upstream
+is internal HTTP 8080, with no host port binding. Coolify stores this separately
+as `domain_port_overrides["https://grok.fabrials.com"] = 8080`; a portless `fqdn`
+and empty `ports` field in the API response are expected. Starting the service
+regenerates proxy labels before saving and launching Compose.
+
+The deployed image is
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:b7f7f0180e084feea6eb96871a7641c468b8ad43909e3b2c2df8286f98a3a04c`.
+Its adapter revision is `5d8f31657b5011ed586884e2be2b7cc2af652d53`; its manifest
+SHA256 is `9cd8e69780b8a0302ea00771a09bb3b702167b7c2d2acc72f3d8677b3203d616`.
+The original payload and corresponding source remain Portable
+`2aaed2e11cc88aced4e7c216f698308eae718967`. The image, runtime and TLS receipts
+are in the workspace's `.worktrees/remote-release-candidate-20261013/receipts/`
+(`coolify-image.json`, `coolify-runtime.json`, `origin-tls.json`); the deployable
+context is the adjacent `coolify-qualified/`. The running container was inspected
+with the documented privilege/resource constraints and a healthy image probe.
+
+Cloudflare DNS record `12c33093cddf9851b562a0ec47746989` is the proxied A record
+to `188.245.86.157`. The following rules apply only to `grok.fabrials.com`:
+
+| Rule | ID | Behavior |
+| --- | --- | --- |
+| `grok_remote_qa_transport` | `aedd65d86c3842f999043a93b6953328` | Full (strict) TLS; Rocket Loader, email obfuscation and automatic HTTPS rewrites disabled to preserve application bytes |
+| `grok_remote_qa_fresh_shell` | `b7d360bfe64d4b46a12e4528dac9c9f8` | Cache bypass outside `/assets/`, `/crypto/` and `/sources/`; browser policy respects origin |
+| `grok_remote_qa_immutable_assets` | `b2400a042326439dbab08c2edcda6e4f` | Cache those immutable prefixes, respecting origin cache policy; exclude query strings from their cache key |
+| `grok_remote_qa_ranges` | `94590951b6bd43c8ba8d7e54a34437ae` | Last cache rule: bypass requests with a nonempty `Range` header so the origin supplies 206/416 and no-store semantics |
+
+The configuration ruleset is `0e7cafaa6f1442ea9cdc84be854c74dd`; the cache ruleset
+is `a4531f33c6de439496fb7619bdec421c`. Keep unrelated rules in those shared
+rulesets intact. The matching `cloudflare-*.json` receipts record the applied
+settings; the initial DNS creation receipt precedes enabling proxying.
+
+The Range exception is deliberate: Cloudflare served a cached compressed asset as
+200 with its complete body when no cacheable Content-Length was available. That
+response is permitted by HTTP but differs from the qualified origin behavior.
+Requests with Range therefore reach nginx, which supports single byte ranges and
+uses no-store for both valid ranges and errors. The adapter disables nginx gzip
+for requests with Range, including when the CDN sends `Accept-Encoding: gzip`;
+otherwise nginx can ignore the range and return a compressed full body. Ordinary
+immutable requests keep compression and CDN caching. Keep the Range rule after the other two cache rules.
+
+Run the HTTPS verifier against the exact packaged context:
+
+```sh
+python3 scripts/qualify-coolify-http.py \
+  --adapter ../remote-release-candidate-20261013/coolify-qualified \
+  --receipt ../remote-release-candidate-20261013/receipts/origin-http.json \
+  --origin-ip 188.245.86.157
+python3 scripts/qualify-coolify-http.py \
+  --adapter ../remote-release-candidate-20261013/coolify-qualified \
+  --receipt ../remote-release-candidate-20261013/receipts/cloudflare-http.json
+```
+
+`--origin-ip` bypasses Cloudflare while preserving the real hostname, SNI and
+trusted certificate verification. Without an address override, the second command
+uses public DNS and exercises Cloudflare. If the workstation still caches the
+initial NXDOMAIN, set `GROK_QA_EDGE_IP` to an independently verified current
+Cloudflare A-record address and add `--edge-ip "$GROK_QA_EDGE_IP"` to the second
+command. This still exercises the CDN with trusted TLS; it does not prove that
+the workstation's ordinary DNS cache has recovered. The two address options are
+mutually exclusive, and their selection is recorded in the receipt.
+
+This is the first deployment at this origin: there is no earlier public image to
+roll back to, and no distinct-version N/N−1 rollout has been qualified. Recover a
+configuration failure by restoring the reviewed Compose configuration and the
+same pinned image through the **Coolify API**, then repeat runtime and HTTPS
+verification. An emergency withdrawal uses the Coolify service stop API; DNS and
+host-specific Cloudflare rules are separate changes, and installed offline shells
+are not removed by stopping the server. Preserve corresponding-source availability
+for any already distributed build. Future updates must retain and test both source
+versions before claiming rollback readiness. Do not run Compose or replace the
+managed container manually.
