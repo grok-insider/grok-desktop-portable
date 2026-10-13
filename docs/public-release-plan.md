@@ -6,10 +6,11 @@ recorded artifacts; they do not qualify later candidates automatically.
 
 The implemented paths and their local evidence are recorded below. Public
 launch remains blocked by the explicit operational, distribution,
-hardware and elapsed-time gates. The first preparation created signed commits and four draft PRs. A prior
-candidate is deployed only on the qualification domain. The 2026-10-14
-multi-device implementation below is newer than that deployment; its in-progress
-checks do not qualify the deployed artifact or a public launch.
+hardware and elapsed-time gates. Six draft PRs carry the integration. The
+2026-10-14 multi-device candidate is deployed only on the qualification domain;
+its exact sources, deployed TLS/CDN checks, N/N−1 browser update and station
+verification are recorded in [the current receipt](qualification-evidence-2026-10-14.md).
+This is not a public-launch qualification.
 
 Follow-up preparation uses `https://grok.fabrials.com` as an explicitly selected
 qualification origin, with a separate hosting configuration and native pairing
@@ -40,14 +41,14 @@ repositories.
 | Work | Acceptance gate | Current state |
 | --- | --- | --- |
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented and covered by PWA tests; real N/N-1 release upgrade qualification pending |
-| Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Implemented; real Noise/native socket exercised in an isolated TLS browser laboratory; production TLS/Tailscale pending |
+| Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Implemented; two independent browsers paired and reconnected against deployed trusted TLS/Tailscale; custom TLS and multi-host release qualification pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
 | Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Transactional Linux updater passes 31 tests including process interruption; Windows Job/ACL implementation remains gated until real guest qualification; installed-service qualification pending |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
 | Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Implemented and synthetic encryption checked; real provider/S24 delivery pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
 | Publication retention and budgets | Atomic admission, real byte accounting, terminal expiry/revocation, snapshots cannot recover deleted content | Implemented with real PostgreSQL/S3/key-process tests; infrastructure/restore/perimeter gates remain closed |
-| Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Canonical vendor sync, clean source archive and exact QA artifact verified for the dated candidate; platform releases, full native/Rust/WASM attribution and source retention N/N−1 pending |
+| Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Exact QA artifact and original native/Rust/WASM notices verified; public N/N−1 source/notice retention and browser rollback passed; platform release installers pending |
 | Product qualification | Exact candidate on Linux/Windows/S24, browser engines, accessibility, network failures, 24-hour soak | Pending |
 
 ## Multi-device integration, 2026-10-14
@@ -341,12 +342,16 @@ now includes durable phases and process interruption at seven checkpoints;
 the earlier lack of power-loss recovery describes the historical implementation.
 
 The S24 candidate trial still needs a current available device window. Windows
-is not yet qualified: execution through Syl now works in the existing Win11
-guest, and its Rust/MSVC toolchain is available. Strict ACL validation and
-suspended process assignment to Jobs are being qualified there. Prior device
-and relay receipts cannot substitute for this candidate. Source distribution,
-installed services, production TLS/Tailscale and real push delivery remain
-release work alongside the infrastructure and elapsed-time gates below.
+strict ACL and suspended Job assignment passed 16 targeted security checks in
+the existing guest; updater checks passed 26 normal tests and one opt-in test
+under a limited user. Complete installer/upgrade qualification and green
+cross-platform CI remain required. Linux station now runs the exact QA native
+candidate in its own service, retaining identity and pairings. Real TLS/Tailscale,
+two independent browser connections, N/N−1 source retention, browser update and
+rollback passed for the deployed candidate. These checks did not exercise an
+active turn or drafts during upgrade. Prior device and relay receipts cannot
+substitute for this candidate. Real push, device/platform distribution and the
+infrastructure and elapsed-time gates below remain release work.
 
 ## Final qualification
 

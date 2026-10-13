@@ -45,9 +45,9 @@ artefactos y no validan automáticamente el origen nuevo.
    Construir y verificar el artefacto con `--for-deploy`; su shell, fuentes,
    instaladores y las dos configuraciones de hosting deben corresponder.
 
-El embed del commit Spanreed `c0094c7` corresponde al origen QA y a fuentes
-limpias verificadas; la candidata y sus hashes están en el
-[recibo fechado](qualification-evidence-2026-10-13.md). Cada revisión posterior
+El embed del commit Spanreed `8b12b86` corresponde al origen QA y a fuentes
+limpias verificadas; la candidata desplegada y sus hashes están en el
+[recibo del 2026-10-14](qualification-evidence-2026-10-14.md). Cada revisión posterior
 de librerías o Portable exige regenerar su identidad, crear un nuevo commit del
 manifiesto y construir otro archivo de fuentes, aunque los bytes del shell no
 cambien. No modificar a mano las identidades ni los textos de licencia.
@@ -142,8 +142,11 @@ con navegador. Las identidades, hashes y límites están en el
 restringida siguen siendo históricos y no describen el resultado posterior.
 
 La cualificación de Windows y los checks pendientes requieren corrección y
-verificación antes de fusionar. La candidata del 2026-10-13 ya está desplegada en
-Coolify con DNS y TLS verificados; el código multidevice del 2026-10-14 aún no
-forma parte de esa imagen. Guardar los recibos de reconstrucciones posteriores
+verificación antes de fusionar. La candidata multidevice del 2026-10-14 ya está
+desplegada en Coolify: TLS/CDN, recuperación real del contenedor, actualización
+de shell N/N−1 y dos navegadores emparejados con station están comprobados.
+La instalación QA de station usa un perfil y una unidad de usuario independientes,
+preparados específicamente para conservar su estado y el líder compartido; no
+se debe sustituir esa receta por el instalador de servicio normal. Guardar los recibos de reconstrucciones posteriores
 fuera de los inputs del artefacto; una prueba no debe cambiar el commit que
 identifica. Mantener cada candidata anterior y su evidencia con sus hashes.

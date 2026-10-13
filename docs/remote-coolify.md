@@ -147,7 +147,7 @@ configuration of a running service, use **`restart`**; `start` returns
 `Service already running` and does not apply the new image. Check the running
 image digest and health after the queued restart finishes.
 
-The deployed image is
+The initial 2026-10-13 image was
 `10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:6a08441ddb30d258514b373f246d84070f3be0f97e7f9f540b304d2a518a6c7f`.
 Its adapter revision is `e911a52aec0208ea3e3de20ae44a2d8abc40ef30`; its manifest
 SHA256 is `08d517b9afbfd9aa62c6246390c559e2aafebaad977119334b5bf79d1cdaf0b8`.
@@ -220,8 +220,9 @@ command. This still exercises the CDN with trusted TLS; it does not prove that
 the workstation's ordinary DNS cache has recovered. The two address options are
 mutually exclusive, and their selection is recorded in the receipt.
 
-This is the first public PWA shell at this origin. Redeploying wrapper revisions
-does not qualify a distinct-version N/N−1 application rollout. Recover a
+Those initial wrappers contained the first public PWA shell at this origin;
+redeploying them did not qualify a distinct-version N/N−1 application rollout.
+The 2026-10-14 rollout below supplies that separate evidence. Recover a
 configuration failure by restoring the reviewed Compose configuration and its
 pinned image through the **Coolify API**, then **restart** the running service
 and repeat runtime and HTTPS verification. An emergency withdrawal uses the Coolify service stop API; DNS and
@@ -230,3 +231,34 @@ are not removed by stopping the server. Preserve corresponding-source availabili
 for any already distributed build. Future updates must retain and test both source
 versions before claiming rollback readiness. Do not run Compose or replace the
 managed container manually.
+
+## Current deployment, 2026-10-14
+
+The current image is
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:70146ff9cadbb8fb30738008838c9932a8163d3aae377546e769c7f4051bdd44`.
+Its adapter manifest is
+`a3338dbe0d7071c8aafe6a2aba5680774ec7e7fc560b11194437d6d6c4641579`.
+It contains Portable `5bdcf17`, canonical libraries `6ae91bd`, the native source
+tree `8b12b86` and retained original sources/notices for the prior shell.
+The reviewed context is `.worktrees/remote-release-candidate-20261014/coolify/`;
+verification must use the matching frozen source checkouts, not a later HEAD.
+
+The rollback image is
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:47dc752c0ca9495ab7dbda56415e0ec785075bc8fc67ab1ff798d34870e66f18`.
+It serves the prior shell while retaining sources/notices for both versions.
+Both tags are protected in the registry retention configuration. A real Coolify
+rollback and restoration passed health/runtime verification and 231 public CDN
+checks for each image. The current origin passed 229 checks. The resource and
+privilege limits above were checked against the running container.
+
+Coolify's service PATCH expects `docker_compose_raw` as base64, followed by
+the service restart action. A rejected PATCH must not be treated as an applied
+configuration. Validate its response and the actual running image independently.
+
+Chrome 155 in hidden Syl Sway exercised an actual distinct-shell update with
+explicit user action and offline rollback. Both source archives and notice sets
+were downloaded and hash-verified. Eighteen checks passed; this did not include
+active turns or drafts during update. A separate 13-check trial paired two
+independent browsers to station through trusted Tailscale TLS and reconnected
+one without blocking the other. See the [dated receipt](qualification-evidence-2026-10-14.md)
+for identities, station installation, evidence paths and outstanding gates.
