@@ -51,24 +51,30 @@ def main():
             assert result.returncode == 0, f'HTTPS request failed for {method} {path}: curl exit {result.returncode}'
             lines = headers_path.read_text().splitlines()
             headers = {}
+            header_values = {}
             for line in lines:
                 if line.startswith('HTTP/'):
                     headers = {}
+                    header_values = {}
                 elif ':' in line:
                     name, value = line.split(':', 1)
                     key = name.lower()
+                    header_values.setdefault(key, []).append(value.strip())
                     headers[key] = headers[key] + ', ' + value.strip() if key in headers else value.strip()
             body = b'' if method == 'HEAD' else body_path.read_bytes()
-            return {'path': path, 'method': method, 'status': int(result.stdout), 'bytes': len(body), 'sha256': hashlib.sha256(body).hexdigest(), 'headers': headers}
+            return {'path': path, 'method': method, 'status': int(result.stdout), 'bytes': len(body), 'sha256': hashlib.sha256(body).hexdigest(), 'headers': headers, 'headerValues': header_values}
 
     def check(name, passed, response=None):
         checks.append({'name': name, 'passed': bool(passed)})
         if response is not None:
             responses.append(response)
 
+    def no_store(r):
+        return set(part.strip() for part in r['headers'].get('cache-control', '').split(',')) == {'no-store'}
+
     def security(r):
-        h = r['headers']
-        return all(h.get(name) == value for name, value in expected_security.items())
+        h = r['headerValues']
+        return all(h.get(name) and all(actual == value for actual in h[name]) for name, value in expected_security.items())
 
     root = request('/')
     check('root_bytes_match_candidate', root['status'] == 200 and root['sha256'] == files['index.html'], root)
@@ -88,7 +94,7 @@ def main():
         if name.startswith(('assets/', 'crypto/', 'sources/')):
             check('immutable_' + name, r['headers'].get('cache-control') == 'public, max-age=31536000, immutable')
         elif name in ['install.sh', 'install.ps1']:
-            check('installer_no_store_' + name, r['headers'].get('cache-control') == 'no-store')
+            check('installer_no_store_' + name, no_store(r))
         elif name in ['sw.js', 'manifest.webmanifest', 'index.html', 'theme-init.js']:
             check('fresh_' + name, r['headers'].get('cache-control') == 'no-cache')
         expected_mimes = {'.wasm': 'application/wasm', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.css': 'text/css', '.woff2': 'font/woff2', '.tar.gz': 'application/gzip'}
@@ -101,15 +107,15 @@ def main():
             check('service_worker_scope', r['headers'].get('service-worker-allowed') == '/')
     for path in ['/api/health', '/api/publications', '/not-a-route', '/s/', '/s/one/two', '/setup/extra', '/assets/missing.js', '/.env', '/adapter.json', '/nginx.conf']:
         r = request(path)
-        check('missing_' + path, r['status'] == 404 and r['headers'].get('cache-control') == 'no-store' and security(r), r)
+        check('missing_' + path, r['status'] == 404 and no_store(r) and security(r), r)
     for method in ['POST', 'PUT', 'DELETE', 'OPTIONS']:
         r = request('/', method)
-        check('reject_method_' + method, r['status'] == 405 and r['headers'].get('cache-control') == 'no-store', r)
+        check('reject_method_' + method, r['status'] == 405 and no_store(r), r)
     asset = next(name for name in files if name.startswith('assets/') and name.endswith('.js'))
     r = request('/' + asset, 'POST')
-    check('immutable_path_method_error_no_store', r['status'] == 405 and r['headers'].get('cache-control') == 'no-store', r)
+    check('immutable_path_method_error_no_store', r['status'] == 405 and no_store(r), r)
     r = request('/' + asset, extra_headers=[('Range', 'bytes=999999999-')])
-    check('range_error_not_cached', r['status'] == 416 and r['headers'].get('cache-control') == 'no-store', r)
+    check('range_error_not_cached', r['status'] == 416 and no_store(r) and security(r), r)
     r = request('/' + asset, 'HEAD')
     check('head_preserves_headers', r['status'] == 200 and r['headers'].get('cache-control') == 'public, max-age=31536000, immutable', r)
     r = request('/' + asset, extra_headers=[('Range', 'bytes=0-15')])

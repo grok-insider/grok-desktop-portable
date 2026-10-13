@@ -82,7 +82,7 @@ additional operational route. `/licenses` is the legal landing page, also advert
 
 Hashed assets, crypto and content-addressed sources are immutable for one year.
 Installers use no-store. Unhashed shell files, the worker and manifest revalidate.
-Errors always use no-store, including invalid ranges and rate limiting on otherwise immutable routes. Security headers and the noindex qualification policy come from the original
+Errors always use no-store, including invalid ranges and rate limiting on otherwise immutable routes. nginx may emit identical security and no-store fields twice for a rejected range because its range filter processes headers twice; the HTTP verifier checks every security value and rejects any cache directive other than no-store on that error. Security headers and the noindex qualification policy come from the original
 reviewed deployment configuration. WASM, JavaScript, manifests, fonts and
 installers have explicit MIME types. Compression is bounded gzip level 3;
 pre-compressed source archives are not recompressed.
