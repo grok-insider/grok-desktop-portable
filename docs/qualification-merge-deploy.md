@@ -21,7 +21,7 @@ No activar auto-merge. El merge de Web puede activar su despliegue y modifica
 autenticación compartida; requiere revisar sus consumidores y su migración por
 separado. La prueba privada de la PWA no depende de desplegar Web.
 
-Antes de abrir PRs, hacer fetch de cada remoto, comparar el destino actualizado
+Antes de actualizar o fusionar los PRs, hacer fetch de cada remoto, comparar el destino actualizado
 con la base revisada y resolver cualquier divergencia en una rama de integración.
 Las referencias locales coincidían con las bases del trabajo al preparar este
 documento; no sustituyen un fetch reciente. Repetir los checks afectados después
@@ -43,11 +43,12 @@ artefactos y no validan automáticamente el origen nuevo.
    Construir y verificar el artefacto con `--for-deploy`; su shell, fuentes,
    instaladores y las dos configuraciones de hosting deben corresponder.
 
-Los archivos actuales de `assets/remote-web/` y `assets/remote-web.source.json`
-son de la candidata histórica, con fuentes sucias y otro origen. Se conservan
-en disco, fuera del índice del primer commit de Spanreed. Regenerarlos para el
-commit de assets; no publicarlos ni limpiar a mano los textos de licencia, porque
-se rompería su correspondencia con el manifiesto y las pruebas anteriores.
+El embed del commit Spanreed `c0094c7` corresponde al origen QA y a fuentes
+limpias verificadas; la candidata y sus hashes están en el
+[recibo fechado](qualification-evidence-2026-10-13.md). Cada revisión posterior
+de librerías o Portable exige regenerar su identidad, crear un nuevo commit del
+manifiesto y construir otro archivo de fuentes, aunque los bytes del shell no
+cambien. No modificar a mano las identidades ni los textos de licencia.
 
 Comandos de construcción, desde el worktree de Spanreed, con los SHA y las
 rutas previamente revisados:
@@ -127,17 +128,17 @@ El acceso opcional a SSO de pruebas necesita desplegar Web con los flags
 descritos en su `docs/grok-remote.md`. Es una operación separada; el opt-in
 no habilita las publicaciones ni amplía su consentimiento a este dominio.
 
-## Restricciones observadas durante la preparación inicial
+## Estado de la preparación y evidencia
 
-Los fetch fallaron por permisos de `~/.ssh/config`; Coolify exigió una aprobación
-que la política de esta sesión no permite. La firma GPG falló porque
-`~/.gnupg` está en solo lectura. Las comprobaciones de sockets y el build Next
-recibieron `EPERM`. El build de Portable también quedó bloqueado en la ejecución
-del generador de atribuciones; no se sustituyó su inventario ni se desactivó la
-verificación. Los builds incompletos no son candidatas de despliegue.
+Los bloqueos iniciales de permisos SSH/GPG y `EPERM` de sockets y builds se
+superaron cuando cambió el entorno. Se crearon commits firmados, cuatro PRs en
+borrador, una build cifrada, un archivo real de fuentes y una candidata verificada
+con navegador. Las identidades, hashes y límites están en el
+[recibo fechado](qualification-evidence-2026-10-13.md). Los recibos de la fase
+restringida siguen siendo históricos y no describen el resultado posterior.
 
-El estado de los commits, la firma y los artefactos debe comprobarse en el recibo
-de preparación de esta tanda. Ese recibo registra la fase inicial restringida;
-no sustituye la evidencia de construcción e integración posterior. Los
-resultados finales se guardan fuera de los inputs del artefacto para evitar
-que registrar la prueba cambie los commits que esa prueba identifica.
+El fallo remoto de Windows y los checks pendientes requieren corrección y
+verificación antes de fusionar. No se han configurado DNS ni Vercel ni se ha
+desplegado la candidata. Guardar los recibos de reconstrucciones posteriores
+fuera de los inputs del artefacto; una prueba no debe cambiar el commit que
+identifica. Mantener cada candidata anterior y su evidencia con sus hashes.

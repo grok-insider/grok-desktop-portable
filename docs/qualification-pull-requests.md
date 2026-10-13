@@ -1,12 +1,13 @@
 # Borradores de PR para la candidata de pruebas
 
-Textos preparados el 2026-10-13 para revisión. No registran la creación de
-commits, PRs o despliegues. Antes de copiarlos, sustituir las referencias entre
-`<...>` por los SHA y enlaces comprobados y actualizar los resultados si cambia
-el código. El orden operativo está en
+Textos de referencia del 2026-10-13. Los cuatro PRs en borrador ya están
+creados; sus enlaces, commits y evidencia comprobada constan en el
+[recibo de la candidata](qualification-evidence-2026-10-13.md). Antes de copiar
+estos textos a una revisión posterior, sustituir las referencias entre `<...>`
+y actualizar los resultados afectados. El orden operativo está en
 [qualification-merge-deploy.md](qualification-merge-deploy.md).
-El estado observado y sus límites están en el
-[recibo de preparación](evaluation/merge-preparation-2026-10-13.json).
+El recibo de preparación inicial conserva los fallos del entorno restringido;
+no describe el resultado de las builds y verificaciones posteriores.
 
 Los resultados históricos pertenecen a los artefactos de sus recibos. Las
 comprobaciones nuevas del origen `https://grok.fabrials.com` no equivalen a
@@ -41,18 +42,19 @@ modo gestionado no se amplía.
 - Histórica: 498 pruebas de agent-host y Clippy estricto; transporte Noise
   real, continuidad ACP y medios tienen sus comprobaciones y límites en los
   documentos de implementación. No son pruebas del dominio nuevo.
-- Nueva para el origen de pruebas: 24 pruebas de origen y cuatro pruebas puras
-  del host directo correctas; Clippy correcto. Las dos pruebas Noise que
-  requieren sockets quedaron bloqueadas por `bind: EPERM` en el sandbox.
-- El formato de los archivos afectados se comprobó en una copia de revisión.
-  No se eliminaron pruebas de sockets ni se sustituyeron por un resultado verde.
+- Candidata del recibo: 564 pruebas del host/crypto correctas, incluidos
+  sockets reales y el origen QA; tres experimentos ignorados. Formato y Clippy
+  correctos. El middleware que aún fijaba el origen de producción se corrigió
+  con cobertura para ambos orígenes y rechazos, y revisión independiente.
+- El fallo remoto de Windows requiere corregir sus fixtures y confirmar CI;
+  el resultado Linux no acredita compatibilidad Windows.
 
 **Dependencias y pendientes antes de integrar:**
 
 - Fijar `<SHA_LIBS_REVISADO>` y usar esa misma revisión para el Noise de Portable
   y el subtree de Spanreed; los consumidores no deben editar su copia vendorizada.
-- Repetir las pruebas de sockets con esa revisión y ejecutar la aceptación del
-  host con el frontend del mismo origen. Windows, servicios instalados,
+- Repetir las pruebas afectadas si cambia esa revisión; la aceptación local
+  del host y frontend QA quedó registrada. Windows, servicios instalados,
   Tailscale y entrega real de push conservan cualificación separada.
 - La configuración de un dominio de pruebas no habilita publicaciones ni
   demuestra borrado, restauración o disponibilidad de infraestructura.
@@ -96,11 +98,12 @@ metadatos literales del worker sin ejecutar JavaScript del artefacto.
   límites del artefacto correctas; actionlint y comprobación de espacios
   correctos. La revisión independiente detectó y corrigió el Host interpretado
   como regex; los casos adversariales ahora comprueban la igualdad exacta.
-- El build cifrado del nuevo origen quedó bloqueado: el subprocess del
-  generador de atribuciones devolvió salida vacía y el requisito de JSON válido
-  detuvo la construcción; el diagnóstico registró `EPERM`. No se desactivó la
-  generación de licencias ni se produjo una candidata cualificada para este
-  dominio.
+- La build cifrada y la candidata limpia posterior pasaron la prueba completa
+  de correspondencia de fuentes. Sus 37 comprobaciones de navegador incluyen
+  descargas reales con hashes verificados y Origin de Chrome conservado hasta
+  el host. El recibo enlazado identifica manifiesto, archivo y commits. Se
+  usaron DNS/TLS de laboratorio; no acredita el hosting público. Los primeros
+  fallos `EPERM` quedaron superados sin desactivar las atribuciones.
 
 **Dependencias y pendientes antes de integrar/desplegar:**
 
@@ -150,34 +153,30 @@ deshabilitada hasta cualificar su confinamiento de procesos y ACL.
   canónico, 19 ejecuciones del instalador Portable y cinco mutaciones detectadas.
   Las pruebas de fuentes/release sumaron 45. Los recibos identifican sus
   binarios y límites; no prueban el dominio nuevo.
-- Nueva para el dominio: seis pruebas de servicios, una del parser y una
-  integración CLI de preflight/conservación con nueve guardas correctas;
-  Clippy correcto, sobre la copia temporal de integración con las librerías
-  candidatas. Doce pruebas del archivo de fuentes correctas, incluida la
-  correspondencia de instaladores y ambas configuraciones de hosting.
-  El arnés de ciclo de vida incorpora 18 comprobaciones y
-  `--web-origin`, pero no se ejecutó porque el sandbox impide sockets.
-- El embed de pruebas todavía requiere regeneración; el intento de construir
-  Portable quedó bloqueado por el subprocess de atribuciones. No se declara
-  validada una build del consumidor con el nuevo dominio.
+- Candidata del recibo: 2.246 pruebas principales y un fixture adicional
+  correctos, once casos ignorados; formato y Clippy correctos. Doce pruebas del
+  archivo de fuentes incluyen instaladores y ambas configuraciones de hosting.
+- Build Linux optimizada y 18 comprobaciones de ciclo de vida con
+  `--web-origin` correctas. Subtree canónico, embed QA y archivo real de fuentes
+  verificados. Las identidades y la distinción entre la suite anterior al commit
+  de manifiesto y la build final figuran en el recibo.
 
-La secuencia propuesta separa el primer commit de código de los posteriores
-commits de sincronización y assets. `assets/remote-web/` y su manifiesto quedan
-fuera del primer commit: la copia histórica contiene espacios literales en sus
-atribuciones generadas y se conserva en disco con sus hashes, sin editarla para
-silenciar comprobaciones. Los checks de espacios del código no cualifican esos
-assets. El primer commit por sí solo no acredita CI completo del consumidor.
+La integración separa código, sincronización canónica y assets. Los textos de
+licencia originales mantienen sus bytes, incluidos los espacios. Los checks
+de espacios del código no sustituyen los hashes y la correspondencia de los
+assets. El fallo remoto de Windows impide considerar completo el CI del
+consumidor.
 
 **Dependencias y pendientes antes de integrar:**
 
 - Sincronizar `<SHA_LIBS_REVISADO>` mediante `scripts/sync-fabrials-libs.sh`,
   resolver el lockfile sin actualizaciones ajenas y comprobar el consumidor.
-  Esta preparación no acredita que el vendor real ya esté sincronizado.
+  La candidata del recibo ya tiene ese vendor; una revisión nueva exige otro sync.
 - Construir el embed desde `<SHA_PORTABLE_REVISADO>` con
   `FABRIALS_REMOTE_ORIGIN=https://grok.fabrials.com`, registrar sus fuentes,
   comprobar `remote-assets.py check --release` y generar el archivo desde el
   commit limpio resultante. Portable debe verificar después la misma candidata.
-- Repetir sockets y ciclo de vida real; cualificar servicios, Windows/macOS,
+- Repetir sockets y ciclo de vida si cambia el código; cualificar servicios, Windows/macOS,
   instaladores descargados y recuperación ante interrupciones. La restauración
   por fallo inmediato no equivale a downgrade posterior ni recuperación tras
   pérdida de alimentación.
@@ -221,10 +220,10 @@ por separado; no se promete retirar originales privados ni copias descargadas.
   TypeScript, lint y comprobación de espacios correctos. Siete operaciones de
   publicación y OPTIONS, invocadas directamente con ambos flags activados,
   siguen devolviendo 503; readiness conserva 12 bloqueos.
-- El intento de nueva build Node 22 falló por `EPERM` al abrir el puerto interno
-  de Turbopack/PostCSS. No produjo una nueva candidata; los recibos HTTP/build
-  anteriores permanecen históricos. Evidencia incremental:
-  `docs/evaluation/test-origin-2026-10-13.json`.
+- Build limpia Node 22 de 65 páginas y 92 comprobaciones HTTP en cuatro
+  combinaciones de flags correctas para Web `46bf727`, según el recibo de la
+  candidata. Los primeros fallos `EPERM` quedaron superados; no se omitió la
+  build. La comprobación HTTP de flags no autentica usuarios reales de SSO.
 - Los hallazgos de secretos revisados corresponden a nombres de variables de
   laboratorio y checksums del manifiesto vendor preexistente. No se añadieron
   excepciones amplias al escáner.
@@ -235,7 +234,7 @@ por separado; no se promete retirar originales privados ni copias descargadas.
   que sólo comprueban la firma JWT necesitan adoptar la comprobación de familia
   antes de prometer revocación inmediata; un backend anterior no preserva esa
   garantía al hacer rollback.
-- Repetir build y aceptación HTTP/SSO con la candidata exacta. La fusión en
+- Repetir build/HTTP si cambia Web y completar SSO real. La fusión en
   `master` puede activar el despliegue de autenticación compartida: coordinarlo
   como operación separada. El frontend privado no depende de este despliegue.
 - Mantener cerradas las publicaciones hasta superar aislamiento de nodos de
@@ -248,7 +247,8 @@ No activar auto-merge. Antes de abrir o fusionar, obtener un fetch reciente,
 comparar cada base de destino, resolver divergencias y repetir las comprobaciones
 afectadas. No presentar referencias locales como una actualización del remoto.
 
-La firma GPG y la creación de commits deben resolverse expresamente antes de
-publicar estos PRs; estos textos no eluden esa decisión. Tampoco acreditan
-sincronización del vendor, ejecución remota de CI, creación de DNS/proyecto,
-merge o despliegue. No publicar una release estable para desbloquear QA.
+Los commits firmados y PRs en borrador ya existen. La verificación local del
+vendor y de la candidata no reemplaza los checks remotos: resolver Windows y
+consultar todos los resultados antes de fusionar. No se ha creado DNS/proyecto
+ni se ha hecho merge o despliegue. No publicar una release estable para
+desbloquear QA.

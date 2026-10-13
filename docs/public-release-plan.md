@@ -6,16 +6,17 @@ recorded artifacts; they do not qualify later candidates automatically.
 
 The implemented paths and their local evidence are recorded below. Public
 launch remains blocked by the explicit operational, distribution,
-hardware and elapsed-time gates. No commit, push, deployment or daily service
-installation was performed in this implementation round.
+hardware and elapsed-time gates. The follow-up preparation created signed
+commits and four draft PRs. No merge, deployment or daily service installation
+was performed.
 
 Follow-up preparation uses `https://grok.fabrials.com` as an explicitly selected
 qualification origin, with a separate hosting configuration and native pairing
-selection. The default remains `desktop.grok.me`. The new origin change passed
-799 frontend tests and 18 artifact tests, but its real builds and socket checks
-were blocked by the current sandbox. Earlier browser, vision and lifecycle
-receipts qualify their recorded artifacts only. Integration order, source
-packaging, hosting checks and outstanding environment restrictions are in
+selection. The default remains `desktop.grok.me`. Its real build, sockets,
+source archive and 37 browser checks are bound to the exact candidate and hashes
+in [the dated qualification receipt](qualification-evidence-2026-10-13.md).
+Earlier browser, vision and lifecycle receipts qualify their recorded artifacts
+only. Integration order, source packaging and outstanding hosting checks are in
 [qualification-merge-deploy.md](qualification-merge-deploy.md).
 
 ## Product boundary
@@ -40,12 +41,12 @@ repositories.
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented and covered by PWA tests; real N/N-1 release upgrade qualification pending |
 | Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Implemented; real Noise/native socket exercised in an isolated TLS browser laboratory; production TLS/Tailscale pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
-| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | 16 Linux CLI lifecycle checks passed; transactional Linux updater implemented; Windows self-update blocked pending safe process supervision and executable ACL validation; installed-service qualification pending |
+| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | 18 Linux CLI lifecycle checks passed on the dated QA candidate; transactional Linux updater implemented; Windows self-update blocked pending safe process supervision and executable ACL validation; installed-service qualification pending |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
 | Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Implemented and synthetic encryption checked; real provider/S24 delivery pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
 | Publication retention and budgets | Atomic admission, real byte accounting, terminal expiry/revocation, snapshots cannot recover deleted content | Implemented with real PostgreSQL/S3/key-process tests; infrastructure/restore/perimeter gates remain closed |
-| Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Canonical libraries compiled in a temporary Spanreed copy; frontend artifact tooling includes WASM, hashes and reviewed installers; clean vendor/source distribution and platform release qualification pending |
+| Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Canonical vendor sync, clean source archive and exact QA artifact verified for the dated candidate; platform releases, full native/Rust/WASM attribution and source retention N/N−1 pending |
 | Product qualification | Exact candidate on Linux/Windows/S24, browser engines, accessibility, network failures, 24-hour soak | Pending |
 
 ## Private content

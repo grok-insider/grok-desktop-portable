@@ -16,7 +16,7 @@ Run **Remote deployment artifact** (`.github/workflows/remote-artifact.yml`) on 
 
 CI pins Node and Rust versions, uses packageManager-pinned pnpm and the frozen pnpm and Cargo lockfiles. It runs web types/tests, artifact boundary tests and the native Noise tests, builds real WASM and its matching wasm-bindgen wrapper, and verifies native/WASM interoperability. `deployment.json` records the canonical origin, source commits, dirty flags, source hashes, toolchain versions and each output hash. Source changes during the build fail it. Deployment requires clean reviewed commits.
 
-The uploaded `grok-remote-vercel-<portable-sha>-<libs-sha>-<environment>` contains `grok-remote-vercel.tar.gz`, preserving the hidden `.vercel` directory. The workflow refuses an archive from another shell or input revision. Its local adapter tests use synthetic archives; a real clean corresponding-source candidate and the Spanreed installer/update/rollback distribution still require release qualification.
+The uploaded `grok-remote-vercel-<portable-sha>-<libs-sha>-<environment>` contains `grok-remote-vercel.tar.gz`, preserving the hidden `.vercel` directory. The workflow refuses an archive from another shell or input revision. Its adapter tests use synthetic archives; the dated qualification receipt also records a real clean archive and browser download. Published installer/update/rollback distribution and execution of this artifact workflow still require qualification.
 
 ## Local review build
 
@@ -115,14 +115,17 @@ SSO/CORS has a separate exact-origin opt-in in Web; publication authorization
 remains bound to the production origin and all publication readiness gates stay
 closed. This domain change supplies no new publication evidence.
 
-Local validation of the origin change passed 799 frontend tests, TypeScript and
-18 artifact boundary tests. The encrypted qualification build was attempted but
-blocked in this sandbox: the existing dependency-notice subprocess returned
-empty output, and the mandatory JSON/notice gate stopped the build. A diagnostic
-`spawnSync` returned EPERM. Notices and their generation mechanism were not
-changed or bypassed. The historical receipts describe their previous artifacts;
-no qualification-domain artifact, hosting, pairing or source download has yet
-been validated in this environment.
+The qualification origin subsequently passed a real encrypted build and full
+corresponding-source verification. The candidate identified in
+[the dated qualification receipt](qualification-evidence-2026-10-13.md) passed
+37 browser checks, including a real Noise handshake carrying Chrome's actual
+Origin and verified downloads of its source archive, license and notices.
+Its deployment manifest SHA256 is
+`27f9b2b7f5c653ae4ed293c34c026c8272298433b2458a66608788aa0811d1d4`.
+The earlier sandbox `EPERM` failures are historical; the notice generator and
+source requirements were preserved. This was a local hostname/TLS laboratory:
+public hosting, DNS, trusted TLS, Tailscale and physical devices remain pending.
+Later commits or archives require their own identity and qualification receipt.
 
 ### Browser qualification of the exact candidate
 
