@@ -140,19 +140,40 @@ external requests or conversation data. Its own route revalidates on each use.
 `grok-remote-qa`, UUID `em7w9gpwwbnznm6eyoaw4skp`, application `web`. Its upstream
 is internal HTTP 8080, with no host port binding. Coolify stores this separately
 as `domain_port_overrides["https://grok.fabrials.com"] = 8080`; a portless `fqdn`
-and empty `ports` field in the API response are expected. Starting the service
-regenerates proxy labels before saving and launching Compose.
+and empty `ports` field in the API response are expected. The service deployment
+action regenerates proxy labels before saving and launching Compose. Use the
+Coolify API `start` action for the initial launch. After updating the Compose
+configuration of a running service, use **`restart`**; `start` returns
+`Service already running` and does not apply the new image. Check the running
+image digest and health after the queued restart finishes.
 
 The deployed image is
-`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:b7f7f0180e084feea6eb96871a7641c468b8ad43909e3b2c2df8286f98a3a04c`.
-Its adapter revision is `5d8f31657b5011ed586884e2be2b7cc2af652d53`; its manifest
-SHA256 is `9cd8e69780b8a0302ea00771a09bb3b702167b7c2d2acc72f3d8677b3203d616`.
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:6a08441ddb30d258514b373f246d84070f3be0f97e7f9f540b304d2a518a6c7f`.
+Its adapter revision is `e911a52aec0208ea3e3de20ae44a2d8abc40ef30`; its manifest
+SHA256 is `08d517b9afbfd9aa62c6246390c559e2aafebaad977119334b5bf79d1cdaf0b8`.
 The original payload and corresponding source remain Portable
 `2aaed2e11cc88aced4e7c216f698308eae718967`. The image, runtime and TLS receipts
 are in the workspace's `.worktrees/remote-release-candidate-20261013/receipts/`
-(`coolify-image.json`, `coolify-runtime.json`, `origin-tls.json`); the deployable
-context is the adjacent `coolify-qualified/`. The running container was inspected
+(`coolify-image-v3.json`, `coolify-runtime-v3.json`, `origin-tls.json`); the deployable
+context is the adjacent `coolify-qualified-v3/`. The running container was inspected
 with the documented privilege/resource constraints and a healthy image probe.
+The v3 HTTPS checks passed 222 checks against the origin and 224 through
+Cloudflare (`origin-http-v3.json`, `cdn-http-v3.json`), including byte ranges with
+gzip accepted by the client.
+
+The earlier wrapper image is retained as deployment history in `coolify-image.json`:
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:b7f7f0180e084feea6eb96871a7641c468b8ad43909e3b2c2df8286f98a3a04c`. Both images contain the same original PWA shell. An image-only rollback
+between these wrappers exercises hosting recovery; it does not qualify a
+distinct-version service-worker update or N/N−1 application rollback.
+
+The hosting rollback was exercised on 2026-10-13 through Coolify: v3 to the
+previous wrapper and back to v3. Both target images became healthy, the prior
+wrapper served the exact original shell, and all 224 CDN checks passed after
+restoration (`coolify-rollback-observed.json`, `coolify-restored-observed.json`,
+`cdn-http-after-rollback.json`). Both image references are protected from registry
+retention. Browser QA passed at 1440 and 390 pixels, including offline shell
+reload, source links, the legal page and favicon; no pairing, physical mobile
+installation, inference or notifications were exercised in that browser pass.
 
 Cloudflare DNS record `12c33093cddf9851b562a0ec47746989` is the proxied A record
 to `188.245.86.157`. The following rules apply only to `grok.fabrials.com`:
@@ -182,12 +203,12 @@ Run the HTTPS verifier against the exact packaged context:
 
 ```sh
 python3 scripts/qualify-coolify-http.py \
-  --adapter ../remote-release-candidate-20261013/coolify-qualified \
-  --receipt ../remote-release-candidate-20261013/receipts/origin-http.json \
+  --adapter ../remote-release-candidate-20261013/coolify-qualified-v3 \
+  --receipt ../remote-release-candidate-20261013/receipts/origin-http-v3.json \
   --origin-ip 188.245.86.157
 python3 scripts/qualify-coolify-http.py \
-  --adapter ../remote-release-candidate-20261013/coolify-qualified \
-  --receipt ../remote-release-candidate-20261013/receipts/cloudflare-http.json
+  --adapter ../remote-release-candidate-20261013/coolify-qualified-v3 \
+  --receipt ../remote-release-candidate-20261013/receipts/cdn-http-v3.json
 ```
 
 `--origin-ip` bypasses Cloudflare while preserving the real hostname, SNI and
@@ -199,11 +220,11 @@ command. This still exercises the CDN with trusted TLS; it does not prove that
 the workstation's ordinary DNS cache has recovered. The two address options are
 mutually exclusive, and their selection is recorded in the receipt.
 
-This is the first deployment at this origin: there is no earlier public image to
-roll back to, and no distinct-version N/N−1 rollout has been qualified. Recover a
-configuration failure by restoring the reviewed Compose configuration and the
-same pinned image through the **Coolify API**, then repeat runtime and HTTPS
-verification. An emergency withdrawal uses the Coolify service stop API; DNS and
+This is the first public PWA shell at this origin. Redeploying wrapper revisions
+does not qualify a distinct-version N/N−1 application rollout. Recover a
+configuration failure by restoring the reviewed Compose configuration and its
+pinned image through the **Coolify API**, then **restart** the running service
+and repeat runtime and HTTPS verification. An emergency withdrawal uses the Coolify service stop API; DNS and
 host-specific Cloudflare rules are separate changes, and installed offline shells
 are not removed by stopping the server. Preserve corresponding-source availability
 for any already distributed build. Future updates must retain and test both source
