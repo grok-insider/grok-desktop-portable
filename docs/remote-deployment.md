@@ -123,3 +123,31 @@ empty output, and the mandatory JSON/notice gate stopped the build. A diagnostic
 changed or bypassed. The historical receipts describe their previous artifacts;
 no qualification-domain artifact, hosting, pairing or source download has yet
 been validated in this environment.
+
+### Browser qualification of the exact candidate
+
+`scripts/qualify-direct-browser.ts` accepts `REMOTE_QA_ARTIFACT` pointing to a
+packaged candidate and `REMOTE_QA_SPANREED` pointing to its clean verifier
+checkout. In this mode it repeats the full deployment and corresponding-source
+proof before launching Chrome, serves the artifact's own files and config, and
+checks all three displayed source links by downloading their real bytes through
+the browser and comparing SHA256 (and archive size). It first injects a missing
+metadata response to exercise the unavailable state. It does not substitute
+synthetic success metadata in candidate mode.
+
+`REMOTE_QA_ORIGIN` may select either exact reviewed origin; by default the
+harness reads it from the built shell, and a mismatch fails. Its isolated native
+fixture receives the same selection through `DIRECT_BROWSER_QA_WEB_ORIGIN`.
+The production run exercises the alias redirect; the qualification run opens
+`grok.fabrials.com` directly. Both use local hostname resolution, a laboratory
+certificate, a fresh browser profile and a hidden Syl compositor at 2560×1440.
+Set `REMOTE_QA_CHROME` to the actual Nix Chrome binary,
+`REMOTE_QA_PLAYWRIGHT` to the installed Playwright core module and
+`DIRECT_QA_NATIVE_BINARY` to the freshly built `direct_browser_fixture` example.
+The argument is a new private directory containing `cert.pem` and `key.pem`.
+
+The report records the origin, deployment manifest hash, source identities,
+native fixture hash and real source-download checks. It separately identifies
+unqualified production TLS, CDN routing, Tailscale, hardware and inference.
+Without `REMOTE_QA_ARTIFACT`, the harness retains its synthetic source-UI mode
+for local review, explicitly marked as having no qualified source download.
