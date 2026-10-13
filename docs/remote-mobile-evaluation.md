@@ -1,23 +1,29 @@
 # Current Remote candidate: physical-device evaluation
 
-This checklist belongs to the 20-experiment program in `remote-evaluation.md`.
+This checklist applies the current direct, multi-device release contract in
+`public-release-plan.md` to the original `remote-evaluation.md` program.
 The older private HTTPS observations in `remote-mobile-qualification.md` keep
-their original artifact attribution. They do not qualify the current managed
+their original artifact attribution. They do not qualify the current direct
 PWA, durable drafts, push, share reception or voice candidates.
 
 ## Entry conditions
 
 Finish the automated integration, recovery and browser checks first. Record the
-exact served PWA manifest, native and relay binaries, account build, Android and
+exact served PWA manifest, native binary, Android and
 Chrome versions, origin, device serial, and installation mode. The owner must
 have a single available 45–60 minute window; previous phone availability and
 previous successful typing are not evidence of participation in this run.
 
-Use only synthetic accounts, projects, conversations and canary text. The
-managed laboratory runs actual account routes, Noise transport and host code,
-but its resident conversation has no Grok process. Its messages are explicitly
-labelled synthetic. Keep publication disabled in this fixture. A real publisher
-has a separate PostgreSQL/S3 qualification.
+Use synthetic projects, conversations and canary text, with separately paired
+desktop and mobile browser principals belonging to the owner. The deployed
+candidate connects directly over trusted HTTPS/WSS and Noise to the user's
+Spanreed through Tailscale. It needs no Fabrials login. Pair a second isolated
+host for endpoint isolation checks; never use unrelated private conversations.
+Explicitly distinguish the deterministic ACP fixture from a dedicated real Grok
+session. Keep publication disabled; its host/PostgreSQL/S3 plane has a separate
+qualification. Browser fixtures using local TLS or ADB reverse do not qualify
+the deployed transport. Record account/publication builds only when exercising
+that separate optional surface.
 
 Do not read another application, clipboard or conversation to supply test data.
 Do not change Proton Pass, Tailscale policy, Android security settings or daily
@@ -30,16 +36,25 @@ keys or browser storage contents in exported reports.
 | Approximate time | Exercise | Required evidence |
 |---|---|---|
 | 0–5 min | Open the observed test target, pair, install or verify the PWA, record portrait viewport and keyboard | Exact target id, secure context, display mode, artifact hashes; shortcut and WebAPK distinguished |
-| 5–12 min | Opt into drafts, type and correct canaries, reload, switch between the two authorized hosts and return | Exact unsent text; consent and drafts isolated by account/host/key/installation/session; no prompt dispatched |
-| 12–20 min | Share text, URL and a small synthetic file through Android's actual share sheet; repeat an intent, cancel, close/reopen and choose the destination | Explicit editable review, duplicate behavior, no automatic dispatch; compare task steps against copy/open/paste |
+| 5–12 min | Opt into drafts, type and correct canaries, reload, switch between the two authorized hosts and return | Exact unsent text; consent and drafts isolated by endpoint/host key/installation/browser/session; no prompt dispatched |
+| 12–20 min | Share text, URL and a small synthetic image through Android's actual share sheet; repeat an intent, cancel, close/reopen and choose the destination | Typed attachment, explicit editable review, duplicate behavior, no automatic dispatch; compare task steps against copy/open/paste |
 | 20–28 min | Explicitly enable notifications and emit generic fixture activity in foreground, after Home, and after task closure | Provider receipt and actual device notification recorded separately; minimal content; click resolves only while authorized |
 | 28–43 min | Paired typing/dictation tasks and answer playback | Task timings include review/correction; no automatic send; participant reports audible start/pause/stop and comprehension |
-| 43–52 min | Browse an approved project, transfer control with the desktop observer, revoke the other browser and this device | User-visible authority changes, one controller, unavailable old controls, rejected resume, useful-task observations |
+| 43–52 min | Browse an approved project; enqueue synthetic turns from mobile and desktop, exercise targeted stop and a stale model change; revoke the other browser and this device | Both devices can enqueue, one active turn per session, shared FIFO, paused queue preserved after stop, explicit configuration conflict, revoked principal unable to mutate |
 | 52–60 min | Recovery observation, utility ratings and cleanup | Candidate-bound participation receipt, expected OS limitations, removed test state and stopped owned processes |
 
 Timing is a schedule, not a reason to mark unfinished checks passed. Pause the
 sequence when the owner uses the phone. A requested permission that the owner
 declines is a valid refusal-path observation, not a passed delivery/audio test.
+
+Run the recovery cases separately if they exceed the interactive window: block
+Fabrials origins while retaining the paired private endpoint, reopen the
+installed shell offline, reconnect after Wi-Fi/mobile handoff, and qualify the
+N/N−1 service-worker update and rollback with a saved draft and an active turn.
+Record the source and license links for each loaded shell. Lose a command reply
+deliberately and check its durable receipt from the same principal; do not send
+it again automatically. A second principal must see the resulting host message
+without being able to claim the first principal's private receipt.
 
 ## Voice comparison
 
