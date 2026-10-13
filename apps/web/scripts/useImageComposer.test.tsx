@@ -2,6 +2,7 @@ import {Blob as NativeBlob} from "node:buffer";
 import {act, renderHook, waitFor} from "@testing-library/react";
 import {afterEach, beforeEach, expect, it, vi} from "vitest";
 import {useImageComposer} from "../src/services/useImageComposer";
+import {CommandReceiptStore} from "../src/services/commandReceipts";
 import {DraftStore, forgetDraftScope} from "../src/services/drafts";
 import {cropImage, prepareImage, uploadImage, type PreparedImage} from "../src/services/imageUploads";
 import type {LightClient} from "../src/services/client";
@@ -10,9 +11,13 @@ vi.mock("../src/services/imageUploads", async original => ({...await original<ob
 const file = new File(["synthetic"], "test.png", {type: "image/png"});
 const image = (): PreparedImage => ({id: crypto.randomUUID(), name: "test.png", width: 64, height: 64, blob: new NativeBlob([new Uint8Array(32)], {type: "image/png"}) as unknown as Blob, preview: "blob:synthetic"});
 function deferred<T>() {let resolve!: (value: T) => void; const promise = new Promise<T>(yes => {resolve = yes;}); return {promise, resolve};}
-function inputs() {return {client: {send: vi.fn().mockResolvedValue({ok: true, value: {outcome: "promptSent"}})} as unknown as LightClient, sessionId: "A", scope: "computer", capable: true, canSend: true, onSent: vi.fn()};}
+function inputs() {
+  const client = {send: vi.fn().mockResolvedValue({ok: true, value: {outcome: "promptAccepted"}})} as unknown as LightClient;
+  return {client, receipts: new CommandReceiptStore(client, "computer"), sessionId: "A", scope: "computer", capable: true, canSend: true, onSent: vi.fn()};
+}
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.stubGlobal("BroadcastChannel", undefined);
   vi.stubGlobal("URL", Object.assign(URL, {createObjectURL: vi.fn(() => "blob:recovered"), revokeObjectURL: vi.fn()}));
   vi.mocked(prepareImage).mockImplementation(async () => image());
@@ -55,7 +60,7 @@ it("does not resurrect images if pairing is revoked while decoding", async () =>
   const pending = deferred<PreparedImage>();
   vi.mocked(prepareImage).mockReturnValueOnce(pending.promise);
   const hook = renderHook(useImageComposer, {initialProps: inputs()});
-  let adding!: Promise<void>;
+  let adding!: Promise<boolean>;
   act(() => {adding = hook.result.current.add([file]);});
   await act(async () => forgetDraftScope("computer"));
   await act(async () => {pending.resolve(image()); await adding;});

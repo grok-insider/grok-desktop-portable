@@ -13,7 +13,7 @@
  * window edge.
  */
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { FolderOpen, Home, Plus, X } from "lucide-react";
 import { IconButton, StatusChip, cn } from "../components/ui";
 import { ThemeToggle } from "../theme/ThemeToggle";
@@ -64,6 +64,15 @@ export function WorkShell({
 }) {
   const homeActive = surface === "home";
   const showTabs = tabs.length > 0 || onNewTab !== undefined;
+  const tablist = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const list = tablist.current;
+    const active = list?.querySelector<HTMLElement>('[aria-selected="true"]')?.parentElement;
+    if (!list || !active) return;
+    const parent = list.getBoundingClientRect(), item = active.getBoundingClientRect();
+    if (item.left < parent.left) list.scrollLeft -= parent.left - item.left;
+    else if (item.right > parent.right) list.scrollLeft += item.right - parent.right;
+  }, [activeTabId, surface, tabs.length]);
 
   return (
     <div className="work-shell flex h-dvh min-h-dvh flex-col bg-background p-2 max-[680px]:h-auto max-[680px]:p-0">
@@ -97,6 +106,7 @@ export function WorkShell({
                 aria-hidden="true"
               />
               <div
+                ref={tablist}
                 role="tablist"
                 className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
                 aria-label="Open conversations"

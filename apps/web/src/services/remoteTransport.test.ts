@@ -153,7 +153,7 @@ describe("remote transport lifecycle with synthetic crypto and storage ports", (
     expect(sockets[0].url).toBe("wss://remote-relay.fabrials.com/connect");
     expect(sockets[0].raw[0]).toEqual({type: "authenticate", ticket: "synthetic-ticket"});
     expect(credentials).toEqual([{sessionToken: pair.sessionToken, csrfToken: pair.csrfToken}]);
-    expect(sockets[0].requests[0].body).toEqual({afterSequence: 9});
+    expect(sockets[0].requests[0].body).toEqual({afterSequence: 9, protocolVersion: 4});
     sockets[0].event({kind: "hostStatus", state: "agent_restarting"}, 10);
     sockets[0].event({kind: "hostStatus", state: "agent_ready"}, 11);
     await vi.waitFor(() => expect(handlers.onEvent).toHaveBeenCalledTimes(3));
@@ -177,6 +177,19 @@ describe("remote transport lifecycle with synthetic crypto and storage ports", (
     expect(sockets[1].requests.map((request) => request.method)).toEqual(["subscribe"]);
     expect(handlers.onClose).not.toHaveBeenCalled();
     expect(sockets[1].readyState).toBe(1);
+    transport.dispose?.();
+  });
+
+  it("acknowledges multiwriter cursors without a controller lease through lifecycle events", async () => {
+    const transport = await createRemoteTransport({hostId: "host"});
+    const handlers = {onEvent: vi.fn(), onOpen: vi.fn(), onClose: vi.fn()};
+    const events = transport.openEvents(handlers, 0);
+    await vi.waitFor(() => expect(handlers.onOpen).toHaveBeenCalledOnce());
+    sockets[0].event({kind: "hostStatus", state: "writable"}, 0);
+    sockets[0].event({kind: "hostStatus", state: "agent_ready"}, 14);
+    await vi.waitFor(() => expect(handlers.onEvent).toHaveBeenCalledTimes(3));
+    events.send('{"kind":"controllerHeartbeat"}');
+    expect(sockets[0].requests.at(-1)).toMatchObject({method: "heartbeat", body: {afterSequence: 14}});
     transport.dispose?.();
   });
 

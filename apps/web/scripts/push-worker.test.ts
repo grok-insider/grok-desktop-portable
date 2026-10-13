@@ -83,3 +83,27 @@ it("shows a generic direct notice and opens the local app without any account se
   expect(test.fetch).not.toHaveBeenCalled();
   expect(test.openWindow).toHaveBeenCalledWith("https://remote.fabrials.com/");
 });
+
+
+it("deduplicates durable direct notices before display without contacting Fabrials", async () => {
+  const test = worker();
+  const notice = {version: 1, kind: "remoteActivity", notificationId: "c".repeat(32), sequence: 7, expiresAt: Date.now() + 300000};
+  await test.push(notice);
+  expect(test.claim).toHaveBeenCalledWith({eventId: `direct:https://remote.fabrials.com/:${notice.notificationId}`, expiresAt: notice.expiresAt}, {});
+  expect(test.showNotification).toHaveBeenCalledOnce();
+  test.claim.mockResolvedValueOnce(false);
+  await test.push(notice);
+  expect(test.showNotification).toHaveBeenCalledOnce();
+  expect(test.fetch).not.toHaveBeenCalled();
+});
+
+it("rejects expired and malformed durable direct notices without storing or showing content", async () => {
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+  const test = worker();
+  const notice = {version: 1, kind: "remoteActivity", notificationId: "d".repeat(32), sequence: 1, expiresAt: Date.now() + 300000};
+  for (const invalid of [{...notice, expiresAt: Date.now() - 1}, {...notice, expiresAt: Date.now() + 900001}, {...notice, text: "private"}, {...notice, sequence: -1}, {...notice, notificationId: "bad"}]) await test.push(invalid);
+  expect(test.claim).not.toHaveBeenCalled();
+  expect(test.showNotification).not.toHaveBeenCalled();
+  expect(test.fetch).not.toHaveBeenCalled();
+  clock.mockRestore();
+});

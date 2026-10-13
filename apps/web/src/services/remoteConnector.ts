@@ -109,6 +109,7 @@ async function createNoiseTransport(options: RemoteTransportOptions, direct?: Di
   let events: EventHandlers | undefined;
   let sequence = 0;
   let epoch: number | undefined;
+  let multiWriter = false;
   let connectionVersion = 0;
   let disposed = false;
   const lifetime = new AbortController();
@@ -134,6 +135,7 @@ async function createNoiseTransport(options: RemoteTransportOptions, direct?: Di
   const fail = (error?: unknown) => {
     connected = false;
     epoch = undefined;
+    multiWriter = false;
     for (const value of pending.values()) { clearTimeout(value.timer); value.reject(new Error("connection_lost_check_command_status")); }
     pending.clear();
     crypto?.free();
@@ -235,6 +237,8 @@ async function createNoiseTransport(options: RemoteTransportOptions, direct?: Di
               const envelope = message.event;
               if (envelope.event.kind === "hostStatus") {
                 epoch = controllerEpochAfterStatus(epoch, envelope.event.state);
+                if (envelope.event.state === "writable") multiWriter = true;
+                else if (envelope.event.state === "watching" || envelope.event.state.startsWith("controlling:")) multiWriter = false;
               }
               sequence = envelope.event.kind === "replayReset" ? envelope.eventSequence : Math.max(sequence, envelope.eventSequence);
               events?.onEvent(envelope);
@@ -314,7 +318,7 @@ async function createNoiseTransport(options: RemoteTransportOptions, direct?: Di
       let closed = false;
       events = handlers;
       sequence = afterSequence;
-      void request("subscribe", { afterSequence }).then((response) => {
+      void request("subscribe", { afterSequence, protocolVersion: 4 }).then((response) => {
         if (!response.ok) throw new Error("subscription_rejected");
         if (!closed) handlers.onOpen();
       }).catch((error: unknown) => {
@@ -329,7 +333,7 @@ async function createNoiseTransport(options: RemoteTransportOptions, direct?: Di
         send(data) {
           try {
             const value = JSON.parse(data) as { kind?: string };
-            if (value.kind === "controllerHeartbeat" && epoch !== undefined) send({ id: globalThis.crypto.randomUUID(), method: "heartbeat", body: { epoch, afterSequence: sequence } });
+            if (value.kind === "controllerHeartbeat" && (multiWriter || epoch !== undefined)) send({ id: globalThis.crypto.randomUUID(), method: "heartbeat", body: { epoch: epoch ?? 0, afterSequence: sequence } });
           } catch { socket?.close(); }
         },
       };

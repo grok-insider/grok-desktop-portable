@@ -129,6 +129,10 @@ export function SessionView({
   onDismissDiagnosis,
   connected,
   canControl = true,
+  configurationDisabled = false,
+  interruptDisabled = false,
+  shellEnabled = true,
+  submissionDisabled = false,
   workspaceName,
   sessions,
   activeSessionId,
@@ -194,6 +198,10 @@ export function SessionView({
   onDismissDiagnosis?: () => void;
   connected: boolean;
   canControl?: boolean;
+  configurationDisabled?: boolean;
+  interruptDisabled?: boolean;
+  shellEnabled?: boolean;
+  submissionDisabled?: boolean;
   /** Host-projected display name only — never a filesystem path. */
   workspaceName?: string;
   /** Every open conversation, host-ordered (light ADR 0011). */
@@ -497,6 +505,7 @@ export function SessionView({
    * and say nothing about why.
    */
   function submit() {
+    if (submissionDisabled) return;
     if (imageComposer?.images.length) {void imageComposer.submit(draft, false); return;}
     const text = draft.trim();
     if (text.length === 0 || text === "!") {
@@ -512,6 +521,7 @@ export function SessionView({
 
   /** Stop what is running so this message goes next. */
   function sendNow() {
+    if (interruptDisabled || submissionDisabled) return;
     if (imageComposer?.images.length) {void imageComposer.submit(draft, true); return;}
     const text = draft.trim();
     if (text.length === 0 || text === "!") {
@@ -805,6 +815,10 @@ export function SessionView({
             onRemoveQueued={onRemoveQueued}
             configTools={configTools}
             models={models}
+            configurationDisabled={configurationDisabled}
+            interruptDisabled={interruptDisabled}
+            shellEnabled={shellEnabled}
+            submissionDisabled={submissionDisabled}
             modelId={modelId}
             effortId={effortId}
             onModelChange={onModelChange ?? (() => {})}

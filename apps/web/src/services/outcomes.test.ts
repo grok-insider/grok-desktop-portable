@@ -39,6 +39,13 @@ describe("failure messages", () => {
 });
 
 describe("refusal messages", () => {
+  it.each(["queue_revision_conflict", "configuration_conflict"])("explains %s without a persistent error banner or retry", code => {
+    const message = refusalMessage(code);
+    expect(message).toMatch(/changed on another device/i);
+    expect(message).toMatch(/review the current/i);
+    expect(message).toMatch(/nothing was changed by this action/i);
+    expect(isEphemeralFailure({kind: "refused", code})).toBe(true);
+  });
   it("explains lease contention without claiming an incompatible host or lost pairing", () => {
     const failure = {kind: "refused", code: "controller_required"} as const;
     expect(failureMessage(failure, "fallback")).toMatch(/does not have control/i);

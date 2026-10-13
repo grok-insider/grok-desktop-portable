@@ -5,8 +5,8 @@ export const PUBLICATION_ACCOUNT = "https://fabrials.com/account/publications";
 const PENDING = "grok-publication-authorization-v2";
 const token = (value: unknown): value is string => typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value);
 export type PublicationCallback = { code: string; nonce: string; profileId: string; expiresAt: number } | { error: string } | null;
-export interface Publication { id: string; sessionId: string; phase: string; expiresAt: number; revision: number; error?: string }
-export interface PublicationStatus { outcome: "publicationStatus"; authorized: boolean; authorizationExpiresAt?: number; publications: Publication[] }
+export interface Publication { id: string; sessionId: string; phase: string; expiresAt: number; revision: number; error?: string | null }
+export interface PublicationStatus { outcome: "publicationStatus"; authorized: boolean; authorizationExpiresAt?: number | null; publications: Publication[] }
 export type PublicationResult = { outcome: string; [key: string]: unknown };
 export class PublicationUncertain extends Error {
   constructor(readonly idempotencyKey: string) { super("The computer has not confirmed this action. Check its status before trying another action."); }
@@ -36,9 +36,19 @@ export async function publicationCommand(client: LightClient, operation: Operati
 
 export async function publicationStatus(client: LightClient): Promise<PublicationStatus> {
   const reply = await client.send({ kind: "getPublicationStatus" });
-  const value = reply.ok ? reply.value as PublicationStatus : null;
-  if (value?.outcome !== "publicationStatus" || !Array.isArray(value.publications)) throw new Error("Could not check public links on this computer.");
-  return value;
+  const value = reply.ok ? reply.value : null;
+  const record = (item: unknown): item is Record<string, unknown> => item !== null && typeof item === "object" && !Array.isArray(item);
+  const identifier = (item: unknown): item is string => typeof item === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(item);
+  const integer = (item: unknown): item is number => Number.isSafeInteger(item) && Number(item) >= 0;
+  if (!record(value) || value.outcome !== "publicationStatus" || typeof value.authorized !== "boolean"
+    || (value.authorizationExpiresAt !== undefined && value.authorizationExpiresAt !== null && !integer(value.authorizationExpiresAt))
+    || !Array.isArray(value.publications) || value.publications.length > 128
+    || !value.publications.every(row => record(row) && identifier(row.id) && identifier(row.sessionId)
+      && typeof row.phase === "string" && ["active", "uploading", "paused", "needsReview", "pendingDelete", "revoked", "expired"].includes(row.phase)
+      && integer(row.expiresAt) && integer(row.revision)
+      && (row.error === undefined || row.error === null || (typeof row.error === "string" && row.error.length <= 1024)))
+    || new Set(value.publications.map(row => row.id)).size !== value.publications.length) throw new Error("Could not check public links on this computer.");
+  return value as unknown as PublicationStatus;
 }
 
 export function rememberPublicationAuthorization(result: PublicationResult, profileId: string): string {

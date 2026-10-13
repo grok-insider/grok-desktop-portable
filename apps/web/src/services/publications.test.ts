@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LightClient } from "./client";
-import { publicationCommand, PublicationUncertain, rememberPublicationAuthorization, takePublicationCallback } from "./publications";
+import { publicationCommand, publicationStatus, PublicationUncertain, rememberPublicationAuthorization, takePublicationCallback } from "./publications";
 
 const nonce = "n".repeat(43);
 const code = "c".repeat(43);
@@ -43,6 +43,17 @@ describe("publication authorization binding", () => {
 });
 
 describe("publication command receipts", () => {
+  it("rejects invalid authorization and malformed publication state", async () => {
+    const row = {id: "public-id", sessionId: "session", phase: "active", expiresAt: Date.now(), revision: 1};
+    const valid = {outcome: "publicationStatus", authorized: true, authorizationExpiresAt: null, publications: [row]};
+    const send = vi.fn().mockResolvedValue({ok: true, value: valid});
+    const client = {send} as unknown as LightClient;
+    expect(await publicationStatus(client)).toEqual(valid);
+    for (const value of [{...valid, authorized: "true"}, {...valid, publications: [row, row]}, {...valid, publications: [{...row, expiresAt: "tomorrow"}]}, {...valid, publications: [{...row, phase: "unknown"}]}, {...valid, publications: [{...row, id: "https://unexpected.test"}]}]) {
+      send.mockResolvedValueOnce({ok: true, value});
+      await expect(publicationStatus(client)).rejects.toThrow("Could not check public links");
+    }
+  });
   it("queries the receipt after a transport failure and never replays the write", async () => {
     const send = vi.fn().mockRejectedValueOnce(new Error("lost response")).mockResolvedValueOnce({ ok: true, value: { outcome: "publicationCommand", state: "completed", result: { outcome: "publicationStopped", accessRevoked: true } } });
     expect(await publicationCommand({send} as unknown as LightClient, {kind: "stopPublication", publicationId: "id"})).toHaveProperty("accessRevoked", true);

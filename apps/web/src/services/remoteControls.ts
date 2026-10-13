@@ -2,6 +2,8 @@ export interface RemoteCapabilities {
   outcome: "remoteCapabilities";
   projects: boolean;
   contentProtocolVersion?: number;
+  multiWriter?: boolean;
+  multiWriterProtocolVersion?: number;
   pushNotifications?: boolean;
   controlTransfer: boolean;
   devicePanel: boolean;
@@ -43,6 +45,9 @@ const unique = (values: string[]) => new Set(values).size === values.length;
 export function asRemoteCapabilities(value: unknown): RemoteCapabilities | null {
   if (!record(value) || value.outcome !== "remoteCapabilities" || typeof value.projects !== "boolean" || typeof value.controlTransfer !== "boolean" || typeof value.devicePanel !== "boolean") return null;
   if (value.pushNotifications !== undefined && typeof value.pushNotifications !== "boolean") return null;
+  if (value.multiWriter !== undefined && typeof value.multiWriter !== "boolean") return null;
+  if (value.multiWriterProtocolVersion !== undefined && value.multiWriterProtocolVersion !== 4) return null;
+  if (value.multiWriter === true && value.multiWriterProtocolVersion !== 4) return null;
   if (value.contentProtocolVersion !== undefined && (!Number.isInteger(value.contentProtocolVersion) || Number(value.contentProtocolVersion) < 2)) return null;
   const prompt = value.upstreamPrompt;
   if (prompt !== undefined && prompt !== null && (!record(prompt) || ["image", "audio", "embeddedContext"].some((key) => typeof prompt[key] !== "boolean"))) return null;

@@ -59,7 +59,7 @@ export function ShareSession({client, hostId, sessionId, canPublish = true, comp
     if (result.outcome === "publicationAuthorization") {setAuthorizationUrl(rememberPublicationAuthorization(result, hostId)); return;}
     if (result.outcome === "publicationStopped") {
       if (result.accessRevoked !== true || result.keysDestroyed !== true) throw new Error("Permanent deletion has not been confirmed. Check publication status.");
-      setNotice(result.storageCleanup === "complete" ? "Sharing stopped. Our publication copies have been permanently deleted." : "Access is revoked and encryption keys are destroyed. Encrypted file cleanup is pending.");
+      setNotice(`Access is revoked and encryption keys are destroyed. ${result.metadataCleanup === "complete" ? "Identifying metadata is deleted." : "Identifying metadata cleanup is pending."} ${result.storageCleanup === "complete" ? "Encrypted file cleanup is verified complete." : "Encrypted file cleanup is pending."}`);
       setPreview(null);
     } else if (result.outcome === "publicationCreated") setPreview(null);
     await refresh();
@@ -90,7 +90,7 @@ export function ShareSession({client, hostId, sessionId, canPublish = true, comp
   };
   const controls = <>
     {share && <div className="space-y-2 text-body-sm">
-      <a className="break-words text-warning underline" href={`https://fabrials.com/share/grok/${encodeURIComponent(share.id)}`} target="_blank" rel="noopener noreferrer">Public conversation</a>
+      <a className="break-words text-warning underline" href={`https://publications.fabrials.com/#${encodeURIComponent(share.id)}`} target="_blank" rel="noopener noreferrer">Public conversation</a>
       <p>Status: {share.phase}. Expires {new Date(share.expiresAt).toLocaleString()}.</p>
       {share.error && <p className="text-warning">Updates need attention: {share.error}</p>}
       {canPublish && <div className="flex flex-wrap gap-2"><Button disabled={busy || Boolean(pending)} onClick={() => {void mutate({kind: "stopPublication", publicationId: share.id});}}>Stop sharing</Button>{["paused", "needsReview"].includes(share.phase) && share.error !== "publication_source_changed" && <Button disabled={busy || Boolean(pending)} onClick={() => {void mutate({kind: "resumePublication", publicationId: share.id});}}>Resume updates</Button>}</div>}
@@ -110,7 +110,7 @@ export function ShareSession({client, hostId, sessionId, canPublish = true, comp
     {preview && canPublish && <dialog ref={dialog} className="interaction-dialog" aria-labelledby="share-title" onCancel={event => {event.preventDefault(); if (!busy) setPreview(null);}}>
       <h2 id="share-title" className="text-title-sm font-semibold">Publish this conversation</h2>
       <p className="my-3 text-muted-foreground">Anyone with the link can read the messages, tool calls, text results and diffs shown below. Future text is included. Only images selected here are included; future images remain private.</p>
-      <p className="mb-3 text-body-sm">Expires seven days after new text is published. Views and edits do not extend it. Stopping sharing permanently deletes our publication copies; your originals stay on your computer. Copies downloaded by others cannot be recalled.</p>
+      <p className="mb-3 text-body-sm">Expires seven days after new text is published. Views and edits do not extend it. Stopping sharing destroys the publication encryption keys and deletes its identifying metadata. Encrypted file cleanup is tracked separately; your originals stay on your computer. Copies downloaded by others cannot be recalled.</p>
       <div className="max-h-[35dvh] overflow-y-auto rounded-md border border-border p-3" aria-label="Public preview">{preview.document.entries.map((entry, index) => <article className="mb-4" key={index}><h3 className="font-semibold">{entry.role ?? entry.name ?? entry.path ?? entry.kind}</h3><pre className="whitespace-pre-wrap break-words text-body-sm">{entry.text}</pre></article>)}</div>
       {preview.availableImages.length > 0 && <fieldset className="my-3"><legend>Choose up to eight images to publish</legend><ImageReaderContext.Provider value={{client, sessionId}}><div className="grid grid-cols-2 gap-3">{preview.availableImages.map((image, index) => <div key={image.sha256}><TranscriptImages images={[image]} /><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={preview.selectedImageHashes.includes(image.sha256)} disabled={busy || (!preview.selectedImageHashes.includes(image.sha256) && preview.selectedImageHashes.length >= 8)} onChange={event => {void prepare(event.target.checked ? [...preview.selectedImageHashes, image.sha256] : preview.selectedImageHashes.filter(hash => hash !== image.sha256));}} />Publish image {index + 1}</label></div>)}</div></ImageReaderContext.Provider></fieldset>}
       <p className="my-3 text-body-sm text-muted-foreground">{preview.totalEntries} entries · {(preview.totalBytes / 1024).toFixed(1)} KiB. Resource limits pause publishing or delivery; they never increase spending automatically.</p>

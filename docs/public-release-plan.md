@@ -6,9 +6,10 @@ recorded artifacts; they do not qualify later candidates automatically.
 
 The implemented paths and their local evidence are recorded below. Public
 launch remains blocked by the explicit operational, distribution,
-hardware and elapsed-time gates. The follow-up preparation created signed
-commits and four draft PRs. No merge, deployment or daily service installation
-was performed.
+hardware and elapsed-time gates. The first preparation created signed commits and four draft PRs. A prior
+candidate is deployed only on the qualification domain. The 2026-10-14
+multi-device implementation below is newer than that deployment; its in-progress
+checks do not qualify the deployed artifact or a public launch.
 
 Follow-up preparation uses `https://grok.fabrials.com` as an explicitly selected
 qualification origin, with a separate hosting configuration and native pairing
@@ -41,7 +42,7 @@ repositories.
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented and covered by PWA tests; real N/N-1 release upgrade qualification pending |
 | Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Implemented; real Noise/native socket exercised in an isolated TLS browser laboratory; production TLS/Tailscale pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
-| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | 18 Linux CLI lifecycle checks passed on the dated QA candidate; transactional Linux updater implemented; Windows self-update blocked pending safe process supervision and executable ACL validation; installed-service qualification pending |
+| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Transactional Linux updater passes 31 tests including process interruption; Windows Job/ACL implementation remains gated until real guest qualification; installed-service qualification pending |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
 | Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Implemented and synthetic encryption checked; real provider/S24 delivery pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
@@ -49,10 +50,60 @@ repositories.
 | Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Canonical vendor sync, clean source archive and exact QA artifact verified for the dated candidate; platform releases, full native/Rust/WASM attribution and source retention N/N−1 pending |
 | Product qualification | Exact candidate on Linux/Windows/S24, browser engines, accessibility, network failures, 24-hour soak | Pending |
 
+## Multi-device integration, 2026-10-14
+
+Paired devices belonging to the same owner can enqueue into one durable shared
+queue. Ordinary enqueue does not require a queue revision. Stop identifies one
+specific host turn and pauses the remaining messages; interrupt-and-enqueue and
+clear use explicit revision checks. A revoked origin's queued entries remain
+held. An ambiguous turn requires review against the same turn ID and upstream
+idle confirmation, and the queue stays paused after review.
+
+The PWA presents host-authoritative messages without optimistic duplicates,
+per-session queue/configuration state and explicit recovery of uncertain action
+receipts. Receipt metadata is stored before an effect; it contains identifiers,
+kind, state and time only. A lost response never causes an automatic retry.
+Storage failures block new affected actions. Checking a receipt cannot clear or
+resend a draft. Continuing after review and clearing a possible duplicate draft
+are explicit separate choices. Image submission follows the same receipt path.
+
+Models and efforts are session-scoped and sourced from live ACP confirmations,
+including custom model IDs. Stale or unavailable choices are not selectable.
+Configuration requires an idle stable conversation. Official Grok Build 1.0.52
+was exercised with an isolated local synthetic provider: custom model selection,
+effort confirmation, conditional cancellation and an obsolete cancellation that
+did not stop a successor passed. See `evaluation/acp-runtime-2026-10-14.json`.
+This is a protocol qualification without paid inference, not a promise for other
+CLI versions. Unobserved external terminal turns cannot be remotely cancelled.
+Direct `!` shell mode remains unavailable in shared conversations; the UI now
+says so and preserves the draft. Grok's permission-mediated tools remain usable.
+
+Current PWA verification passes 881 tests and TypeScript checking. Hidden Chrome
+155 passes 53 checks with two independently paired browser contexts, real Noise
+and a deterministic ACP fixture: FIFO, custom models/efforts, stale configuration
+and queue revisions, reconnect, missing catalogues, offline storage and local
+deletion. See `evaluation/direct-multiwriter-browser-2026-10-14.json` for artifact
+hashes and the precise scope. A reconnect during a turn exposed stale activity
+from the workspace list; tabs now derive it from the live execution state. A
+regression test fails with the old behavior. Conflict notices expire instead of
+leaving a stale error banner, and the queue status has its own row on mobile.
+This evidence does not qualify inference, physical devices or deployed transport.
+
+Private push has a bounded durable outbox, coalescing, six attempts within a
+fixed fifteen-minute TTL, provider response handling, four workers and durable
+per-registration/global rates. Generic notices carry no conversation content.
+The service worker validates expiry and deduplicates durable notice IDs locally.
+Real provider delivery and suspension on the final S24 artifact remain required.
+Speech playback selects only a browser-advertised local voice and fails closed
+without one; it remains experimental until device qualification.
+
 ## Private content
 
-Bootstrap, replies, events and ordinary commands retain envelope version 2.
-Image operations use envelope version 3, negotiated separately through
+Bootstrap, replies and events retain envelope version 2. Shared host mutations
+use negotiated protocol 4 with host-owned durable FIFO, principal-scoped
+idempotency and one active turn per conversation. Up to eight conversations
+can run in parallel. Older shared clients remain read-only. Image operations
+retain content protocol 3, negotiated separately through
 `contentProtocolVersion: 3` and upstream image support. An incompatible host preserves unsent data. Never replay an uncertain
 command; reconcile its durable receipt. Enrolled projects use opaque IDs.
 
@@ -93,8 +144,11 @@ a 100 MiB browser budget. Drafts expire after seven days. Saved means the durabl
 worker caches static application files only. Session IDs and pairing material
 stay in local state or a URL fragment, never hosting paths or query strings.
 Deletion is fenced against queued writes and invalidated between tabs. Across
-tabs the last completed transaction wins; there is no host observation watermark
-that establishes which tab saw the newest content. An offline device cannot learn
+tabs, each write compares the host observation `(observationEpoch, eventSequence)`
+inside the same IndexedDB transaction. Older, equal or unversioned observations
+cannot replace a newer versioned copy. The host increments and durably writes its
+epoch before serving after restart; snapshot copies wait for their final atomic
+watermark. Identical content never renews retention, including across a restart. An offline device cannot learn
 about host revocation until it reconnects. These local private copies are distinct
 from the public hosting deletion contract.
 

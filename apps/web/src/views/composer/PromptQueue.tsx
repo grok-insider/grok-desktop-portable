@@ -13,7 +13,7 @@ export function PromptQueue({
   onRemove,
   disabled = false,
 }: {
-  queued: { entryId: string; text: string }[];
+  queued: { entryId: string; text: string; originDeviceId?: string; state?: string; images?: unknown[] }[];
   onRemove: (entryId: string) => void;
   disabled?: boolean;
 }) {
@@ -33,10 +33,11 @@ export function PromptQueue({
         >
           <span className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 rounded-full bg-info-soft px-1.5 py-0.5 font-mono text-label font-semibold text-info">
-              Waiting
+              {entry.state === "originRevoked" ? "Held" : "Waiting"}
             </span>
             <span className="truncate text-body-sm text-muted-foreground">
-              {entry.text}
+              {entry.text || (entry.images?.length ? `${entry.images.length} image attachment${entry.images.length === 1 ? "" : "s"}` : "Message")}
+              {entry.originDeviceId && <span className="block text-label" title={entry.originDeviceId}>Device {entry.originDeviceId.slice(-8)}{entry.state === "originRevoked" ? " · revoked" : ""}</span>}
             </span>
           </span>
           <Button
@@ -44,7 +45,7 @@ export function PromptQueue({
             disabled={disabled}
             onClick={() => onRemove(entry.entryId)}
             aria-label={`Remove the waiting message: ${entry.text}`}
-            className="size-7 shrink-0 px-0"
+            className="size-11 shrink-0 px-0"
           >
             <X size={12} aria-hidden="true" />
           </Button>

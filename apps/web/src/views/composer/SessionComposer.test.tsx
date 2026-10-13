@@ -51,6 +51,20 @@ async function review(text: string) {
   });
 }
 
+it("keeps unsupported shared shell drafts intact and offers no shell action", async () => {
+  const submit = vi.fn();
+  render(<SessionComposer connected shellEnabled={false} phase="idle" draft="! git status" onDraftChange={vi.fn()} queued={[]} onRemoveQueued={vi.fn()} models={[]} modelId={null} effortId={null} onModelChange={vi.fn()} onEffortChange={vi.fn()} onSubmit={submit} onSendNow={vi.fn()} onCancel={vi.fn()} />);
+  const input = screen.getByRole("textbox", {name: "Message the agent"});
+  expect(input).toHaveValue("! git status");
+  expect(screen.getByRole("status")).toHaveTextContent("unavailable in shared conversations");
+  expect(screen.getByRole("button", {name: /^Send/})).toBeDisabled();
+  fireEvent.keyDown(input, {key: "Enter"});
+  fireEvent.keyDown(input, {key: "Enter", ctrlKey: true});
+  expect(submit).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", {name: "Add to message"}));
+  expect(screen.queryByRole("menuitem", {name: /Shell/})).not.toBeInTheDocument();
+});
+
 it("keeps the editor mounted, replaces the original selection and returns its cursor without sending", async () => {
   const {input, submit} = setup();
   await review("new");

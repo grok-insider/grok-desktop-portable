@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Card } from "./ui";
 import { remoteExperimentEnabled } from "../services/experiments";
-import { formatAttachments } from "../services/attachments";
+import { formatAttachments, isTextishFile } from "../services/attachments";
 import { claimShare, readShareInbox, recoverShare, removeShare, type ShareInboxEntry } from "../services/shareInboxStore.js";
 
 export interface ShareInboxProps {
   targetId?: string;
   targetLabel?: string;
   canAppend?: (text: string) => boolean;
-  onAppend?: (text: string) => boolean;
+  acceptsImages?: boolean;
+  onAppend?: (text: string, images?: File[]) => boolean | Promise<boolean>;
 }
 
 export function ShareInbox(props: ShareInboxProps) {
@@ -45,7 +46,7 @@ function EnabledShareInbox(props: ShareInboxProps) {
   </section>;
 }
 
-function ShareInboxItem({entry, targetId, targetLabel, canAppend, onAppend, onChanged}: ShareInboxProps & {entry: ShareInboxEntry; onChanged: () => Promise<void>}) {
+function ShareInboxItem({entry, targetId, targetLabel, canAppend, onAppend, acceptsImages, onChanged}: ShareInboxProps & {entry: ShareInboxEntry; onChanged: () => Promise<void>}) {
   const [text, setText] = useState(() => [entry.content.title, entry.content.text, entry.content.url].filter(Boolean).join("\n\n"));
   const [includeFiles, setIncludeFiles] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -64,19 +65,23 @@ function ShareInboxItem({entry, targetId, targetLabel, canAppend, onAppend, onCh
     setBusy(true); setError(undefined);
     try {
       let formatted = text;
+      let images: File[] = [];
       if (includeFiles && entry.content.files.length) {
         const files = entry.content.files.map((file) => new File([file.data], file.name, {type: file.type}));
-        const result = await formatAttachments(files);
+        images = files.filter(file => !isTextishFile(file) && (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name)));
+        if (images.length && !acceptsImages) throw new Error("This conversation cannot accept images yet. Keep the shared item and connect to a computer with image support, or uncheck files.");
+        if (files.some(file => !images.includes(file) && !isTextishFile(file))) throw new Error("Only images and text files can be added here. Uncheck files to keep just the shared text.");
+        const result = await formatAttachments(files.filter(isTextishFile));
         if (result.skipped) throw new Error("Some files could not fit. Uncheck the files or share smaller ones. The original item is still here.");
         formatted = [text, result.text].filter(Boolean).join("\n\n");
       }
       if (!live.current || targetGeneration.current !== generation || latest.current.targetId !== destination) return;
-      if (!formatted.trim()) throw new Error("Add text or include a file before adding this item.");
+      if (!formatted.trim() && !images.length) throw new Error("Add text or include a file before adding this item.");
       if (latest.current.canAppend && !latest.current.canAppend(formatted)) throw new Error("This item would exceed the command limit with the current draft. Shorten it or uncheck the files. Nothing was added.");
       const claimId = await claimShare(entry.id);
       if (!live.current) return;
       if (targetGeneration.current !== generation || latest.current.targetId !== destination) {await onChanged(); return;}
-      if (latest.current.onAppend?.(formatted) !== true) throw new Error("The destination changed. Check its draft, then choose Review again to try explicitly.");
+      if (await latest.current.onAppend?.(formatted, images) !== true) throw new Error("The item could not be added completely. Check the destination draft, then choose Review again to try explicitly.");
       await removeShare(entry.id, claimId);
       await onChanged();
     } catch (failure) {
@@ -99,7 +104,7 @@ function ShareInboxItem({entry, targetId, targetLabel, canAppend, onAppend, onCh
   };
   return <Card>
     <label className="flex flex-col gap-2 text-body-sm">Shared text<textarea value={text} onChange={(event) => setText(event.target.value)} disabled={busy} rows={3} className="min-h-20 w-full resize-y rounded-md border border-input bg-background p-2 text-foreground" /></label>
-    {entry.content.files.length > 0 && <div className="mt-3 text-body-sm"><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={includeFiles} disabled={busy} onChange={(event) => setIncludeFiles(event.target.checked)} />Include files</label><ul>{entry.content.files.map((file, index) => <li key={index}>{file.name} · {file.data.byteLength.toLocaleString()} bytes</li>)}</ul><p className="mt-1 text-muted-foreground">Files become text or encoded text. Images are not sent to vision input.</p></div>}
+    {entry.content.files.length > 0 && <div className="mt-3 text-body-sm"><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={includeFiles} disabled={busy} onChange={(event) => setIncludeFiles(event.target.checked)} />Include files</label><ul>{entry.content.files.map((file, index) => <li key={index}>{file.name} · {file.data.byteLength.toLocaleString()} bytes</li>)}</ul><p className="mt-1 text-muted-foreground">Images are added as image attachments for review. Text files are added to the draft. Nothing is sent automatically.</p></div>}
     {entry.state === "claimed" && <p role="status" className="mt-2 text-warning">A transfer started in this or another tab. Check the destination draft for duplicates before choosing Review again.</p>}
     {error && <p role="status" className="mt-2 text-warning">{error}</p>}
     <div className="mt-3 flex flex-wrap gap-2">{entry.state === "pending" ? <Button disabled={busy || !targetId || !onAppend} onClick={() => {void append();}}>Add to {targetLabel ?? "selected conversation"} draft</Button> : <Button disabled={busy} onClick={() => {void recover();}}>Review again</Button>}<Button disabled={busy} onClick={() => {void discard();}}>Discard shared item</Button><Button disabled={busy} onClick={() => {void onChanged();}}>Refresh items</Button></div>

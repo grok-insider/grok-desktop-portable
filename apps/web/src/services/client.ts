@@ -11,6 +11,7 @@ import { isKnownHostedOrigin } from "./deploymentOrigin";
 import {
   CSRF_HEADER,
   PROTOCOL_VERSION,
+  MULTI_WRITER_PROTOCOL_VERSION,
   SESSION_HEADER,
   WS_SESSION_PROTOCOL_PREFIX,
   WS_SUBPROTOCOL,
@@ -22,6 +23,7 @@ import {
 import { controllerEpochAfterStatus } from "./controller";
 import { commandFits, COMMAND_ID_PLACEHOLDER } from "./commandSize";
 import { forgetDraftScope, privateDraftScope } from "./drafts";
+import { asRemoteCapabilities } from "./remoteControls";
 
 /** Result of a successful pairing exchange. */
 export interface PairResult {
@@ -48,6 +50,23 @@ export type ClientResult<T> =
 
 function unreachable<T>(): ClientResult<T> {
   return { ok: false, failure: { kind: "unreachable" } };
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+async function responseRecord(response: Response): Promise<Record<string, unknown> | null> {
+  try {return record(await response.json());} catch {return null;}
+}
+
+export function commandReceipt(value: unknown, key: string): {state: "queued" | "running" | "completed" | "failed" | "removed" | "needsReview" | "reviewed"; result?: unknown; error?: string} | null {
+  const body = record(value);
+  if (!body || typeof body.outcome !== "string" || !["commandStatus", "commandAccepted"].includes(body.outcome)
+    || (body.idempotencyKey !== undefined && body.idempotencyKey !== key)
+    || typeof body.state !== "string" || !["queued", "running", "completed", "failed", "removed", "needsReview", "reviewed"].includes(body.state)
+    || (body.error !== undefined && body.error !== null && typeof body.error !== "string")) return null;
+  return {state: body.state as "queued" | "running" | "completed" | "failed" | "removed" | "needsReview" | "reviewed", result: body.result, ...(typeof body.error === "string" ? {error: body.error} : {})};
 }
 
 function contentProtocolVersion(operation: Operation): number {
@@ -109,6 +128,7 @@ export class LightClient {
   #controllerToken: string | undefined;
   #eventsGeneration = 0;
   #eventSequence = 0;
+  #multiWriter = false;
   #pendingCommands = new Set<string>();
   #pairAttempt: {nonce: string; generation: number; promise: Promise<ClientResult<PairResult>>} | null = null;
   #resumeAttempt: {generation: number; promise: Promise<ClientResult<PairResult>>} | null = null;
@@ -136,8 +156,24 @@ export class LightClient {
     return !this.remote && isPrivateDocumentOrigin() ? privateDraftScope(location.origin, this.#installationId, this.#browserSessionId ?? undefined) : undefined;
   }
 
+  get receiptScope(): string | undefined {
+    return this.#browserSessionId ? JSON.stringify([this.#storageKey, this.#bridgeBaseUrl, this.#installationId ?? null, this.#browserSessionId]) : undefined;
+  }
+
   get controllerEpoch(): number | undefined {
     return this.#controllerEpoch;
+  }
+
+  get multiWriter(): boolean {
+    return this.#multiWriter;
+  }
+
+  #commandVersion(operation: Operation): number {
+    return this.#multiWriter ? MULTI_WRITER_PROTOCOL_VERSION : contentProtocolVersion(operation);
+  }
+
+  acknowledgeCommandReceipt(key: string): void {
+    if (this.#pendingCommands.delete(key)) this.#storePending();
   }
 
   async forgetPairing(): Promise<void> {
@@ -154,6 +190,7 @@ export class LightClient {
   }
 
   dispose(): void {
+    this.#multiWriter = false;
     this.#authorityGeneration++;
     this.#eventsGeneration++;
     this.#transport?.dispose?.();
@@ -191,6 +228,13 @@ export class LightClient {
    * grant but keeps the remembered port (bridge may still be up).
    */
   clearPairing(options: { clearPort?: boolean } = {}): void {
+    const scope = this.receiptScope;
+    try {
+      if (scope) sessionStorage.removeItem(`grok-command-receipts.v1:${scope}`);
+      sessionStorage.removeItem(`${this.#storageKey}:pending`);
+    } catch {}
+    this.#pendingCommands.clear();
+    this.#multiWriter = false;
     this.#draftCleanup = forgetDraftScope(this.draftScope ?? this.#storedPrivateDraftScope());
     void this.#draftCleanup.catch(() => {});
     this.#authorityGeneration++;
@@ -235,6 +279,7 @@ export class LightClient {
   }
 
   #resetAuthority(): void {
+    this.#multiWriter = false;
     this.#authorityGeneration++;
     this.#eventsGeneration++;
     this.#browserSessionId = null;
@@ -373,7 +418,12 @@ export class LightClient {
         ? { ok: false, failure: { kind: "not_paired" } }
         : unreachable();
     }
-    const value = (await response.json()) as PairResult;
+    const body = await responseRecord(response);
+    if (!body) return unreachable();
+    const value = body as unknown as PairResult;
+    if (typeof value.protocolVersion !== "number" || !Number.isSafeInteger(value.protocolVersion)
+      || typeof value.sessionId !== "string" || !value.sessionId || typeof value.csrfToken !== "string" || !value.csrfToken
+      || (value.sessionToken !== undefined && typeof value.sessionToken !== "string")) return unreachable();
     if (generation !== this.#authorityGeneration || (!this.#transport && pairingChangedInStorage({key: this.#storageKey, oldValue: stored, newValue: this.#storedGrant()}, this.#storageKey !== BRIDGE_SESSION_KEY))) return unreachable();
     if (value.protocolVersion !== PROTOCOL_VERSION) {
       return {
@@ -399,7 +449,9 @@ export class LightClient {
   async pair(nonce: string): Promise<ClientResult<PairResult>> {
     if (this.#pairAttempt?.nonce === nonce && this.#pairAttempt.generation === this.#authorityGeneration) return this.#pairAttempt.promise;
     this.#resetAuthority();
-    const attempt = this.#redeemPair(nonce);
+    this.#pendingCommands.clear();
+    this.#storePending();
+    const attempt = this.#redeemPair(nonce).catch(() => unreachable<PairResult>());
     const pending = {nonce, generation: this.#authorityGeneration, promise: attempt};
     this.#pairAttempt = pending;
     try {return await attempt;} finally {if (this.#pairAttempt === pending) this.#pairAttempt = null;}
@@ -428,7 +480,12 @@ export class LightClient {
     if (!response.ok) {
       return { ok: false, failure: { kind: "rejected" } };
     }
-    const value = (await response.json()) as PairResult;
+    const body = await responseRecord(response);
+    if (!body) return unreachable();
+    const value = body as unknown as PairResult;
+    if (typeof value.protocolVersion !== "number" || !Number.isSafeInteger(value.protocolVersion)
+      || typeof value.sessionId !== "string" || !value.sessionId || typeof value.csrfToken !== "string" || !value.csrfToken
+      || (value.sessionToken !== undefined && typeof value.sessionToken !== "string")) return unreachable();
     if (!isCurrent()) return unreachable();
     if (value.protocolVersion !== PROTOCOL_VERSION) {
       return {
@@ -445,7 +502,7 @@ export class LightClient {
 
   commandFits(operation: Operation, options: { idempotencyKey?: string; controllerEpoch?: number } = {}): boolean {
     return commandFits({
-      protocolVersion: contentProtocolVersion(operation),
+      protocolVersion: this.#commandVersion(operation),
       requestId: COMMAND_ID_PLACEHOLDER,
       operation,
       ...(options.idempotencyKey === undefined ? {} : {idempotencyKey: options.idempotencyKey}),
@@ -461,7 +518,7 @@ export class LightClient {
       return { ok: false, failure: { kind: "not_paired" } };
     }
     const envelope: CommandEnvelope = {
-      protocolVersion: contentProtocolVersion(operation),
+      protocolVersion: this.#commandVersion(operation),
       requestId: crypto.randomUUID(),
       operation,
       ...(options.idempotencyKey === undefined
@@ -473,7 +530,7 @@ export class LightClient {
     };
     if (!commandFits(envelope, this.remote)) return {ok: false, failure: {kind: "refused", code: "request_too_large"}};
     const bodyText = JSON.stringify(envelope);
-    if ((operation.kind === "prompt" || operation.kind === "sendNow" || operation.kind === "promptContent") && options.idempotencyKey) {
+    if ((operation.kind === "prompt" || operation.kind === "sendNow" || operation.kind === "promptContent" || operation.kind === "interruptAndEnqueue") && options.idempotencyKey) {
       this.#pendingCommands.add(options.idempotencyKey);
       this.#storePending();
     }
@@ -493,36 +550,48 @@ export class LightClient {
 
     if (generation !== this.#authorityGeneration) return unreachable();
 
-    if (response.status >= 400 && response.status < 500 && options.idempotencyKey) {
-      this.#pendingCommands.delete(options.idempotencyKey);
-      this.#storePending();
-    }
+    const settle = () => {
+      if (options.idempotencyKey && this.#pendingCommands.delete(options.idempotencyKey)) this.#storePending();
+    };
     if (response.status === 401 || response.status === 403) {
       return { ok: false, failure: { kind: "not_paired" } };
     }
-    if (response.status === 409) {
-      const body = (await response.json()) as { protocolVersion?: number; error?: string | {code?: string} };
-      if (typeof body.protocolVersion === "number" && body.protocolVersion !== PROTOCOL_VERSION) {
-        return { ok: false, failure: { kind: "protocol_mismatch", hostVersion: body.protocolVersion } };
-      }
-      const code = typeof body.error === "string" ? body.error : body.error?.code;
-      return { ok: false, failure: { kind: "refused", code: code ?? "conflict" } };
+    if (response.status === 413) {
+      settle();
+      return {ok: false, failure: {kind: "refused", code: "request_too_large"}};
     }
-    if (response.status === 413) return {ok: false, failure: {kind: "refused", code: "request_too_large"}};
     if (response.status === 400) {
+      settle();
       return { ok: false, failure: { kind: "bad_request" } };
     }
+    if (!response.ok && response.status !== 409 && response.status !== 422) return unreachable();
+    const body = await responseRecord(response);
+    if (generation !== this.#authorityGeneration || !body) return unreachable();
+    const error = typeof body.error === "string" ? body.error : record(body.error)?.code;
+    if (response.status === 409) {
+      if (typeof body.protocolVersion === "number" && (error === "unsupported_protocol_version" || ![PROTOCOL_VERSION, 3, MULTI_WRITER_PROTOCOL_VERSION].includes(body.protocolVersion))) {
+        return { ok: false, failure: { kind: "protocol_mismatch", hostVersion: body.protocolVersion } };
+      }
+      if (typeof error !== "string" || !error) return unreachable();
+      return { ok: false, failure: { kind: "refused", code: error } };
+    }
     if (response.status === 422) {
-      const body = (await response.json()) as { error?: string };
-      return { ok: false, failure: { kind: "refused", code: body.error ?? "refused" } };
+      if (typeof error !== "string" || !error) return unreachable();
+      return { ok: false, failure: { kind: "refused", code: error } };
     }
-    if (!response.ok) {
-      return unreachable();
+    if (!("result" in body) || (body.requestId !== undefined && body.requestId !== envelope.requestId)) return unreachable();
+    if (operation.kind === "getRemoteCapabilities") {
+      const capabilities = asRemoteCapabilities(body.result);
+      if (capabilities) this.#multiWriter = capabilities.multiWriter === true;
     }
-    const body = (await response.json()) as { result?: unknown };
-    if (options.idempotencyKey && (body.result as {outcome?: string} | undefined)?.outcome !== "commandAccepted") {
-      this.#pendingCommands.delete(options.idempotencyKey);
-      this.#storePending();
+    if (options.idempotencyKey && this.#pendingCommands.has(options.idempotencyKey)) {
+      const outcome = record(body.result)?.outcome;
+      if (outcome === "commandAccepted" || outcome === "commandStatus") {
+        const receipt = commandReceipt(body.result, options.idempotencyKey);
+        if (!receipt) return unreachable();
+        if (["completed", "failed", "removed", "reviewed"].includes(receipt.state)) settle();
+      } else if (typeof outcome === "string") settle();
+      else return unreachable();
     }
     return { ok: true, value: body.result };
   }
@@ -545,16 +614,14 @@ export class LightClient {
     const receive = (envelope: EventEnvelope) => {
       if (!current() || envelope.protocolVersion !== PROTOCOL_VERSION) return;
       if (envelope.event.kind === "hostStatus") {
+        if (envelope.event.state === "writable") this.#multiWriter = true;
         this.#controllerEpoch = controllerEpochAfterStatus(this.#controllerEpoch, envelope.event.state);
         if (envelope.event.state === "watching") this.#controllerToken = undefined;
         if (/^controlling:\d+$/.test(envelope.event.state)) this.#controllerToken = /^[0-9a-f]{64}$/.test(envelope.event.controllerToken ?? "") ? envelope.event.controllerToken : undefined;
       }
       if (envelope.event.kind === "replayReset") this.#eventSequence = 0;
-      if (envelope.event.kind === "commandCompleted") {
-        this.#pendingCommands.delete(envelope.event.idempotencyKey);
-        this.#storePending();
-      }
       if (envelope.event.kind !== "hostStatus" && envelope.event.kind !== "replayReset" && envelope.eventSequence > 0 && envelope.eventSequence <= this.#eventSequence) return;
+      if (envelope.event.kind === "commandCompleted" && this.#pendingCommands.delete(envelope.event.idempotencyKey)) this.#storePending();
       this.#eventSequence = Math.max(this.#eventSequence, envelope.eventSequence);
       handlers.onEvent(envelope);
     };
@@ -570,17 +637,15 @@ export class LightClient {
             if (!current()) return;
             if (!reply.ok) {
               if (reply.failure.kind === "refused" && reply.failure.code === "unknown_command") {
-                this.#pendingCommands.delete(idempotencyKey);
-                this.#storePending();
                 handlers.onEvent({protocolVersion: PROTOCOL_VERSION, eventSequence: 0, event: {kind: "commandCompleted", idempotencyKey, error: "command_outcome_unknown"}});
               }
               return;
             }
-            const status = reply.value as {outcome?: string; state?: string; result?: unknown; error?: string};
-            if (status?.outcome !== "commandStatus" || status.state === "running") return;
-            this.#pendingCommands.delete(idempotencyKey);
-            this.#storePending();
-            handlers.onEvent({protocolVersion: PROTOCOL_VERSION, eventSequence: 0, event: {kind: "commandCompleted", idempotencyKey, result: status.result, ...(status.error || status.state === "needsReview" ? {error: status.error ?? "interrupted_needs_review"} : {})}});
+            const status = commandReceipt(reply.value, idempotencyKey);
+            if (!status || status.state === "running" || status.state === "queued") return;
+            if (status.state !== "needsReview" && this.#pendingCommands.delete(idempotencyKey)) this.#storePending();
+            const error = status.error ?? (status.state === "needsReview" ? "interrupted_needs_review" : status.state === "failed" ? "command_failed" : status.state === "removed" ? "command_removed" : status.state === "reviewed" ? "command_reviewed" : undefined);
+            handlers.onEvent({protocolVersion: PROTOCOL_VERSION, eventSequence: 0, event: {kind: "commandCompleted", idempotencyKey, result: status.result, ...(error ? {error} : {})}});
           });
         }
       },
@@ -602,7 +667,7 @@ export class LightClient {
       return null;
     }
     const httpBase = this.#bridgeBaseUrl || location.origin;
-    const url = `${httpBase.replace(/^http/, "ws")}/events${this.#eventSequence > 0 ? `?afterSequence=${this.#eventSequence}` : ""}`;
+    const url = `${httpBase.replace(/^http/, "ws")}/events?protocolVersion=${MULTI_WRITER_PROTOCOL_VERSION}${this.#eventSequence > 0 ? `&afterSequence=${this.#eventSequence}` : ""}`;
     // Family protocol + session token (hosted cannot send Cookie or headers).
     const protocols = [WS_SUBPROTOCOL, `${WS_SESSION_PROTOCOL_PREFIX}${this.#sessionToken}`];
     const socket = new WebSocket(url, protocols);

@@ -263,7 +263,7 @@ export class DraftStore {
     return snapshot;
   }
 
-  async write(sessionId: string, text: string, epoch = this.epoch): Promise<void> {
+  async write(sessionId: string, text: string, epoch = this.epoch, reconcile?: (previous: string | undefined) => {text: string; savedAt: number} | undefined): Promise<void> {
     checkText(text);
     if (!epoch) throw new Error("Draft recovery is no longer enabled for this computer.");
     await this.transaction<void>((transaction, done, fail) => {
@@ -274,7 +274,17 @@ export class DraftStore {
         if (!metadata?.enabled || metadata.epoch !== epoch) {fail(new Error("Draft recovery is no longer enabled for this computer."));return;}
         if (metadata.excludedSessions?.includes(sessionId)) {fail(new Error("Saving this conversation was disabled. Turn history off and on to save it again."));return;}
         const drafts = transaction.objectStore("drafts");
-        reserveDraftBytes(drafts, [{scope: this.scope, sessionId, text, savedAt: this.now()}], this.now(), done, fail);
+        if (reconcile) {
+          const previous = drafts.get([this.scope, sessionId]);
+          previous.onsuccess = () => {
+            try {
+              const next = reconcile(previous.result?.text);
+              if (!next) {done(); return;}
+              checkText(next.text);
+              reserveDraftBytes(drafts, [{scope: this.scope, sessionId, ...next}], this.now(), done, fail);
+            } catch (error) {fail(error instanceof Error ? error : new Error("History could not be saved."));}
+          };
+        } else reserveDraftBytes(drafts, [{scope: this.scope, sessionId, text, savedAt: this.now()}], this.now(), done, fail);
         } catch (error) {fail(error instanceof Error ? error : new Error("Draft storage is unavailable."));}
       };
     });

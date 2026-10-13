@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "scope": "official-cli-local-synthetic-provider",
+  "programSha256": "c582b6f61f93b49bbd477712d0d1478ff271f2bc64ceeac29c12766e5923cb26",
+  "paidInference": false,
+  "privateProfileMounted": false,
+  "checks": {
+    "effortConfirmed": true,
+    "customModelConfirmed": true,
+    "targetCancelled": true,
+    "staleCancelDidNotEndSuccessor": true,
+    "successorCompleted": true
+  },
+  "version": "grok 1.0.52 (0920c8169e27)",
+  "models": [
+    {
+      "id": "grok-synthetic",
+      "name": "grok-synthetic"
+    },
+    {
+      "id": "relay/custom",
+      "name": "relay/custom"
+    }
+  ],
+  "initialConfigOptions": [
+    {
+      "id": "model",
+      "name": "Model",
+      "category": "model",
+      "type": "select",
+      "currentValue": "grok-synthetic",
+      "options": [
+        {
+          "value": "grok-synthetic",
+          "name": "grok-synthetic"
+        },
+        {
+          "value": "relay/custom",
+          "name": "relay/custom"
+        }
+      ]
+    },
+    {
+      "id": "reasoning_effort",
+      "name": "Reasoning Effort",
+      "category": "thought_level",
+      "type": "select",
+      "currentValue": "low",
+      "options": [
+        {
+          "value": "low",
+          "name": "Low"
+        },
+        {
+          "value": "high",
+          "name": "High"
+        }
+      ]
+    }
+  ],
+  "effortResult": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "result": {
+      "configOptions": [
+        {
+          "id": "model",
+          "name": "Model",
+          "category": "model",
+          "type": "select",
+          "currentValue": "grok-synthetic",
+          "options": [
+            {
+              "value": "grok-synthetic",
+              "name": "grok-synthetic"
+            },
+            {
+              "value": "relay/custom",
+              "name": "relay/custom"
+            }
+          ]
+        },
+        {
+          "id": "reasoning_effort",
+          "name": "Reasoning Effort",
+          "category": "thought_level",
+          "type": "select",
+          "currentValue": "high",
+          "options": [
+            {
+              "value": "low",
+              "name": "Low"
+            },
+            {
+              "value": "high",
+              "name": "High"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "customResult": {
+    "jsonrpc": "2.0",
+    "id": 5,
+    "result": {
+      "configOptions": [
+        {
+          "id": "model",
+          "name": "Model",
+          "category": "model",
+          "type": "select",
+          "currentValue": "relay/custom",
+          "options": [
+            {
+              "value": "grok-synthetic",
+              "name": "grok-synthetic"
+            },
+            {
+              "value": "relay/custom",
+              "name": "relay/custom"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "invalidModelError": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": "unknown model id"
+  },
+  "status": "passed"
+}

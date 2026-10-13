@@ -24,6 +24,8 @@ import type {
 
 /** Everything the Work surface shows, folded from the host event stream. */
 export interface Projection {
+  observedThrough?: number;
+  observationEpoch?: number;
   transcript: TranscriptEntry[];
   imageRejected?: boolean;
   tools: ToolEntry[];
@@ -64,6 +66,9 @@ export const EMPTY_PROJECTION: Projection = {
 function projectOne(current: Projection, envelope: EventEnvelope): Projection {
   const event = envelope.event;
   switch (event.kind) {
+    case "sessionExecutionChanged":
+    case "sessionModelsChanged":
+      return current;
     case "messageImage": {
       const existing = current.transcript.findIndex(entry => entry.liveImages?.some(image => image.id === event.imageId));
       if (existing >= 0) {
@@ -408,6 +413,9 @@ function eventSession(envelope: EventEnvelope): string | null {
  * inventing a row from a stray delta would show work the user never started.
  */
 export function project(current: Projections, envelope: EventEnvelope): Projections {
+  if (envelope.event.kind === "workspacesChanged" && Number.isSafeInteger(envelope.eventSequence) && envelope.eventSequence >= 0) {
+    return Object.fromEntries(Object.entries(current).map(([id, projection]) => [id, projection.observedThrough === -1 ? {...projection, observedThrough: envelope.eventSequence, observationEpoch: envelope.observationEpoch ?? 0} : projection]));
+  }
   const sessionId = eventSession(envelope);
   if (sessionId === null) {
     return current;
@@ -423,10 +431,10 @@ export function project(current: Projections, envelope: EventEnvelope): Projecti
     if (envelope.event.kind !== "sessionSnapshot") {
       return current;
     }
-    return { ...current, [sessionId]: projectOne(EMPTY_PROJECTION, envelope) };
+    return { ...current, [sessionId]: {...projectOne(EMPTY_PROJECTION, envelope), observedThrough: envelope.eventSequence || -1, observationEpoch: envelope.observationEpoch ?? 0} };
   }
   const next = projectOne(existing, envelope);
-  return next === existing ? current : { ...current, [sessionId]: next };
+  return next === existing ? current : { ...current, [sessionId]: {...next, observationEpoch: envelope.observationEpoch ?? 0, observedThrough: envelope.event.kind === "sessionSnapshot" && envelope.eventSequence === 0 ? -1 : existing.observedThrough === -1 ? -1 : envelope.eventSequence > 0 ? envelope.eventSequence : existing.observedThrough} };
 }
 
 /** Begin tracking a conversation, keeping anything already folded for it. */

@@ -465,7 +465,7 @@ describe("resume", () => {
     });
     expect(socket).not.toBeNull();
     expect(constructed).toHaveLength(1);
-    expect(constructed[0]?.url).toBe("ws://127.0.0.1:20001/events");
+    expect(constructed[0]?.url).toBe("ws://127.0.0.1:20001/events?protocolVersion=4");
     expect(constructed[0]?.protocols).toEqual([
       WS_SUBPROTOCOL,
       `${WS_SESSION_PROTOCOL_PREFIX}${"a".repeat(64)}`,
@@ -580,4 +580,33 @@ it("uses authenticated private installation and pairing identities and deletes r
   expect(replacement.draftScope).not.toBe(firstScope);
   expect(await store.read()).toEqual({});
   expect(await store.enabled()).toBe(false);
+});
+
+
+it.each([null, [], {}, {protocolVersion: PROTOCOL_VERSION, sessionId: "s", sessionToken: "token"}, {protocolVersion: PROTOCOL_VERSION, sessionId: "s", sessionToken: "token", csrfToken: 1}])("does not accept malformed pairing data: %j", async body => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json(body)));
+  const client = new LightClient();
+  await expect(client.pair("a".repeat(64))).resolves.toEqual({ok: false, failure: {kind: "unreachable"}});
+  expect(client.paired).toBe(false);
+});
+
+it("returns a failure instead of rejecting when a pairing response is truncated", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response('{"sessionId":')));
+  await expect(new LightClient().pair("a".repeat(64))).resolves.toEqual({ok: false, failure: {kind: "unreachable"}});
+});
+
+it("purges only the revoked pairing's command receipts and its pending transport keys", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({sessionId: "browser", sessionToken: "private-token", csrfToken: "csrf", installationId: "installation", protocolVersion: PROTOCOL_VERSION})));
+  const client = new LightClient({bridgeBaseUrl: "http://127.0.0.1:20001"});
+  await client.pair("a".repeat(64));
+  const scope = client.receiptScope!;
+  expect(scope).not.toContain("private-token");
+  sessionStorage.setItem(`grok-command-receipts.v1:${scope}`, '[{"sessionId":"private-session"}]');
+  sessionStorage.setItem(`${BRIDGE_SESSION_KEY}:pending`, '["private-key"]');
+  sessionStorage.setItem("grok-command-receipts.v1:other-computer", "unrelated");
+  client.clearPairing();
+  expect(client.receiptScope).toBeUndefined();
+  expect(sessionStorage.getItem(`grok-command-receipts.v1:${scope}`)).toBeNull();
+  expect(sessionStorage.getItem(`${BRIDGE_SESSION_KEY}:pending`)).toBeNull();
+  expect(sessionStorage.getItem("grok-command-receipts.v1:other-computer")).toBe("unrelated");
 });

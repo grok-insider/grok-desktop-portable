@@ -1,5 +1,5 @@
 /**
- * Client-side model catalog helpers (Grok-only filter is enforced on the host;
+ * Client-side model catalog helpers (live choices are confirmed by the host;
  * these helpers shape UI state from host projections).
  */
 
@@ -9,6 +9,7 @@ export interface EffortOption {
 }
 
 export interface ModelProjection {
+  selectable?: boolean;
   id: string;
   name: string;
   supportsReasoningEffort: boolean;

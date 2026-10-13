@@ -29,7 +29,7 @@ beforeEach(() => {
   FakeRecognition.latest = undefined as unknown as FakeRecognition;
   vi.stubGlobal("SpeechRecognition", FakeRecognition);
   vi.stubGlobal("SpeechSynthesisUtterance", FakeUtterance);
-  vi.stubGlobal("speechSynthesis", {speak:vi.fn(),cancel:vi.fn(),pause:vi.fn(),resume:vi.fn()});
+  vi.stubGlobal("speechSynthesis", {getVoices:vi.fn(() => [{voiceURI:"local-en", lang:"en-US", localService:true, default:true}]), speak:vi.fn(),cancel:vi.fn(),pause:vi.fn(),resume:vi.fn()});
 });
 afterEach(() => {cleanup();vi.unstubAllGlobals();vi.useRealTimers();});
 
@@ -118,6 +118,23 @@ describe("dictation experiment", () => {
 });
 
 describe("speech playback experiment", () => {
+  it("never selects a network voice and fails closed without an installed voice", () => {
+    vi.mocked(window.speechSynthesis.getVoices).mockReturnValue([{voiceURI: "cloud", lang: "en-US", localService: false, default: true} as SpeechSynthesisVoice]);
+    render(<SpeechPlayback text="Private answer" disabled={false} />);
+    fireEvent.click(screen.getByRole("button", {name: "Read last answer"}));
+    expect(screen.getByRole("alert")).toHaveTextContent("No on-device voice");
+    expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
+  });
+  it("pins every chunk to the selected local voice and stops if that voice disappears", () => {
+    render(<SpeechPlayback text={"Private answer ".repeat(100)} disabled={false} />);
+    fireEvent.click(screen.getByRole("button", {name: "Read last answer"}));
+    const utterance = vi.mocked(window.speechSynthesis.speak).mock.calls[0][0];
+    expect(utterance.voice?.voiceURI).toBe("local-en");
+    vi.mocked(window.speechSynthesis.getVoices).mockReturnValue([]);
+    act(() => utterance.onend?.(new Event("end") as SpeechSynthesisEvent));
+    expect(window.speechSynthesis.speak).toHaveBeenCalledOnce();
+    expect(screen.getByRole("alert")).toHaveTextContent("no longer available");
+  });
   it("keeps the idle control compact and exposes active controls with accessible names", () => {
     render(<SpeechPlayback text="One answer." disabled={false} />);
     const read = screen.getByRole("button", {name: "Read last answer"});

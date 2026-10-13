@@ -41,7 +41,7 @@ describe("share inbox experiment", () => {
     fireEvent.change(input, {target: {value: "edited"}});
     fireEvent.click(screen.getByRole("button", {name: /Add to/}));
     await waitFor(() => expect(inbox.removeShare).toHaveBeenCalledWith("id", "claim"));
-    expect(append).toHaveBeenCalledExactlyOnceWith("edited");
+    expect(append).toHaveBeenCalledExactlyOnceWith("edited", []);
   });
   it("does not paste into a changed destination while claiming", async () => {
     let resolve!: (value: string) => void;

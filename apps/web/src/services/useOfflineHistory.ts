@@ -16,7 +16,7 @@ export function useOfflineHistory(scope: string | undefined, projections?: Proje
       const snapshot = await runtime.store.load();
       if (!runtime.alive || generation !== runtime.generation || ticket !== runtime.loadingTicket) return;
       runtime.snapshot = snapshot;
-      if (!runtime.saving) for (const {savedAt: _, ...content} of snapshot.conversations) runtime.saved.set(content.sessionId, offlineSignature(content));
+      if (!runtime.saving) for (const {savedAt: _, ...content} of snapshot.conversations) runtime.saved.set(content.sessionId, `${content.observationEpoch ?? 0}:${content.observedThrough ?? "legacy"}:${offlineSignature(content)}`);
       runtime.loading = false;
       publish();
     } catch {
@@ -57,8 +57,8 @@ export function useOfflineHistory(scope: string | undefined, projections?: Proje
           for (const id of ids) {
             if (!runtime.alive || generation !== runtime.generation || !runtime.snapshot.enabled) return;
             const projection = runtime.latest?.[id];
-            if (!projection || runtime.snapshot.excluded.includes(id) || !projection.transcript.length && !projection.tools.length) continue;
-            const content = offlineSignature(offlineContent(id, projection));
+            if (!projection || projection.observedThrough === -1 || runtime.snapshot.excluded.includes(id) || !projection.transcript.length && !projection.tools.length) continue;
+            const content = `${projection.observationEpoch ?? 0}:${projection.observedThrough ?? "legacy"}:${offlineSignature(offlineContent(id, projection))}`;
             if (runtime.saved.get(id) === content || runtime.failed.get(id) === content) continue;
             try {
               await runtime.store!.save(id, projection, runtime.snapshot.epoch);

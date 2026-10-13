@@ -18,6 +18,7 @@ const origin = deploymentOrigin(process.env.REMOTE_QA_ORIGIN ?? buildOrigin(awai
 assert.equal(buildOrigin(await readFile(join(dist, "index.html"), "utf8")), origin, "Browser qualification must use the built shell's exact origin");
 const hostname = new URL(origin).hostname;
 const cropDist = process.env.REMOTE_QA_CROP_DIST ? resolve(process.env.REMOTE_QA_CROP_DIST) : undefined;
+const multiwriter = process.env.REMOTE_QA_MULTIWRITER === "1";
 const deployment = JSON.parse(await readFile(artifact ? join(artifact, ".vercel/output/config.json") : resolve(deploymentConfigPath(origin)), "utf8"));
 const report: any = {schema: 1, startedAt: new Date().toISOString(), origin, checks: [], errors: [], transport: [], notQualified: ["Production TLS trust: laboratory self-signed certificate", "Actual hosting and CDN routing", "Tailscale", "Physical Android and Apple hardware", "Grok inference: synthetic history only", "Real push delivery", "GPU performance: hidden software compositor"]};
 const processes: ChildProcess[] = [];
@@ -43,6 +44,10 @@ let sourceNoticesPath = "", sourceNotices = "";
 let sourceUnavailable = true;
 const expectedResourceErrors = new Set<string>();
 const upstreams = new Set<WebSocket>();
+const heldDownstreams = new Set<number>();
+const bufferedDownstreams = new Map<number, (() => void)[]>();
+let nextConnection = 0;
+const releaseDownstream = (connection: number) => {heldDownstreams.delete(connection); for (const deliver of bufferedDownstreams.get(connection) ?? []) deliver(); bufferedDownstreams.delete(connection);};
 try {
   if (artifact) {
     assert.ok(process.env.REMOTE_QA_SPANREED, "Artifact qualification requires REMOTE_QA_SPANREED for the real corresponding-source proof");
@@ -51,12 +56,13 @@ try {
     report.sources = manifest.sources;
     check("deployment_candidate_and_real_corresponding_source_verified", manifest.deployCandidate);
   }
+  report.runnerSha256 = createHash("sha256").update(await readFile(import.meta.filename)).digest("hex");
   report.artifactSha256 = createHash("sha256").update(await readFile(join(dist, "index.html"))).update(await readFile(join(dist, "sw.js"))).digest("hex");
   const nativeBinary = process.env.DIRECT_QA_NATIVE_BINARY ?? "/tmp/fabrials-remote-integration/target/debug/examples/direct_browser_fixture";
   report.nativeFixtureSha256 = createHash("sha256").update(await readFile(nativeBinary)).digest("hex");
   const state = join(directory, "native");
   await mkdir(state, {mode: 0o700});
-  start("native", nativeBinary, [], {...process.env, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, GROK_HOME: join(state, "synthetic-grok")});
+  start("native", nativeBinary, [], {...process.env, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
   await waitFor(async () => {try {await readFile(join(state, "ready.json")); return true;} catch {return false;}});
   const native = JSON.parse(await readFile(join(state, "ready.json"), "utf8"));
   nativePort = native.port;
@@ -91,10 +97,11 @@ try {
     return new Response(file, {headers});
   }, websocket: {
     open(socket) {
+      const connection = ++nextConnection;
       const upstream = new WebSocket(`ws://127.0.0.1:${nativePort}/remote`, {headers: {Host: "direct-fixture.test", Origin: socket.data.origin, "Sec-WebSocket-Protocol": "fabrials.remote.v1"}});
       socket.data.upstream = upstream; upstreams.add(upstream);
       upstream.onopen = () => {for (const value of socket.data.queued) upstream.send(value); socket.data.queued = [];};
-      upstream.onmessage = event => {report.transport.push({at:"native-frame",type:typeof event.data,bytes:event.data.length,kind:typeof event.data === "string" ? JSON.parse(event.data).type : "binary"}); socket.send(event.data);};
+      upstream.onmessage = event => {report.transport.push({at:"native-frame",connection,type:typeof event.data,bytes:event.data.length,kind:typeof event.data === "string" ? JSON.parse(event.data).type : "binary"}); if (heldDownstreams.has(connection)) {const buffered = bufferedDownstreams.get(connection) ?? []; assert.ok(buffered.length < 512, "bounded synthetic downstream delay"); buffered.push(() => socket.send(event.data)); bufferedDownstreams.set(connection, buffered);} else socket.send(event.data);};
       upstream.onclose = () => {upstreams.delete(upstream); socket.close();};
       upstream.onerror = event => {report.transport.push({at:"native-error",message:event.message}); socket.close();};
     },
@@ -121,7 +128,7 @@ try {
   page = await context.newPage();
   page.setDefaultTimeout(15000);
   const cloudRequests: string[] = [];
-  await context.route("**/*", (route: any) => {
+  const networkRoute = (route: any) => {
     const url = new URL(route.request().url());
     const app = url.origin === origin;
     const host = url.origin === "https://direct-fixture.test";
@@ -130,7 +137,8 @@ try {
     if (app || host || alias || crop || url.protocol === "data:" || url.protocol === "blob:") return route.continue();
     cloudRequests.push(url.hostname);
     return route.abort();
-  });
+  };
+  await context.route("**/*", networkRoute);
   page.on("websocket", (socket: any) => {socket.on("socketerror", (message: string) => report.transport.push({at:"browser-error",message}));});
   page.on("pageerror", (error: Error) => report.errors.push(error.message));
   page.on("console", (message: any) => {
@@ -209,6 +217,139 @@ try {
   check("closing_source_preserves_computer_settings_and_connection", await page.getByRole("dialog",{name:"Computer settings",exact:true}).isVisible() && await sourceButton().evaluate((element: HTMLElement) => element === document.activeElement));
   await page.getByRole("button",{name:"Close computer settings",exact:true}).click();
   check("source_information_does_not_disconnect_the_private_session", await input().isVisible());
+  if (multiwriter) {
+    report.multiwriter = {fixture: "Actual Noise host with deterministic synthetic ACP; no inference", sessions: 1, browserContexts: 2, schedulerBound: "Covered by Rust saturation tests; browser checks convergence and exactly-once transcript"};
+    report.notQualified.push("Cancellation GUI execution: the synthetic ACP intentionally does not advertise qualified targeted cancellation");
+    const firstConnection = nextConnection;
+    await writeFile(join(state, "pair-next"), "", {mode:0o600});
+    await waitFor(async () => {try {await readFile(join(state,"pair-next.json")); return true;} catch {return false;}});
+    const secondPairing = JSON.parse(await readFile(join(state, "pair-next.json"), "utf8"));
+    const secondary = await browser.newContext({viewport:{width:390,height:844}});
+    await secondary.route("**/*", networkRoute);
+    const other = await secondary.newPage();
+    other.setDefaultTimeout(15000);
+    other.on("pageerror", (error: Error) => report.errors.push(`second client: ${error.message}`));
+    other.on("console", (message: any) => {if (message.type() === "error") report.errors.push(`second client: ${message.text().slice(0,500)}`);});
+    const sessionId = "synthetic-direct-session";
+    const ledger = async () => JSON.parse(await readFile(join(state,"session-execution.json"),"utf8"));
+    const execution = async () => (await ledger()).sessions[sessionId];
+    const errorReceipts = async (code: string) => {
+      try {return Object.values(JSON.parse(await readFile(join(state,"command-receipts.json"),"utf8")).entries).filter((value: any) => value.receipt.error === code).length;} catch {return 0;}
+    };
+    const queueText = async (target: any) => target.getByRole("list",{name:"Waiting to be sent",exact:true}).locator("li").allTextContents();
+    const both = [page,other];
+    const waitQueue = async (expected: string[]) => {
+      await waitFor(async () => JSON.stringify((await execution())?.queue.map((entry: any) => entry.text)) === JSON.stringify(expected));
+      for (const target of both) await waitFor(async () => {const text=await queueText(target); return text.length === expected.length && text.every((value: string,index: number) => value.includes(expected[index]));});
+    };
+    const send = async (target: any, text: string) => {
+      const composer=target.getByRole("textbox",{name:"Message the agent",exact:true});
+      await composer.fill(text); await composer.press("Enter");
+      await waitFor(async () => await composer.inputValue() === "");
+    };
+    const select = async (target: any,label: string,value: string) => {
+      await target.getByRole("button",{name:label,exact:true}).click();
+      await target.getByRole("option",{name:value,exact:true}).click();
+    };
+    const confirmed = async (target: any,label: string,value: string) => waitFor(async () => (await target.getByRole("button",{name:label,exact:true}).textContent())?.includes(value) === true);
+    const ephemeralConflict = async (message: string,name: string) => {
+      await page.locator("[data-sonner-toast]").getByText(message,{exact:true}).waitFor();
+      check(`${name}_is_explained_as_a_transient_notice`,await page.getByRole("alert").filter({hasText:message}).count() === 0);
+      await page.getByText(message,{exact:true}).waitFor({state:"hidden",timeout:10000});
+      check(`${name}_dismisses_without_a_persistent_error`,await page.getByText("The host refused the request.",{exact:true}).count() === 0);
+    };
+    try {
+      await other.goto(`${origin}/#directPair=${Buffer.from(JSON.stringify(secondPairing)).toString("base64url")}`);
+      await other.getByRole("button",{name:"Pair and connect",exact:true}).click();
+      await other.getByText("Synthetic direct connection QA. No Grok process is running.",{exact:true}).waitFor();
+      check("two_independent_pairings_are_simultaneously_writable_without_takeover", await Promise.all(both.map(target => target.getByRole("button",{name:"Pause queue",exact:true}).isEnabled())).then(values => values.every(Boolean)));
+      await confirmed(page,"Model","Synthetic custom model"); await confirmed(other,"Model","Synthetic custom model");
+      await select(page,"Model","Synthetic alternate model");
+      for (const target of both) await confirmed(target,"Model","Synthetic alternate model");
+      await select(other,"Reasoning effort","Synthetic high");
+      for (const target of both) await confirmed(target,"Reasoning effort","Synthetic high");
+      check("custom_model_and_effort_roundtrip_converges_across_devices",true);
+      const staleBefore=await errorReceipts("configuration_conflict");
+      await page.getByRole("button",{name:"Model",exact:true}).click();
+      heldDownstreams.add(firstConnection);
+      await select(other,"Model","Synthetic custom model");
+      await confirmed(other,"Model","Synthetic custom model");
+      await page.getByRole("option",{name:"Synthetic custom model",exact:true}).click();
+      await waitFor(async () => await errorReceipts("configuration_conflict") === staleBefore + 1);
+      releaseDownstream(firstConnection);
+      await confirmed(page,"Model","Synthetic custom model");
+      check("stale_model_revision_is_refused_without_overwriting_newer_device_choice",true);
+      await ephemeralConflict("The model settings changed on another device. Review the current settings before trying again. Nothing was changed by this action.","model_revision_conflict");
+      await page.getByRole("button",{name:"Pause queue",exact:true}).click();
+      for (const target of both) await target.getByRole("button",{name:"Resume queue",exact:true}).waitFor();
+      await send(page,"MW_FIRST"); await waitQueue(["MW_FIRST"]);
+      await send(other,"MW_SECOND"); await waitQueue(["MW_FIRST","MW_SECOND"]);
+      check("paused_fifo_preserves_distinct_device_origins_without_starting_inference", (await execution()).activeTurn === null && new Set((await execution()).queue.map((entry: any) => entry.originDeviceId)).size === 2);
+      check("paused_queue_fits_mobile_viewport",await other.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await other.screenshot({path:join(directory,"multiwriter-queue-mobile.png")});
+      const clearBefore=await errorReceipts("queue_revision_conflict");
+      await page.getByRole("button",{name:"Clear pending messages",exact:true}).click();
+      await send(other,"MW_CONCURRENT"); await waitQueue(["MW_FIRST","MW_SECOND","MW_CONCURRENT"]);
+      await page.getByRole("button",{name:"Confirm clear",exact:true}).click();
+      await waitFor(async () => await errorReceipts("queue_revision_conflict") === clearBefore + 1);
+      await waitQueue(["MW_FIRST","MW_SECOND","MW_CONCURRENT"]);
+      check("stale_clear_revision_preserves_concurrently_enqueued_messages",true);
+      await ephemeralConflict("The queue changed on another device. Review the current messages before trying again. Nothing was changed by this action.","queue_revision_conflict");
+      await other.getByRole("button",{name:"Remove the waiting message: MW_CONCURRENT",exact:true}).click();
+      await waitQueue(["MW_FIRST","MW_SECOND"]);
+      await page.getByRole("button",{name:"Resume queue",exact:true}).click();
+      await waitFor(async () => (await execution()).activeTurn?.entry.text === "MW_FIRST");
+      await waitQueue(["MW_SECOND"]);
+      for (const target of both) {
+        await target.getByText("accepted:MW_FIRST",{exact:true}).waitFor();
+        check(target === page ? "first_device_model_changes_disabled_during_turn" : "second_device_model_changes_disabled_during_turn", await target.getByRole("button",{name:"Model",exact:true}).isDisabled());
+        check(target === page ? "first_device_unqualified_stop_disabled" : "second_device_unqualified_stop_disabled", await target.getByRole("button",{name:"Stop the current turn",exact:true}).isDisabled());
+      }
+      const beforeReload=(await execution()).activeTurn.turnId;
+      const beforeReceipts=Object.keys((await ledger()).receipts).length;
+      await other.reload();
+      await other.getByRole("button",{name:"Connect",exact:true}).click();
+      await other.getByText("accepted:MW_FIRST",{exact:true}).waitFor();
+      await waitQueue(["MW_SECOND"]);
+      check("second_device_reconnect_preserves_active_turn_queue_and_receipt_count", (await execution()).activeTurn.turnId === beforeReload && Object.keys((await ledger()).receipts).length === beforeReceipts);
+      for (const target of both) check(target === page ? "original_device_transcript_not_reset_or_duplicated" : "reconnecting_device_transcript_not_duplicated", await target.getByRole("article",{name:"Your message",exact:true}).filter({hasText:"MW_FIRST"}).count() === 1 && await target.getByText("accepted:MW_FIRST",{exact:true}).count() === 1);
+      await writeFile(join(state,"release-turn"),sessionId,{mode:0o600});
+      await waitFor(async () => (await execution()).activeTurn?.entry.text === "MW_SECOND");
+      await waitQueue([]);
+      for (const target of both) await target.getByText("accepted:MW_SECOND",{exact:true}).waitFor();
+      await writeFile(join(state,"release-turn"),sessionId,{mode:0o600});
+      await waitFor(async () => (await execution()).activeTurn === null);
+      for (const target of both) await waitFor(async () => await target.getByRole("button",{name:"Model",exact:true}).isEnabled());
+      check("both_devices_allow_model_changes_after_fifo_drains",true);
+      for (const target of both) await target.getByText("Working",{exact:true}).waitFor({state:"hidden"});
+      check("both_devices_clear_working_status_after_fifo_drains",true);
+      const receipts=Object.values((await ledger()).receipts) as any[];
+      check("fifo_executes_each_accepted_turn_once_and_removal_never_executes",receipts.filter(row => row.state === "completed").length === 2 && receipts.filter(row => row.state === "removed").length === 1);
+      for (const target of both) {
+        const messages=await target.getByRole("article",{name:"Your message",exact:true}).allTextContents();
+        const synthetic=messages.filter((text: string) => text.includes("MW_"));
+        assert.equal(synthetic.length,2); assert.ok(synthetic[0].includes("MW_FIRST") && synthetic[1].includes("MW_SECOND"));
+      }
+      check("both_transcripts_agree_on_exactly_once_fifo_order",true);
+      await page.screenshot({path:join(directory,"multiwriter-desktop.png")});
+      await other.screenshot({path:join(directory,"multiwriter-mobile.png")});
+      await writeFile(join(state,"disable-models"),sessionId,{mode:0o600});
+      for (const target of both) {
+        await waitFor(async () => await target.getByRole("button",{name:"Reasoning effort",exact:true}).count() === 0);
+        await target.getByRole("button",{name:"Model",exact:true}).click();
+        const options=target.getByRole("listbox",{name:"Model",exact:true}).getByRole("option");
+        check(target === page ? "first_empty_catalogue_has_no_selectable_model" : "second_empty_catalogue_has_no_selectable_model", await options.count() === 1 && await options.first().isDisabled());
+        await target.keyboard.press("Escape");
+      }
+      report.multiwriter.queueReceipts={completed:2,removed:1};
+      report.multiwriter.expectedConflicts={configuration:1,clearQueue:1};
+    } catch(error) {
+      report.multiwriter.browserFailure = await Promise.all(both.map(async (target,index) => ({device:index + 1,modelDisabled:await target.getByRole("button",{name:"Model",exact:true}).isDisabled().catch(() => null),workingBadges:await target.getByText("Working",{exact:true}).count()})));
+      await other.screenshot({path:join(directory,"multiwriter-second-failure.png")}).catch(() => {});
+      await writeFile(join(directory,"multiwriter-second-failure.txt"),await other.locator("body").innerText().catch(() => "unavailable"),{mode:0o600});
+      throw error;
+    } finally {releaseDownstream(firstConnection); await secondary.close();}
+  }
   await page.getByRole("button", {name:"Drafts off",exact:true}).click();
   await page.getByRole("button", {name:"Remember drafts on this device",exact:true}).click();
   await page.getByRole("button", {name:"Offline history",exact:true}).click();
@@ -311,7 +452,7 @@ try {
   check("no_external_application_requests", cloudRequests.length === 0);
   check("no_uncaught_browser_errors", report.errors.length === 0);
   report.result = "passed";
-} catch (error) {if (page) {await page.screenshot({path:join(directory,"failure.png")}).catch(() => {}); await writeFile(join(directory,"failure-page.txt"), await page.locator("body").innerText().catch(() => "unavailable"), {mode:0o600});} report.result = "failed"; report.failure = error instanceof Error ? error.message : String(error); process.exitCode = 1;}
+} catch (error) {if (page) {await page.screenshot({path:join(directory,"failure.png")}).catch(() => {}); await writeFile(join(directory,"failure-page.txt"), await page.locator("body").innerText().catch(() => "unavailable"), {mode:0o600});} report.result = "failed"; report.failure = (error instanceof Error ? error.message : String(error)).replace(/#directPair=[A-Za-z0-9_-]+/g,"#directPair=[redacted]"); process.exitCode = 1;}
 finally {
   denyAppNetwork = false;
   await browser?.close().catch(() => {});

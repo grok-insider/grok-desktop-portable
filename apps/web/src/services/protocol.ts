@@ -12,6 +12,7 @@
 /** Wire version this client implements. */
 export const PROTOCOL_VERSION = 2;
 export const CONTENT_PROTOCOL_VERSION = 3;
+export const MULTI_WRITER_PROTOCOL_VERSION = 4;
 
 export interface ImageDescriptor {
   byteLength: number;
@@ -60,6 +61,14 @@ export type ChangeMode = "git" | "branch" | "lastTurn";
 
 /** The closed set of operations the browser may request. */
 export type Operation =
+  | { kind: "getSessionExecution"; sessionId: string }
+  | { kind: "reviewUncertainTurn"; sessionId: string; expectedTurnId: string }
+  | { kind: "setQueuePaused"; sessionId: string; paused: boolean; expectedQueueRevision: number }
+  | { kind: "clearQueuedPrompts"; sessionId: string; expectedQueueRevision: number }
+  | { kind: "cancelSessionTurn"; sessionId: string; expectedTurnId: string; queueDisposition: "pause" | "continue" }
+  | { kind: "interruptAndEnqueue"; sessionId: string; expectedTurnId: string; expectedQueueRevision: number; text: string; imageIds?: string[] }
+  | { kind: "getSessionModels"; sessionId: string }
+  | { kind: "setSessionConfiguration"; sessionId: string; expectedConfigRevision: number; modelId?: string; reasoningEffort?: string }
   | { kind: "readImageChunk"; sessionId: string; sha256: string; offset: number }
   | { kind: "startImageUpload"; sessionId: string; byteLength: number; sha256: string }
   | { kind: "appendImageUpload"; sessionId: string; uploadId: string; offset: number; data: string }
@@ -246,6 +255,8 @@ export interface InteractionRequest {
 }
 
 export type LightEvent =
+  | { kind: "sessionExecutionChanged"; sessionId: string }
+  | { kind: "sessionModelsChanged"; sessionId: string }
   | { kind: "messageImage"; sessionId: string; role: "user" | "agent"; imageId: string; phase: "pending" | "ready" | "unavailable"; image?: ImageDescriptor }
   | { kind: "imageRejected"; sessionId: string }
   | InteractionRequest
@@ -326,13 +337,14 @@ export type LightEvent =
       changes: boolean;
       context: boolean;
     }
-  | { kind: "promptSent"; sessionId: string; text: string; idempotencyKey?: string; images?: ImageDescriptor[] }
+  | { kind: "promptSent"; sessionId: string; text: string; idempotencyKey?: string | null; images?: ImageDescriptor[] }
   | { kind: "permissionRequest"; sessionId: string; requestId: string; options: string[]; title?: string; description?: string }
   | { kind: "turnInterrupted"; sessionId: string; recordId: string }
   | { kind: "error"; code: string };
 
 /** An event with its cursor position. */
 export interface EventEnvelope {
+  observationEpoch?: number;
   protocolVersion: number;
   eventSequence: number;
   sessionRevision?: number;

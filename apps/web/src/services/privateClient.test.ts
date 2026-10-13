@@ -33,7 +33,7 @@ it("pairs and resumes at the private HTTPS origin despite fragment and remembere
   }
   vi.stubGlobal("WebSocket", PrivateWebSocket);
   resumed.openEvents({onEvent: vi.fn(), onOpen: vi.fn(), onClose: vi.fn()})?.close();
-  expect(sockets).toEqual(["wss://station.example.ts.net/events"]);
+  expect(sockets).toEqual(["wss://station.example.ts.net/events?protocolVersion=4"]);
 });
 
 it("keeps controller credentials in their websocket and never gives them to an observer", async () => {
@@ -101,7 +101,7 @@ it("keeps every tab usable after cookie recovery when storage and browser locks 
     if (path === "/command") {
       const csrf = new Headers(init?.headers).get("x-grok-light-csrf");
       return csrf === original || csrf === recovered
-        ? Response.json({outcome: "ok"}, {status: 202})
+        ? Response.json({result: {outcome: "ok"}}, {status: 202})
         : new Response(null, {status: 403});
     }
     return Response.json({sessionId: "browser", sessionToken: "paired", csrfToken: path === "/pair" ? original : recovered, protocolVersion: 2});

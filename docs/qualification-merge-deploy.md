@@ -15,6 +15,8 @@ por los requisitos de borrado, restauración y capacidad del
 | grok-desktop-portable | feat/grok-remote | dev | SHA revisado de las librerías para Noise |
 | spanreed | feat/grok-remote | dev | Subtree canónico y PWA construida desde commits exactos |
 | fabrials-web | feat/grok-remote | master | Despliegue de autenticación separado; publicaciones cerradas |
+| fabrials-admin | feat/remote-browser-family | master | Introspección de la familia de navegador en Web |
+| ai-relay | feat/remote-browser-family | master | Introspección del panel; API nativa separada |
 
 No fusionar directamente Spanreed en `master`: esa rama publica una release.
 No activar auto-merge. El merge de Web puede activar su despliegue y modifica
@@ -74,10 +76,12 @@ estable únicamente para obtener un artefacto de pruebas.
 
 ## Hosting que debe quedar preparado
 
-Usar un proyecto Vercel separado para `grok.fabrials.com`, con el Build Output
-API precompilado y verificado. Confirmar la identidad del proyecto y el DNS antes
-de asociar el dominio. No trasladar `desktop.grok.me` ni el alias
-`remote.fabrials.com` a este proyecto. La configuración de pruebas rechaza otro
+El entorno de pruebas ya usa el servicio Compose `grok-remote-qa` de Coolify en
+fabrials-1, UUID `em7w9gpwwbnznm6eyoaw4skp`, con el adaptador estático verificado
+y la imagen fijada por digest. El procedimiento vigente está en
+[remote-coolify.md](remote-coolify.md); Vercel sigue siendo el hosting de
+`desktop.grok.me`. No trasladar ese origen ni el alias
+`remote.fabrials.com` al servicio de pruebas. La configuración de pruebas rechaza otro
 Host y marca las respuestas para que los buscadores no las indexen; `noindex`
 no constituye control de acceso.
 
@@ -137,8 +141,9 @@ con navegador. Las identidades, hashes y límites están en el
 [recibo fechado](qualification-evidence-2026-10-13.md). Los recibos de la fase
 restringida siguen siendo históricos y no describen el resultado posterior.
 
-El fallo remoto de Windows y los checks pendientes requieren corrección y
-verificación antes de fusionar. No se han configurado DNS ni Vercel ni se ha
-desplegado la candidata. Guardar los recibos de reconstrucciones posteriores
+La cualificación de Windows y los checks pendientes requieren corrección y
+verificación antes de fusionar. La candidata del 2026-10-13 ya está desplegada en
+Coolify con DNS y TLS verificados; el código multidevice del 2026-10-14 aún no
+forma parte de esa imagen. Guardar los recibos de reconstrucciones posteriores
 fuera de los inputs del artefacto; una prueba no debe cambiar el commit que
 identifica. Mantener cada candidata anterior y su evidencia con sus hashes.

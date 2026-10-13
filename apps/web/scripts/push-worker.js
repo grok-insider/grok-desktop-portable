@@ -1,6 +1,12 @@
 export const PUSH_ACCOUNT_ORIGIN = "https://fabrials.com";
 const PUSH_DATABASE = "grok-remote-push.v1";
 const PUSH_EVENT_LIMIT = 256;
+const DIRECT_NOTICE_TTL = 15 * 60_000;
+
+export function parseDirectPushNotice(value, now = Date.now()) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "expiresAt,kind,notificationId,sequence,version" || value.version !== 1 || value.kind !== "remoteActivity" || typeof value.notificationId !== "string" || !/^[a-f0-9]{32}$/.test(value.notificationId) || !Number.isSafeInteger(value.sequence) || value.sequence < 1 || !Number.isSafeInteger(value.expiresAt) || value.expiresAt <= now || value.expiresAt > now + DIRECT_NOTICE_TTL) return null;
+  return {version: 1, kind: "remoteActivity", notificationId: value.notificationId, sequence: value.sequence, expiresAt: value.expiresAt};
+}
 
 export function parsePushNotice(value, now = Date.now()) {
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).sort().join(",") !== "eventId,expiresAt,kind" || value.kind !== "remote_attention" || typeof value.eventId !== "string" || !/^[a-f0-9]{32}$/.test(value.eventId) || !Number.isSafeInteger(value.expiresAt) || value.expiresAt <= now || value.expiresAt > now + 60_000) return null;
@@ -28,7 +34,7 @@ export async function claimPushNotice(notice, indexed = indexedDB, now = Date.no
         let live = 0;
         let duplicate = false;
         for (const row of request.result) {
-          if (!Number.isSafeInteger(row.expiresAt) || row.expiresAt <= now || row.expiresAt > now + 60_000) store.delete(row.eventId);
+          if (!Number.isSafeInteger(row.expiresAt) || row.expiresAt <= now || row.expiresAt > now + DIRECT_NOTICE_TTL) store.delete(row.eventId);
           else {live++;if (row.eventId === notice.eventId) duplicate = true;}
         }
         if (!duplicate && live < PUSH_EVENT_LIMIT && notice.expiresAt > now) {store.put(notice);accepted=true;}
@@ -65,6 +71,13 @@ export function installRemotePushWorker(scope) {
         const text = event.data?.text();
         if (typeof text !== "string" || text.length > 1024 || new TextEncoder().encode(text).length > 1024) return;
         const data = JSON.parse(text);
+        const direct = parseDirectPushNotice(data);
+        if (direct) {
+          const notice = {eventId: `direct:${scope.registration.scope}:${direct.notificationId}`, expiresAt: direct.expiresAt};
+          if (!await claimPushNotice(notice, scope.indexedDB) || !parseDirectPushNotice(direct)) return;
+          await scope.registration.showNotification("Grok", {body:"There is activity on your computer.", tag:"grok-direct-activity", data:direct, renotify:false});
+          return;
+        }
         if (data && typeof data === "object" && Object.keys(data).sort().join(",") === "kind,version" && data.version === 1 && data.kind === "remoteActivity") {
           await scope.registration.showNotification("Grok", {body:"There is activity on your computer.",tag:"grok-direct-activity",data:{version:1,kind:"remoteActivity"},renotify:false});
           return;

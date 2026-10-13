@@ -72,6 +72,10 @@ const INPUT_MAX_PX = 180;
 
 export function SessionComposer({
   connected,
+  configurationDisabled = false,
+  interruptDisabled = false,
+  shellEnabled = true,
+  submissionDisabled = false,
   phase,
   draft,
   onDraftChange,
@@ -94,6 +98,10 @@ export function SessionComposer({
   onContextQuery,
 }: {
   connected: boolean;
+  configurationDisabled?: boolean;
+  interruptDisabled?: boolean;
+  shellEnabled?: boolean;
+  submissionDisabled?: boolean;
   phase: SessionPhase;
   draft: string;
   onDraftChange: (text: string) => void;
@@ -119,10 +127,11 @@ export function SessionComposer({
   /** Ask the host to refresh the `@` candidates for what has been typed. */
   onContextQuery?: (query: string) => void;
 }) {
-  const bash = isBashMode(draft);
+  const bash = shellEnabled && isBashMode(draft);
+  const blockedShell = !shellEnabled && isBashMode(draft.trimStart());
   const efforts = effortsForModel(models, modelId);
   const tooLarge = draftFits ? !draftFits(draft) : false;
-  const canSend = connected && !tooLarge && !imageComposer?.busy && (bash ? bashCommandReady(draft) && !imageComposer?.images.length : draft.trim().length > 0 || Boolean(imageComposer?.images.length));
+  const canSend = connected && !submissionDisabled && !blockedShell && !tooLarge && !imageComposer?.busy && (bash ? bashCommandReady(draft) && !imageComposer?.images.length : draft.trim().length > 0 || Boolean(imageComposer?.images.length));
 
   const currentDraft = useRef(draft);
   currentDraft.current = draft;
@@ -318,6 +327,7 @@ export function SessionComposer({
   }
 
   function enterShell() {
+    if (!shellEnabled) return;
     if (bash) {
       return;
     }
@@ -392,6 +402,7 @@ export function SessionComposer({
   const modelOptions = models.map((model) => ({
     id: model.id,
     label: model.name,
+    disabled: model.selectable === false,
   }));
   const effortOptions = efforts.map((effort) => ({
     id: effort.id,
@@ -415,6 +426,7 @@ export function SessionComposer({
 
         <PromptQueue queued={queued} onRemove={onRemoveQueued} disabled={!connected} />
         {tooLarge && <p role="status" className="mb-2 px-1 text-body-sm text-warning">This message exceeds the 256 KiB command limit after encoding. Shorten it or remove an attachment. Your draft is still here.</p>}
+        {blockedShell && <p role="status" className="mb-2 px-1 text-body-sm text-warning">Shell commands starting with ! are unavailable in shared conversations. Run the command in your terminal, or ask Grok to run it with your permission.</p>}
         {attachNotice !== null ? (
           <p
             className="mb-2 px-1 font-mono text-label text-subtle-foreground"
@@ -497,7 +509,7 @@ export function SessionComposer({
                   onDraftChange(body.length === 0 ? "!" : `! ${body}`);
                   return;
                 }
-                onDraftChange(applyDraftForBash(body, draft));
+                onDraftChange(shellEnabled ? applyDraftForBash(body, draft) : body);
               }}
               onKeyDown={(event) => {
                 if (handleMenuKey(event)) {
@@ -515,7 +527,7 @@ export function SessionComposer({
                   openFilePicker();
                   return;
                 }
-                if (shouldExitBashOnKey(draft, event)) {
+                if (shellEnabled && shouldExitBashOnKey(draft, event)) {
                   event.preventDefault();
                   onDraftChange("");
                   return;
@@ -525,8 +537,9 @@ export function SessionComposer({
                   return;
                 }
                 event.preventDefault();
+                if (!canSend) return;
                 if ((event.ctrlKey || event.metaKey) && phase === "streaming") {
-                  onSendNow();
+                  if (!interruptDisabled) onSendNow();
                   return;
                 }
                 onSubmit();
@@ -562,6 +575,7 @@ export function SessionComposer({
                   onCommands={insertCommandMention}
                   onContext={insertFileMention}
                   onShell={enterShell}
+                  shellEnabled={shellEnabled}
                 />
                 {modelOptions.length === 0 ? null : (
                   <ComposerSelect
@@ -569,7 +583,7 @@ export function SessionComposer({
                     unknownLabel="Model unknown"
                     value={modelId ?? ""}
                     options={modelOptions}
-                    disabled={!connected || bash}
+                    disabled={!connected || bash || configurationDisabled}
                     onChange={onModelChange}
                   />
                 )}
@@ -579,7 +593,7 @@ export function SessionComposer({
                     unknownLabel="Effort unknown"
                     value={effortId ?? ""}
                     options={effortOptions}
-                    disabled={!connected || bash}
+                    disabled={!connected || bash || configurationDisabled}
                     onChange={onEffortChange}
                   />
                 )}
@@ -606,7 +620,7 @@ export function SessionComposer({
                     <IconButton
                       size="sm"
                       onClick={onSendNow}
-                      disabled={!canSend}
+                      disabled={!canSend || interruptDisabled}
                       title="Stop the current turn and run this message next (Ctrl+Enter)"
                       aria-label="Stop the current turn and send this now"
                     >
@@ -615,7 +629,7 @@ export function SessionComposer({
                     <IconButton
                       size="sm"
                       onClick={onCancel}
-                      disabled={!connected}
+                      disabled={!connected || interruptDisabled}
                       title="Stop the current turn and send nothing"
                       aria-label="Stop the current turn"
                     >
@@ -701,12 +715,14 @@ function ComposerPlusMenu({
   onCommands,
   onContext,
   onShell,
+  shellEnabled,
 }: {
   disabled: boolean;
   onAttachFiles: () => void;
   onCommands: () => void;
   onContext: () => void;
   onShell: () => void;
+  shellEnabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -758,7 +774,7 @@ function ComposerPlusMenu({
         aria-label="Add to message"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Add images, files, commands, or shell"
+        title={shellEnabled ? "Add images, files, commands, or shell" : "Add images, files, or commands"}
         onClick={() => setOpen((current) => !current)}
         className={open ? "bg-accent/60 text-foreground" : undefined}
       >
@@ -770,7 +786,7 @@ function ComposerPlusMenu({
           aria-label="Add to message"
           className="absolute bottom-full left-0 z-40 mb-2 min-w-[15.5rem] overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-overlay"
         >
-          {items.map((item) => (
+          {items.filter(item => shellEnabled || item.id !== "shell").map((item) => (
             <button
               key={item.id}
               type="button"
@@ -819,7 +835,7 @@ function ComposerSelect({
   label: string;
   unknownLabel: string;
   value: string;
-  options: { id: string; label: string }[];
+  options: { id: string; label: string; disabled?: boolean }[];
   disabled: boolean;
   onChange: (id: string) => void;
 }) {
@@ -876,6 +892,7 @@ function ComposerSelect({
                 <button
                   type="button"
                   role="option"
+                  disabled={disabled || option.disabled}
                   aria-selected={isSelected}
                   className={cn(
                     "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-body-sm",

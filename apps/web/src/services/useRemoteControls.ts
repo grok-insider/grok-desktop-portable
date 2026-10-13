@@ -25,7 +25,7 @@ interface Inputs {
 }
 
 export function useRemoteControls(inputs: Inputs) {
-  const enabled = inputs.client.remote || ["push", "remote-projects", "control-transfer", "device-panel"].some(name => remoteExperimentEnabled(name as "push" | "remote-projects" | "control-transfer" | "device-panel"));
+  const enabled = inputs.client.remote || inputs.client.multiWriter || ["push", "remote-projects", "control-transfer", "device-panel"].some(name => remoteExperimentEnabled(name as "push" | "remote-projects" | "control-transfer" | "device-panel"));
   const latest = useRef(inputs);
   const controlGeneration = useRef(0);
   if (latest.current.canControl !== inputs.canControl) controlGeneration.current++;
@@ -61,7 +61,7 @@ export function useRemoteControls(inputs: Inputs) {
         if (!active(epoch)) return;
         const offered = result.ok ? asRemoteCapabilities(result.value) : null;
         if (!offered) return;
-        const discovered = {...offered,pushNotifications:offered.pushNotifications === true && (inputs.scopeKey.startsWith('["direct",') || remoteExperimentEnabled("push")),projects:offered.projects && remoteExperimentEnabled("remote-projects"),controlTransfer:offered.controlTransfer && remoteExperimentEnabled("control-transfer"),devicePanel:offered.devicePanel && remoteExperimentEnabled("device-panel")};
+        const discovered = {...offered,pushNotifications:offered.pushNotifications === true && (inputs.scopeKey.startsWith('["direct",') || offered.multiWriter || remoteExperimentEnabled("push")),projects:offered.projects && (offered.multiWriter || remoteExperimentEnabled("remote-projects")),controlTransfer:!offered.multiWriter && offered.controlTransfer && remoteExperimentEnabled("control-transfer"),devicePanel:offered.devicePanel && (offered.multiWriter || remoteExperimentEnabled("device-panel"))};
         capabilities.current = discovered;
         setState(previous => ({...previous,context:epoch,capabilities:discovered}));
         refreshDevices();

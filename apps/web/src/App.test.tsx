@@ -341,6 +341,55 @@ describe("incoming pairing navigation", () => {
   });
 });
 
+describe("shared conversation integration", () => {
+  it("clears activity from a stale running session list after another device finishes", async () => {
+    const host = fakeHost();
+    Object.defineProperty(host.client, "multiWriter", {value: true});
+    const original = host.client.send.bind(host.client);
+    let running = true;
+    vi.spyOn(host.client, "send").mockImplementation(async (operation, options) => {
+      if (operation.kind === "bootstrap" || operation.kind === "listWorkspaces") return {ok: true, value: {outcome: "workspaces", workspaces: [{id: "w-1", displayName: "test", available: true}], openSessions: [{sessionId: "s-1", workspaceId: "w-1", workspaceName: "test", running: false, openedAtMs: 1}, {sessionId: "s-2", workspaceId: "w-1", workspaceName: "test", running: true, openedAtMs: 2}], pendingReviews: []}};
+      if (operation.kind === "getSessionExecution") return {ok: true, value: {outcome: "sessionExecution", sessionId: "s-2", revision: running ? 1 : 2, paused: false, uncertain: false, queue: [], externalTurnRunning: false, activeTurn: running ? {turnId: "turn-1", state: "running", originDeviceId: "other-device"} : null}};
+      if (operation.kind === "getSessionModels") return {ok: true, value: {outcome: "sessionModels", sessionId: "s-2", revision: 1, source: "live", currentModel: "custom", selectableModels: [{id: "custom", name: "Custom", supportsReasoningEffort: false, reasoningEfforts: []}], effortOptions: [], canSetModel: true, canSetEffort: false, uncertain: false}};
+      return original(operation, options);
+    });
+    await openWork(host);
+    await screen.findByText("Working");
+    expect(screen.getByRole("button", {name: "Model"})).toBeDisabled();
+    running = false;
+    act(() => {
+      host.emit({kind: "sessionStatus", sessionId: "s-2", state: "idle"}, 10);
+      host.emit({kind: "sessionExecutionChanged", sessionId: "s-2"}, 11);
+    });
+    await waitFor(() => expect(screen.queryByText("Working")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", {name: "Model"})).toBeEnabled();
+  });
+
+  it("renders only authoritative messages and preserves another device's identical text", async () => {
+    const host = fakeHost();
+    Object.defineProperty(host.client, "multiWriter", {value: true});
+    const original = host.client.send.bind(host.client);
+    let queued = false;
+    const send = vi.spyOn(host.client, "send").mockImplementation(async (operation, options) => {
+      if (operation.kind === "getSessionExecution") return {ok: true, value: {outcome: "sessionExecution", sessionId: operation.sessionId, revision: queued ? 2 : 1, uncertain: false, paused: true, queue: queued ? [{entryId: "q1", text: "same text", originDeviceId: "phone", state: "pending", images: []}] : []}};
+      if (operation.kind === "getSessionModels") return {ok: true, value: {outcome: "sessionModels", sessionId: operation.sessionId, revision: 1, source: "live", selectableModels: [], effortOptions: [], canSetModel: false, canSetEffort: false, uncertain: false}};
+      if (operation.kind === "prompt") {queued = true; return {ok: true, value: {outcome: "commandAccepted", idempotencyKey: options?.idempotencyKey, state: "queued", result: {sessionId: operation.sessionId, entryId: "q1"}}};}
+      return original(operation, options);
+    });
+    await openWork(host);
+    await screen.findByRole("region", {name: "Shared conversation queue"});
+    await userEvent.type(composer(), "same text");
+    await userEvent.click(screen.getByRole("button", {name: /^Send/}));
+    await waitFor(() => expect(send.mock.calls.some(([operation]) => operation.kind === "prompt")).toBe(true));
+    expect(screen.queryByRole("article", {name: "Your message"})).not.toBeInTheDocument();
+    expect(composer()).toHaveValue("");
+    act(() => host.emit({kind: "promptSent", sessionId: "s-2", text: "same text", idempotencyKey: null}, 5));
+    act(() => host.emit({kind: "promptSent", sessionId: "s-2", text: "same text", idempotencyKey: null}, 6));
+    await waitFor(() => expect(screen.getAllByRole("article", {name: "Your message"})).toHaveLength(2));
+    expect(send.mock.calls.filter(([operation]) => operation.kind === "prompt")).toHaveLength(1);
+  });
+});
+
 describe("session model metadata", () => {
   it.each(["grok-4.6-build", "grok-unlisted"])("uses each session's confirmed %s settings without changing them on mount", async (confirmedModel) => {
     const host = fakeHost();

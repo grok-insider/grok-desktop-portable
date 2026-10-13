@@ -137,3 +137,56 @@ confinement, a reachable enabled composer and retained unsent text. The shortest
 viewport approximates reduced space; it does not emulate Android's actual
 keyboard or establish screen-reader support. Its report records the dimensions
 of the experimental controls for visual review.
+
+## Direct multiwriter browser checks
+
+`scripts/qualify-direct-browser.ts` can run the direct Noise transport with two
+independent pairings and a deterministic ACP process. Set
+`REMOTE_QA_MULTIWRITER=1` and point `DIRECT_QA_NATIVE_BINARY` to the built
+`fabrials-agent-host` example `direct_browser_fixture`. Its sibling example
+`fake_multiwriter_agent` must be built in the same directory. The runner owns
+the fixture, disposable Chrome profile and hidden Syl compositor; it does not
+use the daily browser or call an inference provider.
+
+```sh
+REMOTE_QA_MULTIWRITER=1 \
+  DIRECT_QA_NATIVE_BINARY=/path/to/target/debug/examples/direct_browser_fixture \
+  REMOTE_QA_CHROME=/nix/store/package-google-chrome-version/bin/google-chrome-stable \
+  REMOTE_QA_PLAYWRIGHT=/path/to/playwright-core/index.mjs \
+  bun scripts/qualify-direct-browser.ts /path/to/new-private-evidence
+```
+
+The private evidence directory must already contain `cert.pem` and `key.pem`
+for the laboratory TLS endpoint. Each run needs a fresh directory. Native
+pairing material, browser profiles, private state and TLS keys stay there;
+only a sanitized report and synthetic screenshots may be shared.
+
+The first context is 2560 × 1440 and the second is 390 × 844. The checks cover
+simultaneous write access without takeover, custom model and effort convergence,
+stale configuration rejection, pause and FIFO ordering across devices, a stale
+clear operation racing an enqueue, removal, reconnection during a turn, exact
+transcript and receipt counts, return to idle, and empty model catalogues.
+Conflicts must show a specific transient notice and leave no persistent error.
+One downstream is deliberately held behind a bounded buffer to exercise an
+actual stale revision; the host's durable refusal receipt confirms rejection.
+
+The runner also retains its baseline source-dialog, responsive-layout, draft,
+offline-history, private-host independence, and revocation checks. It records
+runner, shell/worker and native-executable hashes, browser version and explicit
+limits. Without `REMOTE_QA_ARTIFACT`, source metadata success is synthetic and
+does not qualify archive distribution. With an artifact, the existing
+`REMOTE_QA_SPANREED` source-verification gate still applies.
+
+These checks establish browser and host convergence with synthetic ACP. They
+do not qualify Grok inference, production TLS/CDN, Tailscale, actual push,
+physical Android/Apple devices, cancellation against the real CLI, or GPU
+performance. Scheduler bounds and restart recovery remain separate native
+tests; this runner exercises one session and two browsers.
+
+The [2026-10-14 sanitized report](evaluation/direct-multiwriter-browser-2026-10-14.json)
+records 53 passing checks in Chrome 155 with no browser errors. The stronger
+idle check first caught a stale Working tab after reconnection; it passed
+after the tab switched to the authoritative execution state. Visual review
+also verified that paused-queue text and actions remain legible on the mobile
+viewport. This is local synthetic-ACP evidence, not a production deployment
+or real-device qualification.

@@ -1,6 +1,7 @@
 import {useCallback, useLayoutEffect, useMemo, useRef, useState} from "react";
 import {DRAFT_CHANGED, DRAFT_DATABASE, DraftStore, type DraftChange} from "./drafts";
 import type {LightClient} from "./client";
+import {commandDefinitelyRejected, type CommandReceipts} from "./commandReceipts";
 import {MAX_IMAGES, MAX_IMAGE_NORMALIZED, MAX_IMAGE_SELECTION, cropImage, prepareImage, uploadImage, type ImageCropRect, type PreparedImage} from "./imageUploads";
 
 export interface ImageComposer {
@@ -10,7 +11,7 @@ export interface ImageComposer {
   storage: "off" | "saving" | "saved" | "failed";
   progress?: string;
   error?: string;
-  add(files: File[]): Promise<void>;
+  add(files: File[]): Promise<boolean>;
   crop(id: string, rectangle: ImageCropRect, signal?: AbortSignal): Promise<boolean>;
   remove(id: string): void;
   submit(text: string, sendNow: boolean): Promise<void>;
@@ -36,7 +37,7 @@ interface ImageRuntime {
   changes: Set<string>;
 }
 
-type Inputs = {client: LightClient; sessionId: string | null; scope?: string; capable: boolean; canSend: boolean; onSent(sessionId: string, text: string): void};
+type Inputs = {client: LightClient; receipts: CommandReceipts; sessionId: string | null; scope?: string; capable: boolean; canSend: boolean; interrupt?: {turnId: string; revision: number}; onSent(sessionId: string, text: string): void};
 const release = (images: PreparedImage[]) => {for (const image of images) URL.revokeObjectURL(image.preview);};
 
 export function useImageComposer(inputs: Inputs): ImageComposer {
@@ -147,12 +148,12 @@ export function useImageComposer(inputs: Inputs): ImageComposer {
     error: runtime.activity?.sessionId === inputs.sessionId ? runtime.activity.error : undefined,
     async add(files) {
       const target = latest.current.sessionId;
-      if (!target || !latest.current.capable || runtime.working || !runtime.mounted) return;
+      if (!target || !latest.current.capable || runtime.working || !runtime.mounted) return false;
       const existing = runtime.drafts[target] ?? [];
-      if (existing.length + files.length > MAX_IMAGES || files.reduce((sum, file) => sum + file.size, 0) > MAX_IMAGE_SELECTION) {runtime.activity = {sessionId: target, error: "Choose up to eight images and no more than 100 MiB per selection."}; publish(); return;}
+      if (existing.length + files.length > MAX_IMAGES || files.reduce((sum, file) => sum + file.size, 0) > MAX_IMAGE_SELECTION) {runtime.activity = {sessionId: target, error: "Choose up to eight images and no more than 100 MiB per selection."}; publish(); return false;}
       const prepared: PreparedImage[] = [];
       const generation = runtime.generation;
-      const active = () => runtime.mounted && runtime.generation === generation;
+      const active = () => runtime.mounted && runtime.generation === generation && latest.current.sessionId === target;
       runtime.working = true;
       runtime.activity = {sessionId: target, progress: "Preparing images…"};
       publish();
@@ -166,9 +167,11 @@ export function useImageComposer(inputs: Inputs): ImageComposer {
         if (Object.values(runtime.drafts).flat().reduce((sum, image) => sum + image.blob.size, 0) + prepared.reduce((sum, image) => sum + image.blob.size, 0) > MAX_IMAGE_SELECTION) throw new Error("Image drafts are using 100 MiB. Remove images from another conversation before adding more.");
         update(target, [...existing, ...prepared]);
         runtime.activity = {sessionId: target};
+        return true;
       } catch (error) {
         release(prepared);
         if (active()) runtime.activity = {sessionId: target, error: error instanceof Error ? error.message : "The image could not be prepared."};
+        return false;
       } finally {runtime.working = false; publish();}
     },
     remove(id) {
@@ -223,8 +226,15 @@ export function useImageComposer(inputs: Inputs): ImageComposer {
       if (!target || !latest.current.capable || !latest.current.canSend || runtime.working || !runtime.mounted) return;
       const images = runtime.drafts[target] ?? [];
       if (!images.length) return;
+      if (latest.current.receipts.storageFailed || latest.current.receipts.pending.some(row => row.sessionId === target)) {
+        runtime.activity = {sessionId: target, error: "A previous action has not been confirmed. Check its status and review the conversation before sending again."};
+        publish();
+        return;
+      }
       if (text.trimStart().startsWith("!")) {runtime.activity = {sessionId: target, error: "Images cannot be attached to shell commands."}; publish(); return;}
       const client = latest.current.client;
+      const interrupt = latest.current.interrupt;
+      if (sendNow && client.multiWriter && !interrupt) {runtime.activity = {sessionId: target, error: "The active response changed. Review the conversation before interrupting it."}; publish(); return;}
       const controller = new AbortController();
       runtime.transferring = controller;
       const signal = AbortSignal.any([controller.signal, runtime.lifetime.signal]);
@@ -245,10 +255,13 @@ export function useImageComposer(inputs: Inputs): ImageComposer {
         runtime.activity = {sessionId: target, progress: "Sending message…"};
         publish();
         dispatched = true;
-        const reply = await client.send({kind: "promptContent", sessionId: target, text: text.trim(), imageIds: uploaded, sendNow}, {idempotencyKey: crypto.randomUUID()});
+        const operation = sendNow && client.multiWriter && interrupt
+          ? {kind: "interruptAndEnqueue" as const, sessionId: target, expectedTurnId: interrupt.turnId, expectedQueueRevision: interrupt.revision, text: text.trim(), imageIds: uploaded}
+          : {kind: "promptContent" as const, sessionId: target, text: text.trim(), imageIds: uploaded, sendNow};
+        const reply = await latest.current.receipts.submit(target, operation);
         if (!reply.ok) {
-          if (reply.failure.kind !== "unreachable") dispatched = false;
-          throw new Error(reply.failure.kind === "refused" ? reply.failure.code : "The message outcome is uncertain. Check the conversation and terminal before sending again. It was not retried.");
+          if (commandDefinitelyRejected(reply.failure)) dispatched = false;
+          throw new Error(commandDefinitelyRejected(reply.failure) && reply.failure.kind === "refused" ? reply.failure.code : "The message outcome is uncertain. Check its status and review the conversation before sending again. It was not retried.");
         }
         if (!active()) return;
         release(images);

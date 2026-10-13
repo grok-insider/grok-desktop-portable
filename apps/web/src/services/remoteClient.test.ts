@@ -173,3 +173,85 @@ describe("command payload bounds", () => {
     expect(sessionStorage.getItem("bounds:pending")).toBeNull();
   });
 });
+
+describe("uncertain command responses", () => {
+  it.each([200, 409, 422, 408, 429, 500])("preserves pending commands when HTTP %s has no usable acknowledgement", async status => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport, storageKey: "uncertain-body"});
+    await client.resume();
+    host.request.mockResolvedValueOnce(new Response('{"result":', {status}));
+    await expect(client.send({kind: "prompt", sessionId: "s", text: "Run once"}, {idempotencyKey: "uncertain"})).resolves.toEqual({ok: false, failure: {kind: "unreachable"}});
+    expect(JSON.parse(sessionStorage.getItem("uncertain-body:pending")!)).toEqual(["uncertain"]);
+    expect(host.request.mock.calls.filter(([path]) => path === "/command")).toHaveLength(1);
+  });
+
+  it.each([null, [], {}, {result: null}, {result: {outcome: "commandStatus", state: "unexpected"}}])("does not accept an invalid successful prompt response: %j", async body => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport, storageKey: "invalid-success"});
+    await client.resume();
+    host.request.mockResolvedValueOnce(Response.json(body));
+    expect(await client.send({kind: "prompt", sessionId: "s", text: "Run once"}, {idempotencyKey: "uncertain"})).toEqual({ok: false, failure: {kind: "unreachable"}});
+    expect(JSON.parse(sessionStorage.getItem("invalid-success:pending")!)).toEqual(["uncertain"]);
+  });
+
+  it("keeps a running duplicate's receipt available for recovery", async () => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport, storageKey: "duplicate"});
+    await client.resume();
+    host.request.mockResolvedValueOnce(Response.json({result: {outcome: "commandStatus", state: "running", idempotencyKey: "turn"}}));
+    expect((await client.send({kind: "prompt", sessionId: "s", text: "Run once"}, {idempotencyKey: "turn"})).ok).toBe(true);
+    expect(JSON.parse(sessionStorage.getItem("duplicate:pending")!)).toEqual(["turn"]);
+  });
+
+  it("cannot adopt capabilities from a discarded authority while its response body is arriving", async () => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    await client.resume();
+    let finishBody!: (value: unknown) => void;
+    const response = new Response();
+    response.json = () => new Promise(resolve => {finishBody = resolve;});
+    host.request.mockResolvedValueOnce(response);
+    const pending = client.send({kind: "getRemoteCapabilities"});
+    await vi.waitFor(() => expect(finishBody).toBeDefined());
+    client.dispose();
+    finishBody({result: {outcome: "remoteCapabilities", multiWriter: true}});
+    expect(await pending).toEqual({ok: false, failure: {kind: "unreachable"}});
+    expect(client.multiWriter).toBe(false);
+  });
+
+  it.each([
+    {state: "unexpected"},
+    {state: ["completed"]},
+    {state: "completed", outcome: ["commandStatus"]},
+    {state: "completed", idempotencyKey: "another-command"},
+  ])("does not complete a pending command from an invalid receipt: %j", async receipt => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport, storageKey: "invalid-receipt"});
+    await client.resume();
+    host.request.mockRejectedValueOnce(new Error("offline"));
+    await client.send({kind: "prompt", sessionId: "s", text: "Run once"}, {idempotencyKey: "uncertain"});
+    host.request.mockResolvedValueOnce(Response.json({result: {outcome: "commandStatus", ...receipt}}));
+    const onEvent = vi.fn();
+    const connection = client.openEvents({onEvent, onOpen: vi.fn(), onClose: vi.fn()});
+    host.open();
+    await vi.waitFor(() => expect(host.request).toHaveBeenCalledTimes(3));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(JSON.parse(sessionStorage.getItem("invalid-receipt:pending")!)).toEqual(["uncertain"]);
+    connection?.close();
+  });
+
+  it.each(["failed", "removed"])("does not report a %s receipt without an error string as success", async state => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    await client.resume();
+    host.request.mockRejectedValueOnce(new Error("offline"));
+    await client.send({kind: "prompt", sessionId: "s", text: "Run once"}, {idempotencyKey: "uncertain"});
+    host.request.mockResolvedValueOnce(Response.json({result: {outcome: "commandStatus", state}}));
+    const onEvent = vi.fn();
+    const connection = client.openEvents({onEvent, onOpen: vi.fn(), onClose: vi.fn()});
+    host.open();
+    await vi.waitFor(() => expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({event: expect.objectContaining({idempotencyKey: "uncertain", error: `command_${state}`})})));
+    connection?.close();
+  });
+});

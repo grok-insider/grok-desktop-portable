@@ -16,6 +16,11 @@ import { ConnectionBanner } from "./components/ConnectionBanner";
 import { DraftRecovery } from "./components/DraftRecovery";
 import { SpeechPlayback } from "./components/SpeechPlayback";
 import { ShareInbox } from "./components/ShareInbox";
+import { SessionQueueStatus } from "./components/SessionQueueStatus";
+import { useSessionRuntime } from "./services/useSessionRuntime";
+import { useCommandReceipts } from "./services/commandReceipts";
+import { CommandReceiptNotice } from "./components/CommandReceiptNotice";
+import { canChangeConfiguration, stopCurrentTurn } from "./services/sessionExecution";
 import { RemoteNotifications } from "./components/RemoteNotifications";
 import { RemoteControls } from "./components/RemoteControls";
 import { RemoteToolsNotice, RemoteToolsPanel, useRemoteControlAttention } from "./components/RemoteToolsPanel";
@@ -229,6 +234,8 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
   >({});
   const [cliNotice, setCliNotice] = useState<string | undefined>();
   const [models, setModels] = useState<ModelProjection[]>([]);
+  const configInFlight = useRef(new Set<string>());
+  const [configuring, setConfiguring] = useState(new Set<string>());
   const [configTools, setConfigTools] = useState<ToolProjection[]>([]);
   // Per conversation, because the agent publishes them per session and two
   // conversations may be running different agents' command sets.
@@ -269,11 +276,20 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
   const browserSupport = detectBrowserSupport(undefined, client.remote || isPrivateDocumentOrigin());
   const activeChangeMode = sessionId === null ? "git" : (changeModes[sessionId] ?? "git");
   const activeInspector = sessionId === null ? undefined : inspectors[sessionId];
-  const modelId = activeInspector?.data?.model ?? null;
-  const effortId = activeInspector?.data?.reasoningEffort ?? null;
-  const sessionModels = modelId !== null && !models.some((model) => model.id === modelId)
-    ? [...models, {id: modelId, name: activeInspector?.data?.modelDisplayName ?? modelId, supportsReasoningEffort: false, reasoningEfforts: []}]
-    : models;
+  const sessionRuntime = useSessionRuntime(client, connected, sessionId);
+  const refreshSessionRuntime = sessionRuntime.refresh;
+  const receiptScope = client.receiptScope ?? draftScope ?? remoteHostId ?? client.bridgeBaseUrl;
+  const commandReceipts = useCommandReceipts(client, receiptScope);
+  const submitReceipt = commandReceipts.submit;
+  const commandBlocked = client.multiWriter && (commandReceipts.storageFailed || commandReceipts.pending.some(row => row.sessionId === sessionId));
+  const execution = sessionId === null ? undefined : sessionRuntime.execution[sessionId];
+  const liveModels = sessionId === null ? undefined : sessionRuntime.models[sessionId];
+  const modelId = (client.multiWriter ? liveModels?.currentModel : activeInspector?.data?.model) ?? null;
+  const effortId = (client.multiWriter ? liveModels?.currentEffort : activeInspector?.data?.reasoningEffort) ?? null;
+  const catalogue = client.multiWriter ? (liveModels?.selectableModels ?? []).map(model => ({...model, selectable: liveModels?.canSetModel === true})) : models;
+  const sessionModels = modelId !== null && !catalogue.some((model) => model.id === modelId)
+    ? [...catalogue, {id: modelId, name: activeInspector?.data?.modelDisplayName ?? modelId, selectable: false, supportsReasoningEffort: Boolean(liveModels?.canSetEffort), reasoningEfforts: liveModels?.effortOptions ?? []}]
+    : catalogue;
   const activeChanges =
     sessionId === null ? undefined : sessionChanges[sessionId]?.[activeChangeMode];
   const activeReviewRevision =
@@ -1135,23 +1151,27 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
       demoteToLanding(probeAfterSessionLoss({kind:"not_paired"}));
     }),
   });
-  const imageComposer = useImageComposer({client, sessionId, scope: draftScope?.startsWith('["direct",') || remoteExperimentEnabled("drafts") ? draftScope : undefined, canSend: canControl, capable: remoteControls.capabilities?.contentProtocolVersion === 3 && remoteControls.capabilities?.upstreamPrompt?.image === true, onSent: (target, text) => {if (liveDrafts.current[target] === text) updateDraft(target, "");}});
+  const imageComposer = useImageComposer({client, sessionId, receipts: commandReceipts, interrupt: execution?.activeTurn && stopCurrentTurn(execution) ? {turnId: execution.activeTurn.turnId, revision: execution.revision} : undefined, scope: draftScope?.startsWith('["direct",') || remoteExperimentEnabled("drafts") ? draftScope : undefined, canSend: canControl, capable: remoteControls.capabilities?.contentProtocolVersion === 3 && remoteControls.capabilities?.upstreamPrompt?.image === true, onSent: (target, text) => {if (liveDrafts.current[target] === text) updateDraft(target, "");}});
   const notificationControls = client.remote && !remoteHostId ? <DirectNotifications client={client} scopeKey={draftScope ?? "local"} connectionVersion={remoteConnectionVersion} connected={connected} capable={remoteControls.capabilities?.pushNotifications} /> : <RemoteNotifications client={client} hostId={remoteHostId} scopeKey={draftScope ?? remoteHostId ?? "local"} connectionVersion={remoteConnectionVersion} connected={connected} capable={remoteControls.capabilities?.pushNotifications} />;
   const [toolsOpen, setToolsOpen] = useState(false);
   const controlAttention = useRemoteControlAttention(remoteControls);
-  const hasRemoteTools = (client.remote && !remoteHostId) || remoteExperimentEnabled("push") || remoteExperimentEnabled("remote-projects") || remoteExperimentEnabled("control-transfer") || remoteExperimentEnabled("device-panel");
+  const hasRemoteTools = client.multiWriter || (client.remote && !remoteHostId) || remoteExperimentEnabled("push") || remoteExperimentEnabled("remote-projects") || remoteExperimentEnabled("control-transfer") || remoteExperimentEnabled("device-panel");
   const toolsControl = hasRemoteTools ? <RemoteToolsPanel open={toolsOpen} onOpenChange={setToolsOpen} attention={controlAttention} error={remoteControls.error} connected={connected} available={Boolean(remoteControls.capabilities)}><RemoteControls {...remoteControls} />{notificationControls}<SourceLicense /></RemoteToolsPanel> : undefined;
   const toolsNotice = hasRemoteTools ? <RemoteToolsNotice attention={controlAttention} error={remoteControls.error} onOpen={() => setToolsOpen(true)} /> : null;
   const refreshRemoteDevices = remoteControls.onRefreshDevices;
 
   const handleEvent = useCallback((envelope: EventEnvelope) => {
+    if (envelope.event.kind === "sessionExecutionChanged" || envelope.event.kind === "sessionModelsChanged") {
+      refreshSessionRuntime(envelope.event.sessionId);
+      return;
+    }
     if (envelope.event.kind === "remoteDevicesChanged") {
       refreshRemoteDevices();
       return;
     }
     if (envelope.event.kind === "hostStatus") {
       if (envelope.event.state === "watching") setWatching(true);
-      else if (/^controlling:\d+$/.test(envelope.event.state)) setWatching(false);
+      else if (envelope.event.state === "writable" || /^controlling:\d+$/.test(envelope.event.state)) setWatching(false);
     }
     if (envelope.event.kind === "interactionRequest") {
       const request = envelope.event;
@@ -1186,6 +1206,8 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
       return;
     }
     if (envelope.event.kind === "workspacesChanged") {
+      setProjections(current => project(current, envelope));
+      for (const session of openSessionsRef.current) refreshSessionRuntime(session.sessionId);
       // The host-owned picker finished. The command that opened it returned
       // immediately, so this is the only signal that a directory was enrolled.
       refreshWorkspaces();
@@ -1254,7 +1276,7 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
       refreshWorkspaces();
     }
     setProjections((current) => project(current, envelope));
-  }, [refreshWorkspaces, settlePromptEntry, refreshRemoteDevices]);
+  }, [refreshWorkspaces, settlePromptEntry, refreshRemoteDevices, refreshSessionRuntime]);
 
   useEffect(() => {
     if (!paired) {
@@ -1295,7 +1317,7 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
       const socket = client.openEvents({
         onEvent: (event) => {
           if (cancelled || generation !== connectionGeneration || closed) return;
-          if (event.event.kind === "hostStatus" && (event.event.state === "watching" || /^controlling:[1-9]\d*$/.test(event.event.state))) {
+          if (event.event.kind === "hostStatus" && (event.event.state === "writable" || event.event.state === "watching" || /^controlling:[1-9]\d*$/.test(event.event.state))) {
             ready = true;
             clearTimeout(readyTimer);
             attempts = 0;
@@ -1358,6 +1380,16 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
       }
       const target = sessionId;
       const idempotencyKey = crypto.randomUUID();
+      if (client.multiWriter) {
+        void submitReceipt(target, {kind: "prompt", sessionId: target, text, bash: false}).then(result => {
+          if (!result.ok) {
+            reportClientFailure(result.failure, "The computer has not confirmed this message. Check the queue before sending it again.");
+            if (!liveDrafts.current[target]) updateDraft(target, text);
+          }
+          refreshSessionRuntime(target);
+        });
+        return;
+      }
       const entryId = `u-${idempotencyKey}`;
       pendingPromptEntries.current.set(idempotencyKey, {sessionId: target, entryId});
       setProjections((current) => {
@@ -1420,7 +1452,7 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
           }
         });
     },
-    [client, refreshWorkspaces, reportClientFailure, runDiagnose, sessionId, settlePromptEntry],
+    [client, refreshWorkspaces, reportClientFailure, runDiagnose, sessionId, settlePromptEntry, refreshSessionRuntime, submitReceipt, updateDraft],
   );
 
   const closeSession = useCallback(
@@ -1527,12 +1559,14 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
   // Host `running` only updates when the list is re-read; merge live phase so a
   // turn this page started still shows Working on its tab.
   const awaitingDecision = new Set([...Object.keys(prompts), ...Object.keys(interactions)]);
-  const sessionsWithActivity = openSessions.map((session) => ({
-    ...session,
-    running:
-      session.running || projections[session.sessionId]?.phase === "streaming",
-    awaitingDecision: awaitingDecision.has(session.sessionId),
-  }));
+  const sessionsWithActivity = openSessions.map((session) => {
+    const live = client.multiWriter ? sessionRuntime.execution[session.sessionId] : undefined;
+    return {
+      ...session,
+      running: Boolean((live ? live.activeTurn || live.externalTurnRunning : session.running) || projections[session.sessionId]?.phase === "streaming"),
+      awaitingDecision: awaitingDecision.has(session.sessionId),
+    };
+  });
   const titles = sessionTitles(projections);
   const shellTabs = sessionsWithActivity.map((session) => ({
     sessionId: session.sessionId,
@@ -1678,7 +1712,11 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
         }}
         workspaceName={current?.workspaceName ?? workspaceName}
         sessions={sessionsWithActivity}
-        queued={current?.queued ?? []}
+        queued={client.multiWriter ? execution?.queue ?? [] : current?.queued ?? []}
+        submissionDisabled={commandBlocked}
+        shellEnabled={!client.multiWriter}
+        interruptDisabled={commandBlocked || client.multiWriter && (!execution || !stopCurrentTurn(execution))}
+        configurationDisabled={commandBlocked || client.multiWriter && (!canChangeConfiguration(execution, liveModels) || (sessionId !== null && configuring.has(sessionId)))}
         models={sessionModels}
         modelId={modelId}
         effortId={effortId}
@@ -1701,6 +1739,18 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
         }}
         onModelChange={(nextModelId) => {
           if (sessionId === null) {
+            return;
+          }
+          if (client.multiWriter) {
+            if (!liveModels?.canSetModel || !canChangeConfiguration(execution, liveModels) || configInFlight.current.has(sessionId)) return;
+            const target = sessionId;
+            configInFlight.current.add(target);
+            setConfiguring(new Set(configInFlight.current));
+            void submitReceipt(target, {kind: "setSessionConfiguration", sessionId: target, modelId: nextModelId, expectedConfigRevision: liveModels.revision}).then(result => {
+              if (!result.ok) reportClientFailure(result.failure, "The model could not be changed. Refresh the conversation and try again.");
+              refreshSessionRuntime(target);
+              refreshInspector(target);
+            }).finally(() => {configInFlight.current.delete(target); setConfiguring(new Set(configInFlight.current));});
             return;
           }
           const effort = pickDefaultEffort(models, nextModelId) ?? undefined;
@@ -1726,6 +1776,18 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
           if (sessionId === null || modelId === null) {
             return;
           }
+          if (client.multiWriter) {
+            if (!liveModels?.canSetEffort || !canChangeConfiguration(execution, liveModels) || configInFlight.current.has(sessionId)) return;
+            const target = sessionId;
+            configInFlight.current.add(target);
+            setConfiguring(new Set(configInFlight.current));
+            void submitReceipt(target, {kind: "setSessionConfiguration", sessionId: target, reasoningEffort: nextEffort, expectedConfigRevision: liveModels.revision}).then(result => {
+              if (!result.ok) reportClientFailure(result.failure, "Reasoning effort could not be changed. Refresh the conversation and try again.");
+              refreshSessionRuntime(target);
+              refreshInspector(target);
+            }).finally(() => {configInFlight.current.delete(target); setConfiguring(new Set(configInFlight.current));});
+            return;
+          }
           void client
             .send(
               {
@@ -1746,6 +1808,18 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
         }}
         onSendNow={(text) => {
           if (sessionId === null) {
+            return;
+          }
+          if (client.multiWriter) {
+            if (!execution?.activeTurn || !stopCurrentTurn(execution)) return;
+            const target = sessionId;
+            void submitReceipt(target, {kind: "interruptAndEnqueue", sessionId: target, expectedTurnId: execution.activeTurn.turnId, expectedQueueRevision: execution.revision, text}).then(result => {
+              if (!result.ok) {
+                reportClientFailure(result.failure, "The interruption could not be confirmed. Check the queue before trying again.");
+                if (!liveDrafts.current[target]) updateDraft(target, text);
+              }
+              refreshSessionRuntime(target);
+            });
             return;
           }
           const target = sessionId;
@@ -1786,16 +1860,14 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
           if (sessionId === null) {
             return;
           }
-          void client
-            .send(
-              { kind: "removeQueued", sessionId, entryId },
-              { idempotencyKey: `unqueue-${entryId}` },
-            )
+          void (client.multiWriter
+            ? submitReceipt(sessionId, {kind: "removeQueued", sessionId, entryId})
+            : client.send({kind: "removeQueued", sessionId, entryId}, {idempotencyKey: `unqueue-${entryId}`}))
             .then((result) => {
               if (!result.ok) {
                 reportClientFailure(result.failure, "The host could not remove that message.");
-                return;
               }
+              refreshSessionRuntime(sessionId);
               refreshWorkspaces();
             });
         }}
@@ -1819,14 +1891,21 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
           setRefusal(undefined);
           setSessionId(null);
         }}
-        connectionBanner={<>{connectionStrip}{toolsNotice}<ShareInbox
+        connectionBanner={<>{connectionStrip}{toolsNotice}{client.multiWriter && <CommandReceiptNotice key={JSON.stringify([receiptScope, sessionId, commandReceipts.pending.find(row => row.sessionId === sessionId)?.key])} clearDisabled={imageComposer.busy} receipts={commandReceipts} sessionId={sessionId} connected={connected} onClearDraft={() => {updateDraft(sessionId, ""); for (const image of imageComposer.images) imageComposer.remove(image.id);}} />}{client.multiWriter && execution && <SessionQueueStatus key={sessionId} execution={execution} enabled={canControl && !suspended && !commandBlocked} reviewEnabled={canControl && !suspended} onAction={async operation => {
+          const result = operation.kind === "reviewUncertainTurn" ? await client.send(operation, {idempotencyKey: crypto.randomUUID()}) : await submitReceipt(sessionId, operation);
+          if (operation.kind === "reviewUncertainTurn") await commandReceipts.check(sessionId);
+          if (!result.ok) reportClientFailure(result.failure, "The queue changed. Review its current messages before trying again.");
+          refreshSessionRuntime(sessionId);
+        }} />}<ShareInbox
           targetId={canControl && !suspended ? JSON.stringify([draftScope ?? remoteHostId ?? "local", sessionId]) : undefined}
           targetLabel={titles[sessionId] ?? "selected conversation"}
+          acceptsImages={imageComposer.capable}
           canAppend={(text) => draftFits([liveDrafts.current[sessionId], text].filter(Boolean).join("\n\n"))}
-          onAppend={(text) => {
+          onAppend={async (text, images) => {
             if (!canControl || suspended) return false;
             const next = [liveDrafts.current[sessionId], text].filter(Boolean).join("\n\n");
             if (!draftFits(next)) return false;
+            if (images?.length && !await imageComposer.add(images)) return false;
             liveDrafts.current = {...liveDrafts.current, [sessionId]: next};
             updateDraft(sessionId, next);
             return true;
@@ -1839,6 +1918,15 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
             return;
           }
           const target = sessionId;
+          if (client.multiWriter) {
+            const operation = execution ? stopCurrentTurn(execution) : null;
+            if (!operation) {refreshSessionRuntime(target); return;}
+            void submitReceipt(target, operation).then(result => {
+              if (!result.ok) reportClientFailure(result.failure, "That response could not be stopped. Check its current state.");
+              refreshSessionRuntime(target);
+            });
+            return;
+          }
           void client
             .send(
               { kind: "cancelTurn", sessionId: target },

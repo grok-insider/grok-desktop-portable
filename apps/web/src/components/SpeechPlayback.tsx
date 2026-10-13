@@ -19,6 +19,12 @@ export function speechChunks(text: string): string[] {
   return chunks;
 }
 
+export function localSpeechVoice(voices: readonly SpeechSynthesisVoice[], language: string): SpeechSynthesisVoice | undefined {
+  const local = voices.filter(voice => voice.localService === true);
+  const lang = language.toLowerCase();
+  return local.find(voice => voice.lang.toLowerCase() === lang) ?? local.find(voice => voice.lang.split("-")[0].toLowerCase() === lang.split("-")[0]) ?? local.find(voice => voice.default) ?? local[0];
+}
+
 export function SpeechPlayback({text, disabled}: {text: string; disabled: boolean}) {
   const [status, setStatus] = useState<"idle" | "playing" | "paused">("idle");
   const [error, setError] = useState<string>();
@@ -30,6 +36,8 @@ export function SpeechPlayback({text, disabled}: {text: string; disabled: boolea
   const start = () => {
     if (disabled || status !== "idle") return;
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {setError("Speech playback is unavailable in this browser.");return;}
+    const voice = localSpeechVoice(window.speechSynthesis.getVoices(), navigator.language);
+    if (!voice) {setError("No on-device voice is available. Install a voice in your device settings, then try again.");return;}
     let chunks: string[];
     try {chunks = speechChunks(text);} catch (failure) {setError((failure as Error).message);return;}
     const run = ++generation.current;
@@ -39,6 +47,9 @@ export function SpeechPlayback({text, disabled}: {text: string; disabled: boolea
       const chunk = chunks.shift();
       if (!chunk) {speaking.current = false;setStatus("idle");return;}
       const utterance = new SpeechSynthesisUtterance(chunk);
+      if (!window.speechSynthesis.getVoices().some(current => current.localService === true && current.voiceURI === voice.voiceURI)) {stop();setError("The on-device voice is no longer available.");return;}
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
       utterance.onend = next;
       utterance.onerror = () => {if (run === generation.current) {stop();setError("Playback stopped. You can start it again.");}};
       try {window.speechSynthesis.speak(utterance);} catch {stop();setError("Speech playback could not start.");}
