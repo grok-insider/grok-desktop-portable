@@ -15,7 +15,12 @@
     "test:public": "node scripts/prepare-public.test.mjs",
     "test:install": "sh scripts/install-resolve.test.sh",
     "typecheck:web": "pnpm --filter @grok-desktop-portable/web typecheck",
-    "test": "pnpm test:web && pnpm test:public && pnpm test:install"
+    "test": "pnpm test:web && pnpm test:public && pnpm test:install",
+    "build:remote": "node scripts/build-remote.mjs",
+    "build:remote:artifact": "node scripts/build-remote-artifact.mjs",
+    "test:remote-evaluation": "node --test scripts/remote-evaluation.test.mjs",
+    "test:remote-artifact": "node scripts/remote-artifact.test.mjs",
+    "test:remote-crypto": "node scripts/test-remote-crypto.mjs"
   },
   "packageManager": "pnpm@10.33.2",
   "engines": {

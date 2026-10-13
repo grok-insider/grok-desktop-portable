@@ -1,0 +1,607 @@
+{
+  "schema": 1,
+  "collectedAt": "2026-10-13T00:15:18.490955+00:00",
+  "purpose": "Registro persistente saneado de decisiones y ámbitos; no incluye pruebas crudas ni autoriza una release.",
+  "catalog": {
+    "path": "catalog.json",
+    "sha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e"
+  },
+  "collectionComplete": true,
+  "releaseQualified": false,
+  "committed": false,
+  "published": false,
+  "deployed": false,
+  "counts": {
+    "inconclusive": 15,
+    "keep": 5
+  },
+  "evidence": {
+    "rawEvidenceIncluded": false,
+    "migrationStatus": "moved",
+    "note": "Evidencia privada conservada en un directorio 0700. Los paths absolutos de recibos históricos mantienen su ubicación original; relocation.json registra el cambio de prefijo. No se reescribieron resultados ni archivos de evidencia con hash.",
+    "originalPrivateTemporaryLocation": "/tmp/grok-remote-evaluation-ter17my1",
+    "currentPrivateLocation": "/home/friend/.local/share/grok-remote-evaluation/2026-10-13",
+    "movedAt": "2026-10-13T00:16:16.543951+00:00",
+    "relocationReceipt": "relocation.json"
+  },
+  "sanitization": {
+    "included": [
+      "catálogo",
+      "resultados centrales con claves revisadas",
+      "hashes e índices de fuentes privadas",
+      "alcances y límites redactados"
+    ],
+    "excluded": [
+      "perfiles",
+      "secretos",
+      "URLs de vinculación",
+      "cookies",
+      "logs crudos",
+      "conversaciones",
+      "capturas",
+      "muestras crudas de rendimiento",
+      "volcado completo del inventario"
+    ]
+  },
+  "experiments": [
+    {
+      "id": "distribution",
+      "mandatory": true,
+      "humanRequired": false,
+      "scope": "Compilación ordinaria del snapshot ensamblado integration07, con PWA sin opciones experimentales y Noise incrustados. 41 pruebas dirigidas, formato y clippy correctos. No es una release construida desde fuentes registradas en commits.",
+      "result": "results/distribution.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "36ec3ccd0bbe9a8000a3249e9fcc4b9e7202230f20dde09517dedc02683d6b85",
+      "sourceManifestSha256": "85aad35a33639733dbaeda124fa01a49b0d751ea7f268f77d27c5fe0d685a153",
+      "sourceInputPrivatePath": "auxiliary-evaluator-03/distribution-input.json",
+      "sourceInputSha256": "c3742ae411885a138951fd2112d3476a25bb07de26daeea06bb2c5228eb09fa1",
+      "sourceResultPrivatePath": "auxiliary-evaluator-03/distribution-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "vendor-integrity",
+        "clean-release",
+        "install",
+        "update",
+        "rollback"
+      ],
+      "checkCounts": {
+        "passed": 1,
+        "not_run": 5
+      },
+      "benefitMeasured": null,
+      "humanParticipated": null
+    },
+    {
+      "id": "authentication",
+      "mandatory": true,
+      "humanRequired": false,
+      "scope": "Familias de sesión de navegador, rotación atómica en PostgreSQL y compatibilidad nativa; 600 rondas en Chromium, Firefox y WebKit. Cuentas sintéticas y orígenes aislados.",
+      "result": "results/authentication.json",
+      "decision": "keep",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "3b9139dca2c45218cbdd96803412599abaa4ed423ce44bfab0f9c70ac5504489",
+      "sourceManifestSha256": "2c8237c1f6dccaeb484ada41af83c4393cf8a3865eac9e5dc5b076a0a3e66c09",
+      "sourceInputPrivatePath": "auth-evaluation-input.json",
+      "sourceInputSha256": "412ec0ea1c8b20694a7d13c72d8bc234fcc27f771b7da2c3b60bfd67f63cff03",
+      "sourceResultPrivatePath": "auth-evaluation-result.json",
+      "reasons": [
+        "required_acceptance_passed"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 7
+      },
+      "benefitMeasured": null,
+      "humanParticipated": null
+    },
+    {
+      "id": "attachment-limits",
+      "mandatory": true,
+      "humanRequired": false,
+      "scope": "Límites exactos de serialización de comandos, Unicode, archivos múltiples y borrador previo; rechazos sin envío en el candidato de borradores durables.",
+      "result": "results/attachment-limits.json",
+      "decision": "keep",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "434c7ee622515b93a3d66978e2d6107c8f35e0e360eea02e67ec2a9da8bbc045",
+      "sourceManifestSha256": "b69ce7a0f6714db2c774222587e083a3a0fc045149353eb6237c125bfa8b39f1",
+      "sourceInputPrivatePath": "attachment-limits-final-03/input.json",
+      "sourceInputSha256": "90529a3b7bedc65c37f3e1fc1202c3d0ef476b676cad7ffee8a248df6c2e933d",
+      "sourceResultPrivatePath": "attachment-limits-final-03/result.json",
+      "reasons": [
+        "required_acceptance_passed"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 6
+      },
+      "benefitMeasured": null,
+      "humanParticipated": null
+    },
+    {
+      "id": "terminal-continuity",
+      "mandatory": true,
+      "humanRequired": false,
+      "scope": "Dos clientes ACP compartidos con Grok oficial 1.0.50 y 1.0.52. Sin TUI interactiva ni cadena Noise/relay/PWA. No equivale a adoptar en caliente cualquier terminal incrustado ni a una prueba completa desde el móvil.",
+      "result": "results/terminal-continuity.json",
+      "decision": "keep",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "1a73a6c6843718d641237e618e0aad7534cc7166bb2ad757677914a0012c6cc7",
+      "sourceManifestSha256": "7dd62c71d7b10a0e8faed463c833b450f21603ebd468ca5f4f71ed95829f862e",
+      "sourceInputPrivatePath": "native-evaluator-02/terminal-continuity-input.json",
+      "sourceInputSha256": "d22a36f8a5de7251a21c5b47a0313b205da1771a10b375f0c0d66f3e835ac440",
+      "sourceResultPrivatePath": "native-evaluator-02/terminal-continuity-result.json",
+      "reasons": [
+        "required_acceptance_passed"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 7
+      },
+      "benefitMeasured": null,
+      "humanParticipated": null
+    },
+    {
+      "id": "relay-operations",
+      "mandatory": true,
+      "humanRequired": false,
+      "scope": "Relay real con control de cuentas sintético, diez hosts, cien navegadores, backpressure, reconexión y rollback local. La carga concurrente impide usarlo como comparación aislada de latencia o CPU inactiva.",
+      "result": "results/relay-operations.json",
+      "decision": "keep",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "0a3293d2a55afcf849f1433be0cbb1f52cb8206d72c966eacd2026d8c47ef606",
+      "sourceManifestSha256": "601d2527463d443ae303e840d19ac2c28eb869ffdccf574e9002aad8e848a438",
+      "sourceInputPrivatePath": "relay-evaluation-input.json",
+      "sourceInputSha256": "bb2cc7e81f6fbd2d40e6db87330dac54f1cd382892db9a9bac21e0b1357c42d1",
+      "sourceResultPrivatePath": "relay-evaluation-result.json",
+      "reasons": [
+        "required_acceptance_passed"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 9
+      },
+      "benefitMeasured": null,
+      "humanParticipated": null
+    },
+    {
+      "id": "publication",
+      "mandatory": true,
+      "humanRequired": false,
+      "scope": "Rutas HTTP reales, PostgreSQL desechable y almacenamiento S3 de laboratorio. Revocación y consentimiento comprobados; no se desplegó ni se publicaron documentos del usuario.",
+      "result": "results/publication.json",
+      "decision": "keep",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "38f4b8a86daced972ca2f67a99c736624397d75cc2db1e69640f30eab87c81c0",
+      "sourceManifestSha256": "1a21902d8100f95db3da70093b0f320648a0c3d0e667b02dbee435a78378ec54",
+      "sourceInputPrivatePath": "publication-final-02/evaluation-input.json",
+      "sourceInputSha256": "ac23c1390cf9b7ac8b18750ea8fef5e02867b10c99afeefbfd6af07e35b8acd4",
+      "sourceResultPrivatePath": "publication-final-02/evaluation-result.json",
+      "reasons": [
+        "required_acceptance_passed"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 5
+      },
+      "benefitMeasured": null,
+      "humanParticipated": null
+    },
+    {
+      "id": "drafts",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "IndexedDB con confirmación durable, aislamiento por ámbito y recuperación tras SIGKILL. Cambio de host y cuenta comprobado en PWA gestionada. Falta beneficio humano y ciclo de vida físico de Android.",
+      "result": "results/drafts.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "16c7dbd5fc0fc06e4f4087ee71e255dd51a68b48af0a0d69e2cc863bff832ee2",
+      "sourceManifestSha256": "b69ce7a0f6714db2c774222587e083a3a0fc045149353eb6237c125bfa8b39f1",
+      "sourceInputPrivatePath": "drafts-final-02/input.json",
+      "sourceInputSha256": "4943a35b2519309ee4f042e52a378b5ea0902924b679f2149c8c612df94ab685",
+      "sourceResultPrivatePath": "drafts-final-02/result.json",
+      "reasons": [
+        "benefit_unmeasured"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 9
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "remote-projects",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Raíces autorizadas localmente, identificadores opacos, escape de rutas, enlaces y referencias caducadas. La UI gestionada recorre carpetas autorizadas en una validación posterior que no forma parte de este recibo nativo; utilidad humana pendiente.",
+      "result": "results/remote-projects.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "4c3eed3122377e364a2f17d0a20dadabdd25dfc99ebc4190b7f43b3263e67987",
+      "sourceManifestSha256": "a2810b18e9f47d93481e8120f3ff7121d04372fb81f27a22e3b8c37b341ff2e5",
+      "sourceInputPrivatePath": "native-evaluator-02/remote-projects-input.json",
+      "sourceInputSha256": "ff6a4ade8dc7bb5f0509fc51702117b5967dbbb24ef570031b61efa22c361c65",
+      "sourceResultPrivatePath": "native-evaluator-02/remote-projects-result.json",
+      "reasons": [
+        "benefit_unmeasured"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 6
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "push",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Backend HTTP/PG, cifrado Web Push y VAPID reales con proveedor sustituido en la prueba; componentes nativos y worker/UI cualificados por separado. Sin entrega real al dispositivo.",
+      "result": "results/push.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "eee36d549db374ba86596a22a32ee5bb48616e80e1aa16cf8cb894a240cccaa3",
+      "sourceManifestSha256": "65f2e61c9d00cc85fe36c86e471576989e563ff8290a6032b18731cc8a009734",
+      "sourceInputPrivatePath": "push-evaluation-02/input.json",
+      "sourceInputSha256": "c4d53b822d746f77c2b2b5d0a170cdbbce2640a3775d6aedc2532567b1412b99",
+      "sourceResultPrivatePath": "push-evaluation-02/result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "foreground",
+        "suspended",
+        "closed"
+      ],
+      "checkCounts": {
+        "not_run": 3,
+        "passed": 4
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "control-transfer",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Un controlador, epochs obsoletos, peticiones simultáneas, conexión antigua y cincuenta transferencias. El relevo también se ejercitó en una validación posterior de la PWA que no forma parte de este recibo nativo; falta utilidad humana.",
+      "result": "results/control-transfer.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "ee537045ba781cc625ba93c910e72de9e6f23f3cfb15ea85ff1778b0ebc915b2",
+      "sourceManifestSha256": "a2810b18e9f47d93481e8120f3ff7121d04372fb81f27a22e3b8c37b341ff2e5",
+      "sourceInputPrivatePath": "native-evaluator-02/control-transfer-input.json",
+      "sourceInputSha256": "4b65d06d3b3a925bf1344f92c98d9ad843d77c313d6550a475e38c63cd8c4dbf",
+      "sourceResultPrivatePath": "native-evaluator-02/control-transfer-result.json",
+      "reasons": [
+        "benefit_unmeasured"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 5
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "device-panel",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Seis comprobaciones completas en PWA gestionada: estado, cambio de host, cuentas y revocación propia/ajena; durante un corte real del WebSocket se retira el panel obsoleto y tras reconectar se actualiza sin navegar. Utilidad humana pendiente; sin suspensión Android ni fallo de radio/Tailscale.",
+      "result": "results/device-panel.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "35e65955f248ce69cec0da7f19483c0563aa8ca5afb9201b3f82135990369525",
+      "sourceManifestSha256": "f3c641bf582b018d2d1ff72e50ef92f6cf86409b956c3e9d8a11db5d28d502a0",
+      "sourceInputPrivatePath": "managed-current-evaluator-01/device-panel-input.json",
+      "sourceInputSha256": "58a6cc875302affdb3bf10532ef8a69cef4df8f86f55e734c7d54ad968c16e01",
+      "sourceResultPrivatePath": "managed-current-evaluator-01/device-panel-result.json",
+      "reasons": [
+        "benefit_unmeasured"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 6
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "doctor-onboarding",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Diagnóstico de solo lectura en integration04: ejecutable ausente, GROK_HOME relativo y origen inválido. No certifica entorno del servicio, líder activo ni onboarding completo.",
+      "result": "results/doctor-onboarding.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "640e1b07912ec5d8308a64244c55a26e2e88c730d91c5c46c130c7dd9abafb23",
+      "sourceManifestSha256": "fe498cf460dfba27c02b09c8fd77c7616c77875834f38044589ee71e16156ae5",
+      "sourceInputPrivatePath": "auxiliary-evaluator-01/doctor-onboarding-input.json",
+      "sourceInputSha256": "5278482aceda475867b1b7496ac0eaa070199cbefcd976ee8a54453bb6ac5cde",
+      "sourceResultPrivatePath": "auxiliary-evaluator-01/doctor-onboarding-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "service-path",
+        "leader-socket",
+        "embedded-terminal",
+        "route-failure",
+        "clean-setup"
+      ],
+      "checkCounts": {
+        "passed": 3,
+        "not_run": 5
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "multimodal",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Los initialize aislados de Grok oficial 1.0.50 y 1.0.52 anuncian image=false y audio=false. No habilitable como entrada multimodal soportada; sin inferencia de imagen.",
+      "result": "results/multimodal.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "20adbb3cafe6b49a0bcae0aa49e1e1bc5d8cbba891ee68a94150ef364c13e174",
+      "sourceManifestSha256": "0768d8296f6c4176ee989b15ff4c5e221c5887acc74aab03505452489806b55c",
+      "sourceInputPrivatePath": "auxiliary-evaluator-01/multimodal-input.json",
+      "sourceInputSha256": "26bf9a1410bb8adb251c4c15bd734004d5d6b91c8a9678ac8868f115a5f0934a",
+      "sourceResultPrivatePath": "auxiliary-evaluator-01/multimodal-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "typed-acp",
+        "known-image-content",
+        "corrupt-file",
+        "mime-mismatch",
+        "unsupported-capability"
+      ],
+      "checkCounts": {
+        "not_run": 5
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "share-target",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Worker y PWA reales reciben formularios multipart sintéticos; texto, URL y archivo se revisan y añaden explícitamente al borrador. Deduplicación, sesión cerrada, destino y descarte comprobados. Sin share sheet ni arranque frío de PWA instalada.",
+      "result": "results/share-target.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "fd5b553b8fa5d37beee3829b2cafa9a3b01f17e47bfd52d2ed35c1f9aa1b74f5",
+      "sourceManifestSha256": "a7332b714378b0d8caa1b5992282b95c92a8e0d80dd734675a7958569f5a288d",
+      "sourceInputPrivatePath": "managed-current-evaluator-01/share-target-input.json",
+      "sourceInputSha256": "5db77dc503f546f1bea8c1b7841c88f8a6e0a14a4c890c5e38502bc9970e7610",
+      "sourceResultPrivatePath": "managed-current-evaluator-01/share-target-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "closed-app"
+      ],
+      "checkCounts": {
+        "passed": 8,
+        "not_run": 1
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "dictation",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Componentes reales con eventos de reconocimiento simulados. Cancelación y revisión antes de insertar comprobadas; no acredita micrófono, precisión ni interrupción real de red.",
+      "result": "results/dictation.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "cb3ab3a07c08c1b3638f7cf575818e52f996a568786c55da9cc9125e3b617c4f",
+      "sourceManifestSha256": "ab9ee33e9177f7cb6437ed416236bdccdd568d6d7f773f19b26eb25e06e9f068",
+      "sourceInputPrivatePath": "auxiliary-evaluator-01/dictation-input.json",
+      "sourceInputSha256": "b68974f2707e1786a34f4dfaf5265d208cb432b5b1be43c537171e5e02f8de4f",
+      "sourceResultPrivatePath": "auxiliary-evaluator-01/dictation-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "paired-tasks",
+        "code-terms",
+        "denied-microphone",
+        "silence",
+        "network-failure"
+      ],
+      "checkCounts": {
+        "not_run": 5,
+        "passed": 2
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "speech-playback",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Componente real con motor de voz simulado. Cancelación y cambio de sesión bloquean eventos tardíos; no acredita sonido audible, pausa física ni comprensión.",
+      "result": "results/speech-playback.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "330b677abfb10bbb2720c92c934b746a72e28fa6a357ee36b7446a8b1855067c",
+      "sourceManifestSha256": "ab9ee33e9177f7cb6437ed416236bdccdd568d6d7f773f19b26eb25e06e9f068",
+      "sourceInputPrivatePath": "auxiliary-evaluator-01/speech-playback-input.json",
+      "sourceInputSha256": "c07c34bea9e6c83f688796ce7c5a1b812066146f9142c5dee059a5965bb3b1d1",
+      "sourceResultPrivatePath": "auxiliary-evaluator-01/speech-playback-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "start",
+        "pause",
+        "long-answer",
+        "comprehension"
+      ],
+      "checkCounts": {
+        "not_run": 4,
+        "passed": 2
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "syl-integration",
+      "mandatory": false,
+      "humanRequired": true,
+      "scope": "Grok oficial → ACP → Syl reales sobre un objetivo sintético, con autorización, frescura, revocación, desconexión y rechazo de reejecución incierta. Sin reinicio del host, validación de apps arbitrarias ni utilidad humana.",
+      "result": "results/syl-integration.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "61f64fb59da8c087fd28e159905205b9daba69c055b637423f0ea37b13c7333c",
+      "sourceManifestSha256": "b630df851cd47b3954453c36b6a3cd34efdeb70823c5cca187cced3b037bee2d",
+      "sourceInputPrivatePath": "native-evaluator-02/syl-integration-input.json",
+      "sourceInputSha256": "e187e194c9c0f51dd2d51ce481721d3c378306352e31607ddbaac153304a1258",
+      "sourceResultPrivatePath": "native-evaluator-02/syl-integration-result.json",
+      "reasons": [
+        "benefit_unmeasured"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 6
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "event-delivery",
+      "mandatory": false,
+      "humanRequired": false,
+      "scope": "Microbenchmark nativo emparejado y seis comprobaciones funcionales sobre el mismo ejecutable congelado. Falta la cadena relay/WASM/navegador y recursos en reposo; variante desactivada.",
+      "result": "results/event-delivery.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "3e6bf7884afefd8a87e0740132c583a30f2abd586825b081d3c0295d8e943bb2",
+      "sourceManifestSha256": "574ed910f11dd3399b4f3f0f3490bb294a76e67bb463a5b15d27fc6a787cd644",
+      "sourceInputPrivatePath": "native-functional-evaluator-01/event-delivery-input.json",
+      "sourceInputSha256": "c04a96f2b24ede5aa51d3dd78a400c396eddb9e81c05c015192eec805cf7ea42",
+      "sourceResultPrivatePath": "native-functional-evaluator-01/event-delivery-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "full-chain"
+      ],
+      "checkCounts": {
+        "passed": 7,
+        "not_run": 1
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    },
+    {
+      "id": "long-conversation",
+      "mandatory": false,
+      "humanRequired": false,
+      "scope": "Pruebas funcionales y comparación emparejada del transcript completadas para 100, 1000 y 10000 elementos. Falta validar recursos; las cifras no cualifican un frontend posterior por sí solas.",
+      "result": "results/long-conversation.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "b8581061db774e8c3dedf0568296a56eae75d6af13fd435cb44341c1326340ac",
+      "sourceManifestSha256": "58a9c3969a3452d3fadd0d77bebd05a8e3d3c121918a5951295c92fdc4e1db4d",
+      "sourceInputPrivatePath": "long-conversation-final-02/input.json",
+      "sourceInputSha256": "3169225d92ff1e07577063e1afe927380be78d6aad2e4b4efbcbbd19a8b06e1f",
+      "sourceResultPrivatePath": "long-conversation-final-02/result.json",
+      "reasons": [
+        "resource_validation_pending"
+      ],
+      "failedChecks": [],
+      "missingChecks": [],
+      "checkCounts": {
+        "passed": 10
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": null
+    },
+    {
+      "id": "publication-cost",
+      "mandatory": false,
+      "humanRequired": false,
+      "scope": "Microbenchmark nativo de publicación y comprobación del contenido sin cambios, cola modificada e igualdad del JSON exportado sobre el mismo ejecutable congelado. Faltan interrupción real de subida, revocación remota y recursos en reposo; variante desactivada.",
+      "result": "results/publication-cost.json",
+      "decision": "inconclusive",
+      "evaluationReceiptPresent": true,
+      "resultSha256": "2b9975ebf1d959892966a76c328c46882b468b3f2bb4d6ef9e52f81f41d71a34",
+      "sourceManifestSha256": "574ed910f11dd3399b4f3f0f3490bb294a76e67bb463a5b15d27fc6a787cd644",
+      "sourceInputPrivatePath": "native-functional-evaluator-01/publication-cost-input.json",
+      "sourceInputSha256": "1ae827e81d0b36a2892ed8d9c8e74c3500f39a927c5ba67925e98867e2f1c095",
+      "sourceResultPrivatePath": "native-functional-evaluator-01/publication-cost-result.json",
+      "reasons": [
+        "acceptance_incomplete"
+      ],
+      "failedChecks": [],
+      "missingChecks": [
+        "interrupted-upload",
+        "revocation"
+      ],
+      "checkCounts": {
+        "passed": 4,
+        "not_run": 2
+      },
+      "benefitMeasured": "unmeasured",
+      "humanParticipated": false
+    }
+  ],
+  "globalLimits": [
+    "Un keep se limita a los módulos, artefactos y condiciones del recibo; no certifica todo el producto.",
+    "Ningún beneficio humano se infiere de las pruebas técnicas.",
+    "Los experimentos opcionales sin aceptación y beneficio completos permanecen desactivados.",
+    "Una prueba de Chromium o WebKit de laboratorio no cualifica Android o iOS.",
+    "El rollback de la autenticación web anterior no conserva revocación inmediata de familias.",
+    "La release requiere fuentes registradas en commits e integración de vendor por el procedimiento del repositorio; no se omitió esa guarda."
+  ],
+  "infrastructureIncidents": [
+    {
+      "privateReceipt": "infra-cleanup-01/receipt.json",
+      "sha256": "42b9fb32d33831e66bf899c90462b81131a49c39efaf2b7dce12c4b36ff711eb",
+      "scope": "El backend de laboratorio se cerró antes del TTL; después falló el ciclo de vida de sus fixtures dependientes y sus revocaciones HTTP. El esquema fue eliminado y se verificó su ausencia. La señal original y su emisor no quedaron registrados; los recibos funcionales anteriores conservan solo su intervalo y alcance probado.",
+      "lifecycleResult": "failed",
+      "experimentDecisionsChanged": false
+    }
+  ],
+  "supplements": [
+    {
+      "id": "mobile-01",
+      "report": "mobile-01.md",
+      "reportSha256": "fa4220460ae369d66a3c4566ff15ac93fcde44aa7b0699b3bb8faf21f2b50630",
+      "receipt": "mobile-01.json",
+      "receiptSha256": "bf47ae8e588ffa462a4cd4bf3c5faf85a3b60da3da3782a3f8f091fcf114e138",
+      "status": "session_closed_partial_qualification",
+      "decisionCountsChanged": false,
+      "userUiAccepted": true,
+      "releaseQualified": false,
+      "cleanupVerified": true
+    }
+  ]
+}

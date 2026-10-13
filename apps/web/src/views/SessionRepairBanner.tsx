@@ -38,12 +38,16 @@ function reportSummary(report: RepairReport): string {
 export function SessionRepairBanner({
   diagnosis,
   busy,
+  connected = true,
+  canControl = true,
   onDiagnose,
   onRepair,
   onDismiss,
 }: {
   diagnosis: SessionDiagnosis | null;
   busy: boolean;
+  connected?: boolean;
+  canControl?: boolean;
   onDiagnose: () => void;
   onRepair: () => void;
   onDismiss: () => void;
@@ -109,10 +113,10 @@ export function SessionRepairBanner({
             an interrupted action.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={onDiagnose} disabled={busy}>
+            <Button variant="secondary" onClick={onDiagnose} disabled={busy || !connected || !canControl}>
               Check again
             </Button>
-            <Button variant="primary" onClick={onRepair} disabled={busy}>
+            <Button variant="primary" onClick={onRepair} disabled={busy || !connected || !canControl}>
               {busy ? "Repairing…" : "Repair history"}
             </Button>
             <Button variant="ghost" onClick={onDismiss} disabled={busy}>

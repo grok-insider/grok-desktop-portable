@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "relay-operations",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "601d2527463d443ae303e840d19ac2c28eb869ffdccf574e9002aad8e848a438",
+  "decision": "keep",
+  "reasons": [
+    "required_acceptance_passed"
+  ],
+  "failed": [],
+  "missing": []
+}

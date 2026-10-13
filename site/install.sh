@@ -7,9 +7,6 @@
 # existing commands keep working.
 #
 # This file is intentionally NOT configurable via environment variables.
-# It always installs the newest release of the official repo (including
-# prereleases). That keeps `curl | sh` from the site deterministic and
-# resistant to ambient env poisoning.
 #
 # Usage:
 #   curl -fsSL https://desktop.grok.me/install.sh | sh
@@ -21,8 +18,6 @@ set -eu
 
 # --- fixed product constants (do not read env for these) ---
 REPO="grok-insider/spanreed"
-# Used only if the GitHub API is unreachable: the first release with `spanreed agent`.
-FALLBACK_TAG="v0.7.0"
 INSTALL_DIR="${HOME}/.local/bin"
 BIN_NAME="spanreed"
 LEGACY_NAME="grok-bridge"
@@ -60,10 +55,16 @@ case "$os/$arch" in
     ;;
 esac
 
-# Newest GitHub release including prereleases (not /releases/latest).
 resolve_tag() {
-  api="https://api.github.com/repos/${REPO}/releases?per_page=20"
-  json=$(curl -fsSL -H "Accept: application/vnd.github+json" "$api" 2>/dev/null || true)
+  api="https://api.github.com/repos/${REPO}/releases/latest"
+  json=$(curl -fsSL -H "Accept: application/vnd.github+json" "$api") || {
+    echo "error: could not resolve the latest stable release; retry later" >&2
+    return 1
+  }
+  if printf '%s' "$json" | grep -Eq '"(draft|prerelease)"[[:space:]]*:[[:space:]]*true'; then
+    echo "error: latest release is not a published stable release" >&2
+    return 1
+  fi
   tag=""
   if [ -n "$json" ]; then
     tag=$(
@@ -73,9 +74,9 @@ resolve_tag() {
         | sed 's/.*"\([^"]*\)"$/\1/'
     )
   fi
-  if [ -z "$tag" ]; then
-    echo "warning: could not resolve latest release via API; using ${FALLBACK_TAG}" >&2
-    tag=$FALLBACK_TAG
+  if ! printf '%s\n' "$tag" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+    echo "error: latest release did not provide a stable version tag" >&2
+    return 1
   fi
   printf '%s\n' "$tag"
 }
@@ -97,7 +98,8 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 
 tmpdir=$(mktemp -d)
-trap 'rm -rf "$tmpdir"' EXIT
+staged=""
+trap '[ -z "$staged" ] || rm -f "$staged"; rm -rf "$tmpdir"' EXIT
 
 echo "Downloading ${asset} (${VERSION}) from ${REPO}…"
 curl -fsSL "${base}/${asset}" -o "${tmpdir}/${asset}"
@@ -106,7 +108,7 @@ curl -fsSL "${base}/${asset}.sha256" -o "${tmpdir}/${asset}.sha256" || {
   exit 1
 }
 
-expected=$(awk -v name="$asset" '$2 == name {print $1}' "${tmpdir}/${asset}.sha256" | head -n1)
+expected=$(awk -v name="$asset" 'NR == 1 && NF == 2 && $2 == name {hash = $1} END {if (NR == 1 && length(hash) == 64 && hash !~ /[^0-9a-fA-F]/) print tolower(hash)}' "${tmpdir}/${asset}.sha256")
 if [ -z "$expected" ]; then
   echo "error: ${asset}.sha256 does not describe ${asset}" >&2
   exit 1
@@ -125,9 +127,30 @@ fi
 echo "Checksum OK"
 
 tar -xzf "${tmpdir}/${asset}" -C "$tmpdir" "$BIN_NAME"
+[ -f "${tmpdir}/${BIN_NAME}" ] && [ ! -L "${tmpdir}/${BIN_NAME}" ] || {
+  echo "error: archive must contain a regular ${BIN_NAME}" >&2
+  exit 1
+}
 mkdir -p "$INSTALL_DIR"
-install -m 755 "${tmpdir}/${BIN_NAME}" "${INSTALL_DIR}/${BIN_NAME}"
-ln -sf "$BIN_NAME" "${INSTALL_DIR}/${LEGACY_NAME}"
+dest="${INSTALL_DIR}/${BIN_NAME}"
+legacy="${INSTALL_DIR}/${LEGACY_NAME}"
+validate_destinations() {
+  if [ -L "$dest" ] || { [ -e "$dest" ] && [ ! -f "$dest" ]; }; then
+    echo "error: install destination must be a regular file or absent: $dest" >&2
+    exit 1
+  fi
+  if [ -d "$legacy" ] || { [ -e "$legacy" ] && [ ! -f "$legacy" ] && [ ! -L "$legacy" ]; }; then
+    echo "error: legacy destination must be a file or file link: $legacy" >&2
+    exit 1
+  fi
+}
+validate_destinations
+staged=$(mktemp "${INSTALL_DIR}/.spanreed-install.XXXXXX")
+install -m 755 "${tmpdir}/${BIN_NAME}" "$staged"
+validate_destinations
+mv -f "$staged" "$dest"
+staged=""
+ln -sfn "$BIN_NAME" "$legacy"
 echo "Installed ${INSTALL_DIR}/${BIN_NAME} (and ${LEGACY_NAME} → ${BIN_NAME} agent)"
 
 case ":$PATH:" in
@@ -140,6 +163,10 @@ esac
 echo
 echo "Next:"
 echo "  1. Install and authenticate the Grok Build CLI (grok) separately."
-echo "  2. ${BIN_NAME} agent doctor"
-echo "  3. ${BIN_NAME} agent serve   # leave running"
-echo "  4. ${BIN_NAME} agent open    # open the URL in Chrome, Firefox 84+, or Edge (not Safari)"
+echo "  2. Connect this computer and your device to Tailscale; enable MagicDNS and HTTPS, and allow device access to TCP 443."
+echo "  3. ${BIN_NAME} remote doctor"
+echo "  4. ${BIN_NAME} remote private-serve https://HOST   # use this computer's Tailscale HTTPS hostname; leave running"
+echo "  5. In another terminal, check 'tailscale serve status' before assigning its HTTPS root:"
+echo "     tailscale serve --bg --https=443 http://127.0.0.1:PORT   # use the port printed by Spanreed"
+echo "  6. ${BIN_NAME} remote private-pair https://HOST   # same hostname as step 4"
+echo "  7. Open the one-use link on your device; it opens https://desktop.grok.me. Keep the computer running."

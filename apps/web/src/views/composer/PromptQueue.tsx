@@ -11,9 +11,11 @@ import { Button } from "../../components/ui";
 export function PromptQueue({
   queued,
   onRemove,
+  disabled = false,
 }: {
   queued: { entryId: string; text: string }[];
   onRemove: (entryId: string) => void;
+  disabled?: boolean;
 }) {
   if (queued.length === 0) {
     return null;
@@ -39,6 +41,7 @@ export function PromptQueue({
           </span>
           <Button
             variant="ghost"
+            disabled={disabled}
             onClick={() => onRemove(entry.entryId)}
             aria-label={`Remove the waiting message: ${entry.text}`}
             className="size-7 shrink-0 px-0"

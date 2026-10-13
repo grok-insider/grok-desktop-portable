@@ -1,6 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
+import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
+
+beforeEach(() => {
+  Object.defineProperty(globalThis, "indexedDB", {configurable: true, writable: true, value: new IDBFactory()});
+  Object.defineProperty(globalThis, "IDBKeyRange", {configurable: true, writable: true, value: IDBKeyRange});
+});
 
 /* jsdom does not implement scrollIntoView; the transcript pins to the end. */
 if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {

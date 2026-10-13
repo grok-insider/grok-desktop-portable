@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "experiment": "dictation",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "ab9ee33e9177f7cb6437ed416236bdccdd568d6d7f773f19b26eb25e06e9f068",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "paired-tasks",
+    "code-terms",
+    "denied-microphone",
+    "silence",
+    "network-failure"
+  ]
+}

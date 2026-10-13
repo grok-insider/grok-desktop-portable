@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -48,6 +48,24 @@ function renderView(overrides: Partial<Parameters<typeof SessionView>[0]> = {}) 
 }
 
 describe("SessionView", () => {
+  it.each(["", "transcript"])("renders image-only, restored and pending messages with transcript experiments %j", (experiments) => {
+    vi.stubEnv("VITE_REMOTE_EXPERIMENTS", experiments);
+    try {
+      const image = {sha256: "a".repeat(64), width: 32, height: 64, byteLength: 10, mimeType: "image/png" as const};
+      renderView({transcript: [
+        {id: "image-only", role: "user", text: "", seq: 1, images: [image]},
+        {id: "restored", role: "agent", text: "Restored answer", seq: 2, unavailableImages: 1},
+        {id: "pending", role: "agent", text: "", seq: 3, liveImages: [{id: "later", phase: "pending"}]},
+      ]});
+      expect(within(screen.getByRole("article", {name: "Your message"})).getByText("Image 1 · 32 × 64")).toBeInTheDocument();
+      expect(screen.getByText("1 image unavailable in this history.")).toBeInTheDocument();
+      expect(screen.getByText("Preparing conversation image…")).toBeInTheDocument();
+      expect(screen.getByText("Restored answer")).toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("sends a prompt and clears the composer", async () => {
     const props = renderView();
     const composer = screen.getByRole("textbox", { name: /message the agent/i });
@@ -123,9 +141,30 @@ describe("SessionView", () => {
   });
 
   it("disables the composer when the event channel is down", () => {
-    renderView({ connected: false });
+    renderView({ connected: false, phase: "streaming", queued: [{entryId: "q-1", text: "pending"}] });
     expect(screen.getByRole("textbox", { name: /message the agent/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Stop the current turn" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /remove the waiting message/i })).toBeDisabled();
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
+  });
+
+  it.each([{connected: true, canControl: false}, {connected: false, canControl: true}])("gates history mutations and keeps local dismissal available: %j", async (authority) => {
+    const onRepairSession = vi.fn();
+    const onDismissDiagnosis = vi.fn();
+    const props = renderView({...authority, reviews: [{recordId: "r-1", operation: "Prompt"}], diagnosis: {sessionId: "s-1", status: "corrupt"}, onDiagnoseSession: vi.fn(), onRepairSession, onDismissDiagnosis});
+    const repair = screen.getByRole("button", {name: "Repair history"});
+    const acknowledge = screen.getByRole("button", {name: /Mark Prompt as reviewed/});
+    expect(repair).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Check again"})).toBeDisabled();
+    expect(acknowledge).toBeDisabled();
+    await userEvent.click(repair);
+    await userEvent.click(acknowledge);
+    expect(onRepairSession).not.toHaveBeenCalled();
+    expect(props.onAcknowledge).not.toHaveBeenCalled();
+    const dismiss = screen.getByRole("button", {name: "Dismiss"});
+    dismiss.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onDismissDiagnosis).toHaveBeenCalledOnce();
   });
 
   it("states that an interrupted action will not be retried", () => {
@@ -776,4 +815,53 @@ describe("interrupted records across conversations", () => {
     expect(screen.queryByRole("button", { name: /open the conversation/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /as reviewed$/i })).toBeInTheDocument();
   });
+});
+
+
+it.each(["prompt", "sendNow"])("preserves an oversized draft without dispatching %s", async (kind) => {
+  const draft = "🙂".repeat(70_000);
+  const props = renderView({draft, phase: kind === "sendNow" ? "streaming" : "idle", draftFits: () => false});
+  const composer = screen.getByRole("textbox", {name: /message the agent/i});
+  fireEvent.keyDown(composer, {key: "Enter", ctrlKey: kind === "sendNow"});
+  expect(props.onPrompt).not.toHaveBeenCalled();
+  expect(props.onSendNow).not.toHaveBeenCalled();
+  expect(composer).toHaveValue(draft);
+  expect(screen.getByText(/exceeds the 256 KiB command limit/i)).toBeInTheDocument();
+});
+
+it("keeps existing text and refuses encoded image fallback when the host has no vision channel", async () => {
+  renderView({draft: "existing draft", draftFits: (text) => text.length < 1000});
+  const file = new File([new Uint8Array(200_000)], "photo.png", {type: "image/png"});
+  fireEvent.change(document.querySelector('input[type="file"]')!, {target: {files: [file]}});
+  await screen.findByText(/This host does not support image input/);
+  expect(screen.getByRole("textbox", {name: /message the agent/i})).toHaveValue("existing draft");
+});
+
+it("does not overwrite edits with an attachment whose read finishes later", async () => {
+  renderView({draft: "before", draftFits: () => true});
+  let finish!: (text: string) => void;
+  const file = new File(["content"], "notes.txt", {type: "text/plain"});
+  vi.spyOn(file, "text").mockImplementation(() => new Promise((resolve) => {finish = resolve;}));
+  fireEvent.change(document.querySelector('input[type="file"]')!, {target: {files: [file]}});
+  const composer = screen.getByRole("textbox", {name: /message the agent/i});
+  fireEvent.change(composer, {target: {value: "after"}});
+  finish("content");
+  await screen.findByText(/draft changed while the files were being read/);
+  expect(composer).toHaveValue("after");
+});
+
+it("drops an in-flight attachment when switching between conversations with equal drafts", async () => {
+  let finish!: (text: string) => void;
+  const file = new File(["content"], "notes.txt", {type: "text/plain"});
+  vi.spyOn(file, "text").mockImplementation(() => new Promise((resolve) => {finish = resolve;}));
+  const props = {
+    transcript: [], tools: [], reviews: [], phase: "idle" as const, connected: true, sessions: [], activeSessionId: "one", sessionTitles: {}, draft: "same", onDraftChange: vi.fn(), queued: [], onSendNow: vi.fn(), onRemoveQueued: vi.fn(), onSelectSession: vi.fn(), onCloseSession: vi.fn(), onLeaveSession: vi.fn(), onPrompt: vi.fn(), onCancel: vi.fn(), onAcknowledge: vi.fn(),
+  };
+  const {rerender} = render(<ThemeProvider><SessionView {...props} /></ThemeProvider>);
+  fireEvent.change(document.querySelector('input[type="file"]')!, {target: {files: [file]}});
+  rerender(<ThemeProvider><SessionView {...props} activeSessionId="two" /></ThemeProvider>);
+  finish("content");
+  await waitFor(() => expect(screen.getByRole("textbox", {name: /message the agent/i})).toHaveValue("same"));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(props.onDraftChange).not.toHaveBeenCalled();
 });

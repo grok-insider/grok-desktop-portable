@@ -5,7 +5,8 @@ node_modules
 
 # SPA build outputs (Vite → public/; legacy dist)
 # Vercel outputDirectory is public/; never commit built HTML/assets.
-public/
+/public/
+/.remote-build/
 apps/web/dist
 
 # Env / local secrets
@@ -44,3 +45,7 @@ scripts/preview-proxy-deps/
 
 # Local CLI source for UI/protocol research (not part of the product)
 examples/grok-build/
+
+__pycache__/
+
+*.py[cod]

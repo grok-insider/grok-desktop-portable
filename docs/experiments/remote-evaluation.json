@@ -1,0 +1,316 @@
+{
+  "schema": 1,
+  "version": "2026-10-12.1",
+  "evaluationPolicy": {
+    "maxRounds": 2,
+    "humanUtilityMinimum": 4,
+    "platforms": [
+      "linux",
+      "android-s24",
+      "chromium",
+      "firefox",
+      "webkit",
+      "windows-vm"
+    ],
+    "unqualifiedPlatforms": [
+      "ios",
+      "macos"
+    ],
+    "performance": {
+      "blocks": 8,
+      "warmups": 50,
+      "samplesPerVariant": 200,
+      "orderCounts": {
+        "AB": 4,
+        "BA": 4
+      },
+      "bootstrapResamples": 10000,
+      "seed": 18391,
+      "eventReductionPercent": 20,
+      "eventReductionMs": 20,
+      "interactionReductionPercent": 20,
+      "publicationSavingPercent": 30,
+      "nonTargetRegressionPercent": 10
+    }
+  },
+  "experiments": [
+    {
+      "id": "distribution",
+      "mandatory": true,
+      "requiredChecks": [
+        "ordinary-build",
+        "vendor-integrity",
+        "clean-release",
+        "install",
+        "update",
+        "rollback"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "authentication",
+      "mandatory": true,
+      "requiredChecks": [
+        "cross-origin",
+        "without-web-locks",
+        "atomic-rotation",
+        "lost-response",
+        "logout",
+        "revocation",
+        "native-compatibility"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "attachment-limits",
+      "mandatory": true,
+      "requiredChecks": [
+        "exact-boundaries",
+        "unicode-escaping",
+        "multiple-files",
+        "existing-draft",
+        "managed-envelope",
+        "no-dispatch-on-refusal"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "terminal-continuity",
+      "mandatory": true,
+      "requiredChecks": [
+        "shared-leader",
+        "both-directions",
+        "permission",
+        "observer",
+        "reconnect",
+        "adapter-loss",
+        "unsupported-cli"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "relay-operations",
+      "mandatory": true,
+      "requiredChecks": [
+        "account-isolation",
+        "host-isolation",
+        "proxy-admission",
+        "slow-consumer",
+        "reconnect-storm",
+        "readiness",
+        "drain",
+        "rollback",
+        "soak"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "publication",
+      "mandatory": true,
+      "requiredChecks": [
+        "closed-browser",
+        "offline-host-revoke",
+        "late-upload",
+        "cleanup",
+        "consent-boundary"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "drafts",
+      "mandatory": false,
+      "requiredChecks": [
+        "opt-in",
+        "seven-day-retention",
+        "scope-isolation",
+        "reload",
+        "host-switch",
+        "worker-update",
+        "storage-denied",
+        "revoke",
+        "process-death"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "remote-projects",
+      "mandatory": false,
+      "requiredChecks": [
+        "authorized-root",
+        "no-host-dialog",
+        "opaque-identifiers",
+        "path-escape",
+        "symlink-escape",
+        "stale-handle"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "push",
+      "mandatory": false,
+      "requiredChecks": [
+        "foreground",
+        "suspended",
+        "closed",
+        "duplicates",
+        "expired-action",
+        "revoked-device",
+        "minimal-content"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "control-transfer",
+      "mandatory": false,
+      "requiredChecks": [
+        "single-controller",
+        "stale-epoch",
+        "simultaneous-request",
+        "old-connection",
+        "fifty-transfers"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "device-panel",
+      "mandatory": false,
+      "requiredChecks": [
+        "host-status",
+        "stale-status",
+        "host-switch",
+        "own-revocation",
+        "other-revocation",
+        "account-isolation"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "doctor-onboarding",
+      "mandatory": false,
+      "requiredChecks": [
+        "missing-grok",
+        "service-path",
+        "grok-home",
+        "leader-socket",
+        "embedded-terminal",
+        "invalid-origin",
+        "route-failure",
+        "clean-setup"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "multimodal",
+      "mandatory": false,
+      "requiredChecks": [
+        "typed-acp",
+        "known-image-content",
+        "corrupt-file",
+        "mime-mismatch",
+        "unsupported-capability"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "share-target",
+      "mandatory": false,
+      "requiredChecks": [
+        "text",
+        "url",
+        "file",
+        "closed-app",
+        "signed-out",
+        "host-selection",
+        "duplicate-intent",
+        "cancel",
+        "editable-no-submit"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "dictation",
+      "mandatory": false,
+      "requiredChecks": [
+        "paired-tasks",
+        "code-terms",
+        "denied-microphone",
+        "silence",
+        "cancel",
+        "network-failure",
+        "review-before-send"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "speech-playback",
+      "mandatory": false,
+      "requiredChecks": [
+        "start",
+        "pause",
+        "cancel",
+        "session-switch",
+        "long-answer",
+        "comprehension"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "syl-integration",
+      "mandatory": false,
+      "requiredChecks": [
+        "synthetic-observation",
+        "authorized-action",
+        "freshness",
+        "revoke",
+        "disconnect",
+        "indeterminate-no-replay"
+      ],
+      "humanRequired": true
+    },
+    {
+      "id": "event-delivery",
+      "mandatory": false,
+      "requiredChecks": [
+        "journal-authority",
+        "lost-wakeup",
+        "burst",
+        "expired-cursor",
+        "idle-revocation",
+        "slow-consumer",
+        "full-chain",
+        "performance"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "long-conversation",
+      "mandatory": false,
+      "requiredChecks": [
+        "small",
+        "medium",
+        "large",
+        "selection",
+        "copy",
+        "search",
+        "order",
+        "scroll",
+        "accessibility",
+        "performance"
+      ],
+      "humanRequired": false
+    },
+    {
+      "id": "publication-cost",
+      "mandatory": false,
+      "requiredChecks": [
+        "unchanged-shares",
+        "changed-tail",
+        "interrupted-upload",
+        "revocation",
+        "identical-document",
+        "performance"
+      ],
+      "humanRequired": false
+    }
+  ]
+}

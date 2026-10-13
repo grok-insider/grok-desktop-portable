@@ -40,6 +40,8 @@ export function WorkShell({
   onNewTab,
   phase,
   connected,
+  canControl = true,
+  showThemeControl = true,
   trailing,
   children,
 }: {
@@ -55,6 +57,8 @@ export function WorkShell({
   onNewTab?: () => void;
   phase?: SessionPhase;
   connected: boolean;
+  canControl?: boolean;
+  showThemeControl?: boolean;
   trailing?: ReactNode;
   children: ReactNode;
 }) {
@@ -62,9 +66,9 @@ export function WorkShell({
   const showTabs = tabs.length > 0 || onNewTab !== undefined;
 
   return (
-    <div className="flex h-dvh min-h-dvh flex-col bg-background p-2 max-[680px]:h-auto max-[680px]:p-0">
+    <div className="work-shell flex h-dvh min-h-dvh flex-col bg-background p-2 max-[680px]:h-auto max-[680px]:p-0">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-raised max-[680px]:rounded-none max-[680px]:border-x-0">
-        <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
+        <header className="work-header flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
           {/*
             Chrome, not the document heading. Each surface owns its own `h1`,
             so making this one too would leave every page with two and no
@@ -73,6 +77,7 @@ export function WorkShell({
           <button
             type="button"
             onClick={onGoHome}
+            aria-label="Home"
             aria-current={homeActive ? "page" : undefined}
             className={cn(
               "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body font-medium transition-colors",
@@ -82,7 +87,7 @@ export function WorkShell({
             )}
           >
             <Home size={14} className="shrink-0" aria-hidden="true" />
-            Home
+            <span className="max-[680px]:sr-only">Home</span>
           </button>
 
           {showTabs ? (
@@ -139,6 +144,7 @@ export function WorkShell({
                       <IconButton
                         size="sm"
                         onClick={() => onCloseTab?.(tab.sessionId)}
+                        disabled={!connected || !canControl}
                         aria-label={`Close ${tab.title}`}
                         className={cn(
                           "size-6 shrink-0",
@@ -168,19 +174,20 @@ export function WorkShell({
             <div className="min-w-0 flex-1" />
           )}
 
-          <div className="flex shrink-0 items-center gap-1.5 pl-1">
+          <div className="work-header-actions flex shrink-0 items-center gap-1.5 pl-1">
             {trailing}
-            {/* Idle is the resting state and draws nothing. */}
+            {showThemeControl && <ThemeToggle />}
+          </div>
+          {(phase === "streaming" || phase === "interrupted" || !connected) && <div className="work-header-status flex shrink-0 items-center gap-1.5">
             {phase === "streaming" ? (
               <StatusChip tone="info">Running</StatusChip>
             ) : phase === "interrupted" ? (
               <StatusChip tone="warning">Needs review</StatusChip>
             ) : null}
             {connected ? null : <StatusChip tone="destructive">Disconnected</StatusChip>}
-            <ThemeToggle />
-          </div>
+          </div>}
         </header>
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <div className={cn("flex min-h-0 flex-1 flex-col", surface === "session" && "overflow-y-auto")}>{children}</div>
       </div>
       {/* Polite status for assistive tech when connection or phase changes. */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">

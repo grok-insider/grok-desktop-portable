@@ -7,8 +7,6 @@
 # working.
 #
 # This script does NOT read install policy from environment variables.
-# It always installs the newest release of the official repo (including
-# prereleases).
 #
 # Usage:
 #   irm https://desktop.grok.me/install.ps1 | iex
@@ -19,8 +17,6 @@ $ErrorActionPreference = 'Stop'
 
 # --- fixed product constants (do not read env for these) ---
 $Repo = 'grok-insider/spanreed'
-# Used only if the GitHub API is unreachable: the first release with `spanreed agent`.
-$FallbackTag = 'v0.7.0'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'spanreed\bin'
 $BinName = 'spanreed.exe'
 $LegacyName = 'grok-bridge.exe'
@@ -40,17 +36,51 @@ foreach ($a in $args) {
 }
 
 function Resolve-Tag {
-  try {
-    $headers = @{ Accept = 'application/vnd.github+json' }
-    $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=20" -Headers $headers
-    if ($releases -and $releases.Count -gt 0) {
-      return $releases[0].tag_name
-    }
-  } catch {
-    Write-Warning "Could not resolve latest release via API: $_"
+  $headers = @{ Accept = 'application/vnd.github+json' }
+  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers
+  if ($release.draft -or $release.prerelease -or $release.tag_name -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+    throw 'Latest release did not provide a stable version tag; retry later'
   }
-  Write-Warning "Using fallback tag $FallbackTag"
-  return $FallbackTag
+  return $release.tag_name
+}
+
+function Assert-InstallDestination {
+  param([string]$Destination)
+  $DestinationItem = Get-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+  if ($DestinationItem -and ($DestinationItem.PSIsContainer -or ($DestinationItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint))) {
+    throw 'Install destination must be a regular file or absent'
+  }
+}
+
+function Install-Binary {
+  param([string]$Source, [string]$Destination)
+  $SourceItem = Get-Item -LiteralPath $Source -Force
+  if ($SourceItem.PSIsContainer -or ($SourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+    throw 'Install source must be a regular file'
+  }
+  Assert-InstallDestination -Destination $Destination
+  $Staged = Join-Path (Split-Path -Parent $Destination) ('.spanreed-install-' + [guid]::NewGuid().ToString('n'))
+  $Backup = "$Staged.previous"
+  try {
+    [System.IO.File]::Copy($Source, $Staged, $false)
+    if ((Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath $Staged -Algorithm SHA256).Hash) {
+      throw 'Staged binary differs from the verified source'
+    }
+    Assert-InstallDestination -Destination $Destination
+    if (Test-Path -LiteralPath $Destination) {
+      [System.IO.File]::Replace($Staged, $Destination, $Backup)
+    } else {
+      [System.IO.File]::Move($Staged, $Destination)
+    }
+    Remove-Item -LiteralPath $Backup -Force -ErrorAction SilentlyContinue
+  } catch {
+    if (-not (Test-Path -LiteralPath $Destination) -and (Test-Path -LiteralPath $Backup)) {
+      [System.IO.File]::Move($Backup, $Destination)
+    }
+    throw
+  } finally {
+    Remove-Item -LiteralPath $Staged -Force -ErrorAction SilentlyContinue
+  }
 }
 
 $Version = Resolve-Tag
@@ -76,8 +106,8 @@ try {
   Write-Host "Downloading $Asset ($Version) from $Repo…"
   Invoke-WebRequest -Uri "$Base/$Asset" -OutFile $ZipPath -UseBasicParsing
   Invoke-WebRequest -Uri "$Base/$Asset.sha256" -OutFile $SumPath -UseBasicParsing
-  $fields = (Get-Content -Path $SumPath -TotalCount 1) -split '\s+'
-  if ($fields.Count -lt 2 -or $fields[1] -ne $Asset) { throw "$Asset.sha256 does not describe $Asset" }
+  $fields = (Get-Content -LiteralPath $SumPath -Raw).Trim() -split '\s+'
+  if ($fields.Count -ne 2 -or $fields[0] -notmatch '^[a-fA-F0-9]{64}$' -or $fields[1] -cne $Asset) { throw "$Asset.sha256 does not describe $Asset" }
   $expected = $fields[0].Trim().ToLowerInvariant()
   $actual = (Get-FileHash -Algorithm SHA256 -Path $ZipPath).Hash.ToLowerInvariant()
   if ($actual -ne $expected) {
@@ -89,8 +119,10 @@ try {
   Expand-Archive -Path $ZipPath -DestinationPath $Unpacked
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   $Dest = Join-Path $InstallDir $BinName
-  Copy-Item -Force -Path (Join-Path $Unpacked $BinName) -Destination $Dest
-  Copy-Item -Force -Path $Dest -Destination (Join-Path $InstallDir $LegacyName)
+  Assert-InstallDestination -Destination $Dest
+  Assert-InstallDestination -Destination (Join-Path $InstallDir $LegacyName)
+  Install-Binary -Source (Join-Path $Unpacked $BinName) -Destination $Dest
+  Install-Binary -Source $Dest -Destination (Join-Path $InstallDir $LegacyName)
   Write-Host "Installed $Dest (and $LegacyName, which runs spanreed agent)"
 
   $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -103,9 +135,13 @@ try {
   Write-Host ''
   Write-Host 'Next:'
   Write-Host '  1. Install and authenticate the Grok Build CLI (grok) separately.'
-  Write-Host '  2. Open a new shell so User PATH includes this install dir, then: spanreed agent doctor'
-  Write-Host '  3. spanreed agent serve   # leave running'
-  Write-Host '  4. spanreed agent open    # open the URL in Chrome, Firefox 84+, or Edge (not Safari)'
+  Write-Host '  2. Connect this computer and your device to Tailscale; enable MagicDNS and HTTPS, and allow device access to TCP 443.'
+  Write-Host '  3. Open a new shell so User PATH includes this install dir, then: spanreed remote doctor'
+  Write-Host '  4. spanreed remote private-serve https://HOST   # use this computer''s Tailscale HTTPS hostname; leave running'
+  Write-Host '  5. In another terminal, check "tailscale serve status" before assigning its HTTPS root:'
+  Write-Host '     tailscale serve --bg --https=443 http://127.0.0.1:PORT   # use the port printed by Spanreed'
+  Write-Host '  6. spanreed remote private-pair https://HOST   # same hostname as step 4'
+  Write-Host '  7. Open the one-use link on your device; it opens https://desktop.grok.me. Keep the computer running.'
   Write-Host ''
   Write-Host 'Windows SmartScreen may warn; use More info → Run anyway after verifying the checksum.'
 } finally {

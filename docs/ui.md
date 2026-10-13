@@ -1,3 +1,5 @@
+> Remote and private HTTPS behavior, including preservation of pairing on network loss, supersedes the legacy demotion rules below: [ADR 0019](adr/0019-grok-remote-pwa.md).
+
 # Grok Desktop Portable UI
 
 Portable shares the **Grok Desktop design system** where available and does
@@ -113,7 +115,10 @@ active `sessionId`.
     opening message, workspace display name in the tooltip only — never a
     path). Order never reshuffles with activity (same rule as ADR 0011).
   - **+** returns to Home to start or resume another conversation.
-  - Trailing: optional review-panel control, status chips, theme control.
+  - Trailing: conversation sharing, computer settings and the review-panel
+    control when available. Theme stays here when computer settings are absent.
+  - Status chips use a separate group that can wrap on narrow screens without
+    squeezing the conversation title out of the tab strip.
 - Content measure: `min(760px, 100%)` centered (DESIGN §6 chat measure).
 - Status is **never colour alone**: whenever a chip is drawn it carries a text
   label (DESIGN §2).
@@ -153,12 +158,81 @@ unchanged). It is not host state and never crosses the protocol.
 
 - Boot script in `apps/light/index.html` applies the class before first paint
   (no FOUC).
-- Toggle lives in WorkShell trailing chrome and on Setup; it cycles
+- Toggle lives in WorkShell trailing chrome, or in **Appearance** inside
+  Computer settings when those controls are enabled, and on Setup. It cycles
   system → light → dark.
 - Dark palette keeps the DESIGN.md green-gray family (~165°) and charcoal
   ink identity; only surfaces invert. Semantic tokens only in JSX — no raw
   hex in components. Token table: `apps/light/src/styles.css` (`.dark` block).
 - Desktop remains light-first until it adopts the same remaps.
+
+### Compact Remote controls
+
+The conversation is the resting view on both a phone and a desktop. Computer
+configuration is opened explicitly with **Computer settings** in the header.
+Its single modal contains approved folders, browser access and control,
+notifications, and appearance. The existing build flags and host capabilities
+still decide which features exist; moving a control does not grant authority
+or enable an experiment. Closing the modal leaves its children mounted, so a
+folder selection or an expanded browser list is preserved when it is reopened.
+
+The header keeps sharing and review as compact actions. An active public link
+retains a visible **Public** label and an action to inspect or withdraw it.
+At narrow widths, Home, Computers and Forget this browser use named icons;
+the computer name and conversation tab keep their own space. Touch targets
+remain at least 44 by 44 CSS pixels.
+
+Connection loss, observer mode, suspended-session recovery, and pending shared
+items remain in the conversation. Incoming control requests, a pending request
+from this browser, and control-action errors have a visible notice with
+**Review computer settings**; the header action also indicates attention.
+Expired requests stop being advertised. Opening settings never transfers
+control, grants notification permission or approves an agent operation.
+
+Draft storage and answer playback share a compact row above the composer.
+**Drafts off**, **Saved draft**, and pending or failed save states identify the
+actual storage state. Draft retention requires a separate action inside
+**Draft storage**. Dictate is a composer-toolbar action: its modal explains
+audio processing, requires **Start microphone**, and lets the user review text
+before inserting it. Recording does not start when the modal opens. Saving
+drafts, recording, playback and sharing retain their existing permission and
+capability gates.
+
+Computer settings, draft storage and dictation have one scrolling body beneath
+a fixed title and Close action.
+The transcript is clipped to its own scrolling area; control rows do not shrink
+into it. When a short viewport or enlarged content cannot fit the conversation,
+the area below the tabs can scroll to expose the composer and its actions.
+Normal phone heights keep the resting composer visible without opening or
+scrolling through configuration panels.
+
+### Modal priority and keyboard focus
+
+Optional dialogs use the browser's native modal behavior. Initial focus goes
+to the title so opening settings or dictation does not raise the mobile
+keyboard. Escape and Close return focus to the invoking control. Closed
+dialogs remain mounted but are hidden and absent from the tab order.
+
+A permission or interaction request for the active conversation takes
+priority. `OptionalDialogsBlockedContext` closes optional dialogs before the
+required decision takes focus, clears their open state, and suppresses their
+explicit focus restoration. Dictation stops if its modal is interrupted.
+Resolving the decision does not reopen the previous optional dialog. The
+composer stays mounted with its original draft; no decision is made or prompt
+sent as a consequence of this change in focus. Requests for another
+conversation remain announced on that conversation's tab.
+
+Native keyboard traversal may reach the browser's own controls. In Chromium,
+Shift+Tab from the focused modal title can leave `document.activeElement` on
+BODY with `document.hasFocus() === false`; Tab then returns to the modal's
+Close button. This is distinct from focusing a control behind the modal,
+which is a failure. The browser qualification checks this distinction,
+restoration of focus, pointer hit testing and 44 px targets at six viewport
+sizes, and captures the resting conversation separately from its dialogs:
+`scripts/qualify-managed-layout.ts`. It waits for the application viewport
+height to match the browser's new viewport after a resize before evaluating
+geometry. These checks do not replace physical keyboard or screen-reader
+qualification.
 
 ### Open conversation tabs
 
@@ -255,10 +329,22 @@ believes it is committed, so it survives a reload. `Send now` carries the
 meaning the qualified CLI gives `Ctrl+Enter`: it does not jump the queue, it
 clears the way.
 
-A draft, by contrast, belongs to its conversation and is deliberately **not**
-persisted. Switching conversations shows that conversation's own draft; a draft
+A draft, by contrast, belongs to its conversation and is **not persisted by
+default**. The optional Remote drafts experiment adds explicit retention on
+this device for seven days after each edit, including attached content.
+Switching conversations shows that conversation's own draft; a draft
 held in one place followed the user across a switch and could be sent to a
 conversation they were not looking at when they wrote it.
+
+When the host resets its event history, an already open page retains its tabs
+and drafts while checking which sessions are still resident. A missing active
+session is reopened once with its existing session and workspace ids after the
+browser obtains control. Inactive sessions wait until selected. Sending stays
+disabled until the host confirms the session is resident again. Recovery never
+resends a prompt; an error or uncertain result preserves the draft and requires
+an explicit **Reopen conversation** action. Reloading the page discards unsent
+drafts unless the user enabled local draft retention and the latest edit was
+confirmed saved.
 
 Authority remains disclosed in setup and the empty session state. It is not
 repeated as a persistent composer footnote. Portable is still a control surface,

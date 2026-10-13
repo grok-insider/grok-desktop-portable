@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "experiment": "doctor-onboarding",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "fe498cf460dfba27c02b09c8fd77c7616c77875834f38044589ee71e16156ae5",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "service-path",
+    "leader-socket",
+    "embedded-terminal",
+    "route-failure",
+    "clean-setup"
+  ]
+}

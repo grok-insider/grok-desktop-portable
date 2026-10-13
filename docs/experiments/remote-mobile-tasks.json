@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "language": "es-ES",
+  "purpose": "Predeclared synthetic tasks; this file contains no observations or acceptance results.",
+  "timing": {
+    "start": "Participant starts entering the visible target text.",
+    "end": "Participant accepts the corrected draft as matching the target meaning and every literal code term.",
+    "includes": ["recognition", "review", "correction"],
+    "neverSubmit": true
+  },
+  "voicePairs": [
+    {"id": "v01", "order": ["typing", "dictation"], "target": "Revisa el último cambio y explica qué problema resuelve.", "literalTerms": []},
+    {"id": "v02", "order": ["dictation", "typing"], "target": "La página se queda cargando después de recuperar la conexión.", "literalTerms": []},
+    {"id": "v03", "order": ["typing", "dictation"], "target": "Comprueba la rama fix/remote-reconnect antes de continuar.", "literalTerms": ["fix/remote-reconnect"]},
+    {"id": "v04", "order": ["dictation", "typing"], "target": "Lee el archivo src/services/remote.ts y resume su responsabilidad.", "literalTerms": ["src/services/remote.ts"]},
+    {"id": "v05", "order": ["dictation", "typing"], "target": "El servidor devuelve HTTP 403 cuando se revoca el navegador.", "literalTerms": ["HTTP 403"]},
+    {"id": "v06", "order": ["typing", "dictation"], "target": "Ejecuta pnpm test:web y guarda el resultado de las pruebas.", "literalTerms": ["pnpm test:web"]},
+    {"id": "v07", "order": ["dictation", "typing"], "target": "Compara el tiempo de respuesta antes y después del cambio.", "literalTerms": []},
+    {"id": "v08", "order": ["typing", "dictation"], "target": "El borrador debe conservar la ñ, las tildes y el signo de interrogación.", "literalTerms": []},
+    {"id": "v09", "order": ["typing", "dictation"], "target": "No envíes otra petición si la anterior pudo haberse ejecutado.", "literalTerms": []},
+    {"id": "v10", "order": ["dictation", "typing"], "target": "Revisa el error WebSocket 1013 y la variable GROK_HOME.", "literalTerms": ["WebSocket 1013", "GROK_HOME"]}
+  ],
+  "observationFields": ["pairId", "method", "elapsedMs", "correctionCount", "meaningCorrect", "literalTermsExact", "participantAccepted", "failureReason"],
+  "utilityFeatures": ["drafts", "remote-projects", "push", "control-transfer", "device-panel", "doctor-onboarding", "share-target", "dictation", "speech-playback", "syl-integration"],
+  "utilityRule": "Ask only about features the participant actually exercised; record 1–5 and a concrete benefit or drawback. Leave unexercised features unmeasured."
+}

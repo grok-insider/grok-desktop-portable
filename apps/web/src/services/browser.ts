@@ -6,7 +6,7 @@
  */
 
 export type BrowserSupport =
-  | { ok: true; engine: "chromium" | "firefox" | "other" }
+  | { ok: true; engine: "chromium" | "firefox" | "webkit" | "other" }
   | { ok: false; engine: "webkit"; reason: string };
 
 /**
@@ -17,6 +17,7 @@ export type BrowserSupport =
  */
 export function detectBrowserSupport(
   userAgent: string = typeof navigator === "undefined" ? "" : navigator.userAgent,
+  secureRemote: boolean = false,
 ): BrowserSupport {
   const ua = userAgent;
   // WebKit-based: Safari, GNOME Web, older iOS shells. `AppleWebKit` alone is
@@ -30,6 +31,7 @@ export function detectBrowserSupport(
     /Safari\//i.test(ua) &&
     !/Chrome|Chromium|Edg|OPR|Firefox/i.test(ua);
   if (isWebKit) {
+    if (secureRemote) return {ok: true, engine: "webkit"};
     return {
       ok: false,
       engine: "webkit",
@@ -44,4 +46,7 @@ export function detectBrowserSupport(
     return { ok: true, engine: "chromium" };
   }
   return { ok: true, engine: "other" };
+}
+export function reloadDocument(): void {
+  window.location.reload();
 }

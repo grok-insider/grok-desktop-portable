@@ -1,0 +1,570 @@
+{
+  "schema": 1,
+  "kind": "mobile-evaluation-supplement",
+  "recordedAt": "2026-10-13T01:51:59.406217+00:00",
+  "status": "session_closed_partial_qualification",
+  "purpose": "Suplemento público saneado de observaciones de Android y de la interfaz UI04. No sustituye resultados anteriores ni califica una release.",
+  "reviewMethod": "Revisión independiente de recibos, complementada con comprobaciones físicas, compilación y cierre ejecutados por el proceso principal.",
+  "decisionImpact": {
+    "counts": {
+      "keep": 5,
+      "inconclusive": 15
+    },
+    "featureDecisionsChanged": false,
+    "optionalFlagsPromoted": false,
+    "overallMobileAcceptance": "incomplete",
+    "releaseQualified": false
+  },
+  "environment": {
+    "deviceClass": "Samsung Galaxy S24 Ultra",
+    "android": "16",
+    "apiLevel": 36,
+    "installedViewportCssPixels": [
+      384,
+      750
+    ],
+    "transport": "HTTP localhost mediante ADB reverse propio; contexto seguro observado",
+    "syntheticAccount": true,
+    "syntheticSession": true,
+    "notQualified": [
+      "Tailscale",
+      "HTTPS y OAuth de producción",
+      "transición entre Wi-Fi y datos móviles",
+      "iOS",
+      "inferencia real desde esta sesión sintética"
+    ]
+  },
+  "candidates": {
+    "initialMobile": {
+      "qualificationManifestSha256": "4fee7fa155f0381ab63ea9ef8ede29607d194b182cc560a7387ecfbecbca5d0c",
+      "appliesTo": [
+        "emparejamiento inicial",
+        "instalación Android",
+        "hoja de compartir, recepción de texto y descarte"
+      ],
+      "laterCandidatesNotInferred": true
+    },
+    "ui04": {
+      "qualificationManifestSha256": "fc444d833b4ae1945540d63d05290d22dd31d089c2fb9e421bf0e8180bd8e0f4",
+      "manifestPrivatePath": "mobile-01/compact-regression07/source-manifest.json",
+      "phoneScript": {
+        "path": "assets/index-SiypjReX.js",
+        "sha256": "2144d135a3cbd1d005349c8a69b8e6beba2af24a6814355da413c75476aa30b6"
+      },
+      "serverSwitchAt": "2026-10-13T01:30:34.187255+00:00",
+      "serverSwitchReloadedPhone": false,
+      "phoneUpdateObservedAt": "2026-10-13T01:31:03.040Z",
+      "loadedAssetNameMatchesManifest": true,
+      "phoneAssetBytesIndependentlyHashed": false,
+      "attributionNote": "El cambio de archivos del servidor no acredita la página abierta. El recibo posterior del teléfono identifica el script de UI04; su nombre coincide con un artefacto del manifiesto congelado."
+    }
+  },
+  "observations": {
+    "installation": {
+      "status": "observed_pass_initial_candidate_only",
+      "candidate": "initialMobile",
+      "realAndroidInstall": true,
+      "newWebApkCount": 1,
+      "standalone": true,
+      "secureContext": true,
+      "doesNotRequalifyUi04": true
+    },
+    "shareTextAndCancel": {
+      "status": "observed_pass_partial_initial_candidate_only",
+      "candidate": "initialMobile",
+      "observedAt": "2026-10-13T01:12:02.360Z",
+      "actualAndroidChooser": true,
+      "editableReviewRequired": true,
+      "addDisabledUntilDestination": true,
+      "discarded": true,
+      "noPromptSent": true,
+      "notEstablished": [
+        "inserción en el borrador de una conversación",
+        "URL y archivos",
+        "intenciones duplicadas",
+        "apertura desde proceso cerrado",
+        "beneficio en tareas humanas"
+      ]
+    },
+    "draftAcrossUiUpdate": {
+      "status": "observed_preserved",
+      "candidate": "ui04",
+      "observedAt": "2026-10-13T01:31:03.040Z",
+      "draftIntact": true,
+      "visibleLabel": "Saved draft",
+      "standalone": true,
+      "notEstablished": [
+        "muerte del proceso Android",
+        "restauración tras reinicio del teléfono",
+        "aislamiento de cuentas en el teléfono",
+        "beneficio humano del guardado"
+      ]
+    },
+    "humanUiFeedback": {
+      "initialStatus": "rejected_for_usability",
+      "initialObservedAt": "2026-10-13T01:29:50.247142+00:00",
+      "initialFeedbackSummary": "La interfaz impedía evaluar bien las funciones; se detuvieron las tareas humanas y se reorganizó la composición móvil.",
+      "ui04Status": "accepted_for_readability_and_handling",
+      "ui04ObservedAt": "2026-10-13T01:36:23.090Z",
+      "ui04Answer": "Sí, ahora se puede usar",
+      "featureUtilityEstablished": false
+    },
+    "sourceChecks": {
+      "unitTestsPassed": 676,
+      "unitTestFilesPassed": 63,
+      "typecheck": "passed_exit_0",
+      "note": "Comprobaciones locales del código de la tanda compacta; no equivalen al QA del navegador o del teléfono."
+    },
+    "ui04ResponsiveRegression07": {
+      "status": "failed",
+      "candidate": "ui04",
+      "failure": "the resting composer is visible without scrolling",
+      "reportedStage": "pointer: Send prompt",
+      "completedViewportCssPixels": [
+        [
+          2560,
+          1440
+        ],
+        [
+          390,
+          844
+        ]
+      ],
+      "completedViewsWithoutHorizontalOverflow": true,
+      "completedViewsComposerVisibleAndDraftIntact": true,
+      "successfulPointerChecksPerCompletedView": [
+        15,
+        15
+      ],
+      "failureDiagnosticsViewportCssPixels": [
+        384,
+        750
+      ],
+      "recordedPageErrors": 0,
+      "serviceWorkerActive": true,
+      "serviceWorkerControlsPage": true,
+      "cause": "measurement_before_css_viewport_update",
+      "finalQaPassed": false,
+      "limits": [
+        "Physical Android keyboard",
+        "Real screen reader",
+        "NVIDIA composition",
+        "Safari or iOS"
+      ],
+      "diagnosis": {
+        "reproducedTransitions": 5,
+        "matchingTransitions": 5,
+        "fromHeightCssPixels": 844,
+        "toHeightCssPixels": 750,
+        "immediateCssHeight": "844px",
+        "settledCssHeight": "750px",
+        "composerVisibleAfterSettling": true,
+        "originalFailedReceiptPreserved": true
+      }
+    },
+    "ui04DialogKeyboard": {
+      "status": "partial_observation",
+      "initialFocusInsideDialog": true,
+      "shiftTabFromHeading": {
+        "activeTag": "BODY",
+        "documentHasFocus": false,
+        "backgroundControlFocusEstablished": false
+      },
+      "tabReturnsInsideDialog": true,
+      "fullKeyboardQualification": false,
+      "note": "No convertir la pérdida de foco del documento registrada con Shift+Tab en una afirmación de foco sobre un control del fondo ni en una aprobación global."
+    },
+    "voice": {
+      "status": "pending_physical_trials",
+      "humanTrialsCompleted": 0,
+      "actualRecognitionEstablished": false,
+      "audiblePlaybackEstablished": false,
+      "syntheticPreparation": {
+        "messages": 2,
+        "lastAnswerUtf16Units": 1209,
+        "expectedChunks": 3,
+        "primaryTranscriptUnchanged": true
+      },
+      "preparedDataIsExecutionEvidence": false
+    },
+    "push": {
+      "status": "foreground_browser_notification_observed_human_visibility_pending",
+      "permission": "granted",
+      "configured": true,
+      "subscriptionPresent": true,
+      "configurationObservedAt": "2026-10-13T01:38:22.220Z",
+      "humanConfigurationResponse": "Aparece Configured",
+      "foregroundTrial": {
+        "startedAt": "2026-10-13T01:38:53.648Z",
+        "finishedAt": "2026-10-13T01:38:54.717Z",
+        "eventKind": "turn",
+        "nativeEmitted": true,
+        "pageVisibility": "visible",
+        "browserNotificationObserved": true,
+        "notificationsBefore": 0,
+        "notificationsAfter": 1,
+        "firstPositivePollAfterMs": 1044,
+        "observations": [
+          {
+            "elapsedMs": 514,
+            "count": 0
+          },
+          {
+            "elapsedMs": 1044,
+            "count": 1
+          }
+        ],
+        "scope": "Native event → real account Web Push → Android Chrome service worker; physical visibility requires human confirmation",
+        "latencyPercentileClaimed": false
+      },
+      "humanSystemNotificationVisibilityConfirmed": false,
+      "suspendedDeliveryEstablished": false,
+      "closedAppDeliveryEstablished": false,
+      "featureUtilityEstablished": false,
+      "permissionRestoredAfterCleanup": "default"
+    },
+    "ui04ResponsiveRegression08": {
+      "status": "passed_with_explicit_scope_limits",
+      "reportedResult": "passed",
+      "candidate": "ui04",
+      "sameCandidateAsRegression07": true,
+      "viewportCssPixels": [
+        [
+          2560,
+          1440
+        ],
+        [
+          390,
+          844
+        ],
+        [
+          384,
+          750
+        ],
+        [
+          384,
+          694
+        ],
+        [
+          844,
+          390
+        ],
+        [
+          384,
+          430
+        ]
+      ],
+      "pointerChecks": 90,
+      "keyboardSequences": 18,
+      "recordedPageErrors": 0,
+      "allDraftsIntact": true,
+      "noHorizontalOverflow": true,
+      "composerFullyVisibleWithoutScrollAtEverySize": false,
+      "landscapeLimit": {
+        "viewportCssPixels": [
+          844,
+          390
+        ],
+        "composerBottomCssPixels": 398,
+        "restingVisible": false,
+        "pointerChecksPassed": true,
+        "note": "El resultado global passed no acredita visibilidad completa del compositor sin desplazamiento en horizontal."
+      },
+      "notQualified": [
+        "Physical Android keyboard",
+        "Real screen reader",
+        "NVIDIA composition",
+        "Safari or iOS"
+      ],
+      "overallMobileAcceptanceComplete": false
+    },
+    "physicalKeyboard": {
+      "candidate": "ui04",
+      "status": "observed_pass_geometry",
+      "viewportHeightCssPixels": 491.2,
+      "composerTopCssPixels": 350.47,
+      "composerBottomCssPixels": 434.47,
+      "sendBottomCssPixels": 478.47,
+      "composerAndSendVisible": true,
+      "draftIntact": true,
+      "humanTypingTrial": false
+    },
+    "requiredPermissionPriority": {
+      "status": "passed_in_native_synthetic_fixture",
+      "settingsClosed": true,
+      "permissionFocusedAndVisible": true,
+      "composerNodeAndValuePreserved": true,
+      "offerIncompleteFailsClosed": true,
+      "operationApproved": false,
+      "pairingRevoked": true,
+      "interactionEventQualified": false,
+      "offlinePublicCombinationQualified": false
+    },
+    "backgroundAttempt": {
+      "status": "inconclusive",
+      "androidLauncherObserved": true,
+      "cdpStoppedResponding": true,
+      "newCdpConnectionTimeoutMs": 30000,
+      "secondNativeEventEmitted": false,
+      "causeEstablished": false,
+      "reopenedWebApkResponded": true,
+      "draftIntactAfterReopen": true,
+      "suspendedPushOrProcessDeathQualified": false
+    },
+    "ordinaryBuild": {
+      "status": "passed",
+      "shellFiles": 45,
+      "compiledNoise": true,
+      "experiments": [],
+      "shareTargetPresent": false,
+      "pushHandlersPresent": false,
+      "sourceEntriesUnchanged": 162,
+      "artifactPrivatePath": "mobile-01/ordinary-artifact04.json",
+      "largeChunkWarning": true,
+      "coldLoadPerformanceMeasured": false
+    }
+  },
+  "incidents": [
+    {
+      "id": "unix-control-socket-path-length",
+      "attempt": "initial-managed",
+      "status": "failed_attempt_preserved",
+      "nativeAdditionalExitCode": 101,
+      "controlSocketPathBytes": 108,
+      "linuxMaximumPathBytes": 107,
+      "observedError": "path must be shorter than SUN_LEN",
+      "fixtureFailure": "El unwrap del fixture termina durante control::bind.",
+      "productScope": "El enlace del socket se comparte con el producto; un directorio de estado personalizado o XDG demasiado largo también puede impedir arrancar. El límite no es de Noise, del móvil ni del relay.",
+      "shortRootRetryControlSocketPathBytes": 49,
+      "preflightRecommendation": "Validar las tres rutas antes de registrar hosts. En el producto Unix, SocketAddr::from_pathname permite validar el límite de plataforma antes de mutaciones.",
+      "preflightImplementedByThisSupplement": false
+    }
+  ],
+  "openItemsForRoot": [
+    {
+      "id": "responsive-landscape",
+      "required": "Conservar el límite medido: el conjunto del editor termina a398px en viewport horizontal390px; controles accesibles mediante desplazamiento. No equivale a visibilidad completa sin scroll."
+    },
+    {
+      "id": "push",
+      "required": "Añadir confirmación humana de visibilidad del aviso del sistema y entrega con suspensión/cierre. Configuración y notificación consultable en primer plano ya observadas."
+    },
+    {
+      "id": "voice",
+      "required": "Añadir reconocimiento real, correcciones, tiempos y lectura audible con pausa, continuación y comprensión; separar preparación de ejecución."
+    },
+    {
+      "id": "android-lifecycle",
+      "required": "Completar borradores tras muerte de proceso/suspensión y share-target desde aplicación cerrada, por separado de la actualización conservada."
+    },
+    {
+      "id": "final-ui-qa",
+      "required": "Teclado físico y prioridad de permiso comprobados con límites explícitos; faltan lector de pantalla real, interaction y combinación de publicación activa con desconexión."
+    }
+  ],
+  "cleanup": {
+    "status": "completed_and_verified",
+    "claimedComplete": true,
+    "notificationBindingAndAccountRegistrationRemoved": true,
+    "notificationClosed": true,
+    "pushUnsubscribed": true,
+    "originalNotificationPermissionRestored": "default",
+    "microphonePermissionPreserved": "prompt",
+    "ownWebApkAndTabsRemoved": true,
+    "scopedCookiesAndOriginStorageCleaned": true,
+    "unrelatedCookiesPreserved": true,
+    "ownedAdbMappingsRemoved": true,
+    "syntheticHostsRevoked": 3,
+    "ownedContainersRemoved": 2,
+    "ownedBackendSchemaRemoved": true,
+    "ownedProcessesAndHiddenSwayStopped": true,
+    "runtimeArchiveFilesVerified": 236,
+    "gitIndexesPreserved": 4,
+    "privateReceipt": "mobile-01/cleanup-final01.json"
+  },
+  "sanitization": {
+    "rawEvidenceIncluded": false,
+    "included": [
+      "resúmenes de resultados",
+      "identidades de artefactos",
+      "hashes y paths privados relativos",
+      "límites y pendientes"
+    ],
+    "excluded": [
+      "secretos",
+      "cookies",
+      "URLs de emparejamiento",
+      "números de serie e identificadores de paquetes Android",
+      "texto de borradores y conversaciones",
+      "capturas",
+      "perfiles del navegador",
+      "logs crudos"
+    ]
+  },
+  "evidence": [
+    {
+      "privatePath": "mobile-01/partial-observations.json",
+      "sha256": "94108136d1b040aed1c51f0868ce4c0e262578e44b4b1f580d35f7724b78aacd"
+    },
+    {
+      "privatePath": "mobile-01/pair-and-platform.json",
+      "sha256": "fa4d89a75a30bfd13d9b6b24ae62e130f61e75cb5bd07efbe5e3f8a1953bd6a9"
+    },
+    {
+      "privatePath": "mobile-01/installed-platform.json",
+      "sha256": "845d5f35e2806702b201531251a43e730fa813f6f3c195d43f883a4c433a4a54"
+    },
+    {
+      "privatePath": "mobile-01/webapk-before.json",
+      "sha256": "c7910eb4c4271b63c09345165d1ed2b4f054aa57aef44a26cc8a4ee269bd289e"
+    },
+    {
+      "privatePath": "mobile-01/webapk-after.json",
+      "sha256": "98a2a087b3428c572ceff6c6a263166f9535517566d0b7ff88095bdba1d5b1e3"
+    },
+    {
+      "privatePath": "mobile-01/share-cancel.json",
+      "sha256": "a6a2032832181edbe56d7de3f33ef34ba405a2036f2d23d8c5511fbb597631d3"
+    },
+    {
+      "privatePath": "mobile-01/layout-before.json",
+      "sha256": "b3beca22f71616819ee6cb2c4cd2fade6192e79c7cccfd7c9ba781669c268ddf"
+    },
+    {
+      "privatePath": "mobile-01/human-feedback01.json",
+      "sha256": "658c765df4a167ae98dd41927fc5ba631889a666d74e43c83b3422cbd64512e4"
+    },
+    {
+      "privatePath": "mobile-01/human-feedback02.json",
+      "sha256": "308b1091a4d9813070aaf2400da14cbe502542bbae9a4be33be1aaed94440aa8"
+    },
+    {
+      "privatePath": "mobile-01/compact-switch04.json",
+      "sha256": "b69e379951522804060631521fc78fe48abac907e173526c67e57373f39285e6"
+    },
+    {
+      "privatePath": "mobile-01/compact04-phone-update.json",
+      "sha256": "3f3b5a6227073f8e542becb2877302417990fe0688e307ec3dfaf2b9e02ddec6"
+    },
+    {
+      "privatePath": "mobile-01/dialog-keyboard-ui04.json",
+      "sha256": "bf3907425c5b16f23f4d72de197fa47974fe7e48c33573c28beae77d4895d06d"
+    },
+    {
+      "privatePath": "mobile-01/compact-regression07/report.json",
+      "sha256": "e92083074e9f3d89f06423f8da9cb3e15477cd66d6c76a0d3b79b1852ef0c033"
+    },
+    {
+      "privatePath": "mobile-01/compact-regression07/source-manifest.json",
+      "sha256": "fc444d833b4ae1945540d63d05290d22dd31d089c2fb9e421bf0e8180bd8e0f4"
+    },
+    {
+      "privatePath": "mobile-01/compact-full-tests04b.log",
+      "sha256": "c6dc1c9b108dacd7f7f9235860d1e1b7ad875edf287297f35de22de273f1dade"
+    },
+    {
+      "privatePath": "mobile-01/compact-typecheck04b.log",
+      "sha256": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+    },
+    {
+      "privatePath": "mobile-01/voice-fixture/receipt.json",
+      "sha256": "be9ffadaa62765aefe1c27a75dccc0c6c2959c765c9ddd4cf3fefc1d98a72b6b"
+    },
+    {
+      "privatePath": "mobile-01/managed/lifecycle.json",
+      "sha256": "a69dc6ecdd5ff88931b83c9edbbe33d8b5f3256d53af5f291cbfc3c979c4c95f"
+    },
+    {
+      "privatePath": "mobile-01/managed/native-additional.log",
+      "sha256": "af5e28ac39521a833cea40ea7ae9cbab83a9d01f981453b6449efd02ddef3bb3"
+    },
+    {
+      "privatePath": "mobile-01/compact-regression08/report.json",
+      "sha256": "fdf974e08161de7f2ca3dae587c2fe266afb30e1227ac7524613e0c30095a8cc"
+    },
+    {
+      "privatePath": "mobile-01/compact-regression08/source-manifest.json",
+      "sha256": "fc444d833b4ae1945540d63d05290d22dd31d089c2fb9e421bf0e8180bd8e0f4"
+    },
+    {
+      "privatePath": "mobile-01/viewport-settle-ui04.json",
+      "sha256": "9ef7565f6f9faa93d2fc21458b7fcc16847fcff577b0c35ef4d2cd545f247157"
+    },
+    {
+      "privatePath": "mobile-01/notification-configured01.json",
+      "sha256": "1058959a4643ee442e7a2ccc978ace730f210d25eb2f44124a590be3e99a5101"
+    },
+    {
+      "privatePath": "mobile-01/push-foreground01.json",
+      "sha256": "ca5683d091bfac421a03c9842f53328a588928a435092e4f6f54ad6abfc246da"
+    },
+    {
+      "privatePath": "mobile-01/required-priority-ui04-02/report.json",
+      "sha256": "82ebe41dde4efa42f08544643ff4cf7633614390be27171c619e17cca5d8aa2d"
+    },
+    {
+      "privatePath": "mobile-01/physical-keyboard-ui04.json",
+      "sha256": "9c7a7c1e5961465950abf684fdc53c1db09899f1a81cd0062b97821ac05402fb"
+    },
+    {
+      "privatePath": "mobile-01/push-background01-incomplete.json",
+      "sha256": "c6f90489f808dacc99e76c9d9fc845f4cd6ab7bf9fdadc1c1c397f564343dcf5"
+    },
+    {
+      "privatePath": "mobile-01/background-recovery01.json",
+      "sha256": "7e0c635c3b34392b186dd9cd45bac2ec4419da521b4a84b58ee56312c6ef41b5"
+    },
+    {
+      "privatePath": "mobile-01/push-cleanup01.json",
+      "sha256": "443c6418671fae6388fb9dc73acc8b162386b4db4686050d68a0fd4316fcc951"
+    },
+    {
+      "privatePath": "mobile-01/cleanup-inspect-final01.json",
+      "sha256": "2663a6a7ad3a1700d6e8f54d14c670272681b4b441c6864f2c90290909d7a238"
+    },
+    {
+      "privatePath": "mobile-01/cleanup-apply01.json",
+      "sha256": "1e5c88a3e5bf0ab07171110dd3691a07bf89e314d7a40a0631639bff188ae7a5"
+    },
+    {
+      "privatePath": "mobile-01/webapk-removed01.json",
+      "sha256": "6f687a94c835a0ff736a37a0e572bf6c0c6cfc87d0fd7294ee299b460bb6568c"
+    },
+    {
+      "privatePath": "mobile-01/permission-restoration01.json",
+      "sha256": "a36f9a23d2bcdb02549fa0689e111a800f58ca17dfecbd387c73d402fdbc6536"
+    },
+    {
+      "privatePath": "mobile-01/adb-cleanup01.json",
+      "sha256": "8be2698ab5af4d37b207a5268cc87918f5629ca484c55128f46e1d5067558a5f"
+    },
+    {
+      "privatePath": "mobile-01/managed-02/lifecycle.json",
+      "sha256": "2cc2bd174f5be1fea8dff429b13af1eb031a64ec36d72c7de99dde64605be229"
+    },
+    {
+      "privatePath": "mobile-01/backend-launch-02/cleanup.json",
+      "sha256": "8c09b03caa7fabaeb5cf39d918a6135601496d794c581db093ab8fbd16a973ad"
+    },
+    {
+      "privatePath": "mobile-01/index-preservation-final01.json",
+      "sha256": "811e619584d469ef22cd45cfc1b99288031f403115f1658728c36ffb970f7034"
+    },
+    {
+      "privatePath": "mobile-01/managed-relocation02.json",
+      "sha256": "c70f2718b3b5c6240fa85d54104d49956c687b4de301b0f68829ac48df9f41b4"
+    },
+    {
+      "privatePath": "mobile-01/ordinary-artifact04.json",
+      "sha256": "3b9023a0972109089d0ef4d4e7b0d0748d3cfe14e99646669c11ff70ac23206a"
+    },
+    {
+      "privatePath": "mobile-01/ordinary-build04.log",
+      "sha256": "bfbecbe58952e5f579b7473c341059b0a62eec4dce90f3a8c5f3521772b50fd6"
+    },
+    {
+      "privatePath": "mobile-01/cleanup-final01.json",
+      "sha256": "a2c07f146983da292ec886f784821c2529be6bd4fb8d9fc4091cec6e3fa02f85"
+    }
+  ]
+}

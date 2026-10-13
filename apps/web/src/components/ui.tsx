@@ -13,7 +13,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Search as SearchIcon } from "lucide-react";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 /** Merge Tailwind classes with later values winning. */
 export function cn(...values: ClassValue[]): string {
@@ -194,6 +194,7 @@ export function SearchField({
   placeholder?: string;
   className?: string;
 }) {
+  const id = useId();
   return (
     <label className={cn("relative block", className)}>
       <span className="sr-only">{label}</span>
@@ -203,6 +204,7 @@ export function SearchField({
         aria-hidden="true"
       />
       <input
+        id={id}
         type="search"
         value={value}
         onChange={(event) => onValueChange(event.target.value)}

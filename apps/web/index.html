@@ -2,33 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#202825" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>Grok Desktop Portable</title>
-    <!--
-      Apply theme before first paint so system/dark preference does not flash.
-      Keep the storage key and resolve rules in lockstep with src/theme/theme.ts.
-    -->
-    <script>
-      (function () {
-        try {
-          var key = "grok-light.theme";
-          var pref = localStorage.getItem(key);
-          if (pref !== "light" && pref !== "dark" && pref !== "system") {
-            pref = "system";
-          }
-          var dark =
-            pref === "dark" ||
-            (pref === "system" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          if (dark) {
-            document.documentElement.classList.add("dark");
-          }
-          document.documentElement.style.colorScheme = dark ? "dark" : "light";
-        } catch (e) {
-          /* private mode / blocked storage: leave light defaults */
-        }
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "remote-projects",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "a2810b18e9f47d93481e8120f3ff7121d04372fb81f27a22e3b8c37b341ff2e5",
+  "decision": "inconclusive",
+  "reasons": [
+    "benefit_unmeasured"
+  ],
+  "failed": [],
+  "missing": []
+}

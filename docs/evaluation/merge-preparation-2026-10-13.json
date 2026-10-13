@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-13T12:10:43.791311+00:00",
+  "scope": "Preparation of reviewed local commits and a separate qualification deployment; no merge or deployment performed",
+  "qualificationOrigin": "https://grok.fabrials.com",
+  "productionDefault": "https://desktop.grok.me",
+  "commitsCreated": false,
+  "commitSigningDecision": "pending user response; signed commit attempt failed at GPG keyboxd; global Git configuration unchanged",
+  "mergeReady": false,
+  "deployReady": false,
+  "repositories": [
+    {
+      "worktree": "remote-libs",
+      "branch": "feat/grok-remote",
+      "baseCommit": "6a813d375882e0fb81765c6bfa6c1ed5b092c871",
+      "targetBranch": "master",
+      "localTargetRef": "6a813d375882e0fb81765c6bfa6c1ed5b092c871",
+      "remoteFetch": "blocked",
+      "newCommits": [],
+      "stagedFiles": 74,
+      "stagedWhitespaceCheck": "passed"
+    },
+    {
+      "worktree": "remote-portable",
+      "branch": "feat/grok-remote",
+      "baseCommit": "b6f0444feafaf80492914d9a950f3e4ca89bf71c",
+      "targetBranch": "dev",
+      "localTargetRef": "b6f0444feafaf80492914d9a950f3e4ca89bf71c",
+      "remoteFetch": "blocked",
+      "newCommits": [],
+      "stagedFiles": 254,
+      "stagedWhitespaceCheck": "passed"
+    },
+    {
+      "worktree": "remote-spanreed",
+      "branch": "feat/grok-remote",
+      "baseCommit": "dff2a6629ef05b50c3c139600202ebcbb9487c58",
+      "targetBranch": "dev",
+      "localTargetRef": "dff2a6629ef05b50c3c139600202ebcbb9487c58",
+      "remoteFetch": "blocked",
+      "newCommits": [],
+      "stagedFiles": 57,
+      "stagedWhitespaceCheck": "passed"
+    },
+    {
+      "worktree": "remote-web",
+      "branch": "feat/grok-remote",
+      "baseCommit": "2dab2610d42321f96cb453a336c5d86aba0f75f2",
+      "targetBranch": "master",
+      "localTargetRef": "2dab2610d42321f96cb453a336c5d86aba0f75f2",
+      "remoteFetch": "blocked",
+      "newCommits": [],
+      "stagedFiles": 122,
+      "stagedWhitespaceCheck": "passed"
+    }
+  ],
+  "checks": {
+    "portableUnitTests": {
+      "passed": 799,
+      "files": 82
+    },
+    "portableTypes": "passed",
+    "artifactTests": {
+      "passed": 18
+    },
+    "workflowActionlint": "passed",
+    "sourceBundleTests": {
+      "passed": 12
+    },
+    "native": "36 passed; 2 socket tests failed at bind with EPERM; clippy and format passed, native checks used integration mirror",
+    "web": "28 tests and 243 assertions passed; types and changed-file lint passed",
+    "independentReview": "Exact Vercel Host guard fixed; no further concrete findings",
+    "secretScan": "Tracked and untracked sources scanned; findings manually classified as existing fixtures/checksums or environment variable names; no credential value identified, no scanner allowlist added"
+  },
+  "logs": {
+    "direct-origin-web-tests.log": {
+      "path": "/tmp/direct-origin-web-tests.log",
+      "sha256": "c5ac5899c432fce49b83abfc343939da05ab87d04a02105635d1533a7a0e8eea"
+    },
+    "direct-origin-types.log": {
+      "path": "/tmp/direct-origin-types.log",
+      "sha256": "4bdf8d31fe735069d75741d8e6067a3260950da8d82e2b0a517d9a2a807d128e"
+    },
+    "direct-origin-artifact-hostguard-tests.log": {
+      "path": "/tmp/direct-origin-artifact-hostguard-tests.log",
+      "sha256": "7aa5b33c5fd9649c9c7c359d4af8cf3443380096056d8173caeb3093c0221d8c"
+    },
+    "direct-origin-actionlint-hostguard.log": {
+      "path": "/tmp/direct-origin-actionlint-hostguard.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "grok-qualification-source-tests-final.log": {
+      "path": "/tmp/grok-qualification-source-tests-final.log",
+      "sha256": "c0e4d2a5ed2509d0131f9aee5e525e6da78a6453bb41837dc0cd4d9f362d68ef"
+    }
+  },
+  "receipts": {
+    "native": "remote-spanreed/docs/evaluation/direct-trial-origin-2026-10-13.json",
+    "web": "remote-web/docs/evaluation/test-origin-2026-10-13.json"
+  },
+  "excludedGeneratedFiles": [
+    "remote-spanreed/assets/remote-web/",
+    "remote-spanreed/assets/remote-web.source.json"
+  ],
+  "excludedGeneratedFilesReason": "Historical dirty-source PWA preserved on disk outside the initial code commit. Must rebuild and record exact committed sources for the qualification origin. Literal license whitespace was not edited or rehashed.",
+  "blockers": [
+    {
+      "step": "signed commits",
+      "reason": "GPG keyboxd requires writes under read-only ~/.gnupg"
+    },
+    {
+      "step": "remote freshness",
+      "reason": "git fetch failed: Bad owner or permissions on ~/.ssh/config"
+    },
+    {
+      "step": "infrastructure discovery",
+      "reason": "Coolify MCP requires approval but this session has approval policy never"
+    },
+    {
+      "step": "native integration",
+      "reason": "canonical subtree sync and final consumer lockfile await the committed libs revision"
+    },
+    {
+      "step": "build and corresponding source",
+      "reason": "Portable attribution subprocess failed with EPERM; no complete current QA artifact or source archive"
+    },
+    {
+      "step": "Web production build",
+      "reason": "Turbopack/PostCSS internal bind failed with EPERM"
+    },
+    {
+      "step": "runtime qualification",
+      "reason": "socket creation blocked; real HTTPS/DNS/browser/mobile and new 18-check lifecycle flow remain unqualified"
+    }
+  ],
+  "publicationReadiness": {
+    "enabled": false,
+    "remainingGates": 12,
+    "testOriginPublicationConsent": false
+  },
+  "nextSteps": [
+    "Resolve signing; create libs and Portable commits",
+    "Refresh remote branches and integrate current targets with checks",
+    "Commit Spanreed code, canonical subtree sync, resolve lockfile and rerun consumer checks",
+    "Rebuild embedded QA PWA and commit generated assets, then create and verify corresponding-source archive",
+    "Build deploy artifact with --for-deploy and exact qualification origin",
+    "Confirm separate hosting project and DNS; deploy and qualify TLS, headers, source retention, private pairing, mobile and rollback"
+  ],
+  "historicalEvidence": "Earlier direct-final artifact/browser and lifecycle/update/vision receipts remain tied to their original hashes; they do not qualify this origin or candidate.",
+  "countsNote": "Staged file counts precede adding this receipt and final PR text; this is a preparation record, not a release manifest."
+}

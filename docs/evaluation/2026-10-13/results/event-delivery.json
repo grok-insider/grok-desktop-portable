@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "experiment": "event-delivery",
+  "round": 2,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "574ed910f11dd3399b4f3f0f3490bb294a76e67bb463a5b15d27fc6a787cd644",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "full-chain"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "experiment": "share-target",
+  "round": 2,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "a7332b714378b0d8caa1b5992282b95c92a8e0d80dd734675a7958569f5a288d",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "closed-app"
+  ]
+}

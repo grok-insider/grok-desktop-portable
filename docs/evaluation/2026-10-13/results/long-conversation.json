@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "long-conversation",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "58a9c3969a3452d3fadd0d77bebd05a8e3d3c121918a5951295c92fdc4e1db4d",
+  "decision": "inconclusive",
+  "reasons": [
+    "resource_validation_pending"
+  ],
+  "failed": [],
+  "missing": []
+}

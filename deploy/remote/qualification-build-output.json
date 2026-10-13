@@ -1,0 +1,94 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "src": "/(.*)",
+      "missing": [
+        {
+          "type": "host",
+          "value": {
+            "eq": "grok.fabrials.com"
+          }
+        }
+      ],
+      "status": 404,
+      "headers": {
+        "Cache-Control": "no-store"
+      }
+    },
+    {
+      "src": "/.*",
+      "headers": {
+        "X-Robots-Tag": "noindex, nofollow, noarchive"
+      },
+      "continue": true
+    },
+    {
+      "src": "/.*",
+      "headers": {
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https: wss: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer"
+      },
+      "continue": true
+    },
+    {
+      "src": "/install.sh",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "text/x-shellscript; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/install.ps1",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "text/plain; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(?:assets|crypto)/.*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
+    },
+    {
+      "src": "/sw.js",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Service-Worker-Allowed": "/",
+        "Content-Type": "text/javascript; charset=utf-8"
+      },
+      "continue": true
+    },
+    {
+      "src": "/manifest.webmanifest",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/manifest+json"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(?:index.html|theme-init.js)?",
+      "headers": {
+        "Cache-Control": "no-cache"
+      },
+      "continue": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(?:setup|s/[A-Za-z0-9_.-]+)",
+      "dest": "/index.html",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    }
+  ]
+}

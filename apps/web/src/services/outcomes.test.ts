@@ -39,6 +39,13 @@ describe("failure messages", () => {
 });
 
 describe("refusal messages", () => {
+  it("explains lease contention without claiming an incompatible host or lost pairing", () => {
+    const failure = {kind: "refused", code: "controller_required"} as const;
+    expect(failureMessage(failure, "fallback")).toMatch(/does not have control/i);
+    expect(failureMessage(failure, "fallback")).toMatch(/reconnect/i);
+    expect(failureMessage(failure, "fallback")).not.toMatch(/protocol|pair/i);
+    expect(isEphemeralFailure(failure)).toBe(true);
+  });
   it("tells a missing capability apart from a broken CLI", () => {
     // The host separates these because the user's answer differs: one is
     // fixed by updating the CLI, the other by getting it running again.

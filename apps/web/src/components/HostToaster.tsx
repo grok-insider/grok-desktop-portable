@@ -6,6 +6,7 @@
  */
 
 import { Toaster, toast } from "sonner";
+import "sonner/dist/styles.css";
 
 /** Short-lived host notice; auto-dismisses without layout shift. */
 export function showHostToast(message: string): void {

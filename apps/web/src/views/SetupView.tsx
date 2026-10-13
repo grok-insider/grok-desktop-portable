@@ -110,7 +110,7 @@ export function SetupView({
           ];
 
   return (
-    <main className="relative mx-auto flex min-h-dvh max-w-[720px] flex-col justify-center gap-6 px-6 py-12">
+    <main className="setup-view relative mx-auto flex min-h-dvh max-w-[720px] flex-col justify-center gap-6 px-6 py-12">
       <div className="absolute right-6 top-6">
         <ThemeToggle />
       </div>

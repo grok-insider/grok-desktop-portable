@@ -1,3 +1,5 @@
+> Current architecture: [ADR 0020](adr/0020-direct-private-pwa.md) supersedes the relay-first extension. The local-host analysis below remains relevant to its loopback path; direct private connections use pinned Noise identity, exact document origins and host-owned control. Direct push and explicit publications are outbound host traffic. Account failure must not gate private use.
+
 # Grok Desktop Portable threat model
 
 Status: revised 2026-07-30 for ADR light 0016 (hosted UI + local bridge).
@@ -128,7 +130,9 @@ strictly smaller opening.
 - Pending permissions are denied when the controlling tab or the child is lost,
   using the single-use rejection and never a persistent one.
 - Every boundary bounds size, queue depth, concurrency, output, and retention.
-- The host originates no outbound network traffic of its own (the user's CLI may).
+- The direct host may contact a Web Push provider for explicitly enabled generic
+  notifications and Fabrials for explicitly authorized publications. Private
+  command traffic does not traverse the Fabrials backend.
 - Only allowlisted document origins receive CORS; credentials never use `*`.
 
 ## 6. Accepted risks
@@ -198,10 +202,33 @@ Portable does not claim:
 - that the browser sees no sensitive data;
 - that the origin hostname can never reach a resolver on an unsupported client;
 - that visiting an ordinary HTTP URL can start a stopped native process;
-- that any sync, backup, or remote execution exists.
+- that direct remote use works without private network access to the host;
+- that a managed relay is available, or that offline transcript copies are current.
 
 ## 8. Reporting
 
 Security reports follow the repository [SECURITY.md](../../SECURITY.md). Reports
 concerning Light should say so, because the trust model differs from Grok
 Desktop and a Desktop invariant may not apply.
+
+## Direct browser storage and CSP
+
+The public PWA's CSP permits HTTPS and WSS connections because user-owned host
+names cannot be enumerated at build time. Runtime profile validation and pinned
+Noise authentication restrict which peer is accepted; CSP is not a replacement
+for that authentication. Blob image URLs are allowed for locally prepared and
+hash-checked transcript images. An XSS on the PWA origin remains critical: it
+can act as the browser and access opted-in local drafts and transcript copies.
+
+The service worker caches only static application assets and retains two full
+versions for explicit rollback. Drafts use durable IndexedDB with explicit
+consent, a seven-day expiry and a 100 MiB shared budget with independently consented offline transcript copies. History stores text and tool summaries, not reasoning, image binaries or pending actions. Each saved conversation is capped at 1 MiB. Deleting a conversation excludes subsequent writes from other tabs until explicit new consent. A single-view writer coalesces updates; between tabs the last committed transaction wins. Opt-out erases durable
+copies while retaining current unsent memory; authenticated revocation and
+forgetting erase scoped memory as well. Protocol version mismatch must not be
+interpreted as revocation. Erasure cannot recall screenshots, downloads or
+copies already made by another party. A disconnected browser cannot learn remote revocation until it reconnects, and expiration removes payloads when the browser next executes the storage reader or its mounted-view timer.
+
+Each direct push registration has a random scope and its computer's VAPID key.
+It carries only a generic activity signal; provider-visible transport metadata
+remains. Public publications have a separate authorization and erasure threat
+model in [the release plan](public-release-plan.md).

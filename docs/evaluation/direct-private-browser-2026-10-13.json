@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-13T04:47:37.697Z",
+  "finishedAt": "2026-10-13T04:47:42.132Z",
+  "browser": "155.0.8059.39",
+  "artifactSha256": "81afc5e2a6f21e44065411c29a11d2c4a1a5845e19fa2063a44d9ce1abd940e2",
+  "cropArtifactSha256": "d5d69369d02606e5b8740b9643ea13686c5455684e6cea35188d897ab012e5cb",
+  "result": "passed",
+  "checks": [
+    "deployment_response_csp_enforced",
+    "alias_redirect_preserves_pairing_fragment_and_uses_canonical_origin",
+    "real_direct_noise_pairing_restores_synthetic_native_history",
+    "pairing_fragment_erased",
+    "no_horizontal_overflow_2560x1440",
+    "composer_reachable_2560x1440",
+    "no_horizontal_overflow_390x844",
+    "composer_reachable_390x844",
+    "no_horizontal_overflow_844x390",
+    "composer_reachable_844x390",
+    "no_horizontal_overflow_390x430",
+    "composer_reachable_390x430",
+    "direct_pairing_and_draft_survive_reload",
+    "private_drafts_and_history_never_enter_static_shell_cache",
+    "installed_shell_opens_with_app_origin_blackholed",
+    "consented_history_readable_without_cloud_or_private_host",
+    "private_host_remains_usable_without_fabrials_or_app_origin",
+    "explicit_forget_revokes_and_removes_saved_profile",
+    "forget_removes_durable_draft_and_history_rows",
+    "crop_width_supports_keyboard",
+    "cancel_crop_preserves_original_image",
+    "crop_move_has_visible_keyboard_focus",
+    "crop_preview_geometry_matches_selection_surface",
+    "crop_editor_fits_mobile_viewport",
+    "crop_canvas_preserves_selected_pixels",
+    "crop_never_sends_or_changes_text_draft",
+    "no_uncaught_browser_errors"
+  ],
+  "errors": [],
+  "offlineShellMs": 30,
+  "notQualified": [
+    "Production TLS trust: laboratory self-signed certificate",
+    "Tailscale",
+    "Physical Android and Apple hardware",
+    "Grok inference: synthetic history only",
+    "Real push delivery",
+    "GPU performance: hidden software compositor"
+  ],
+  "environment": {
+    "compositor": "real hidden Syl Sway, software rendering",
+    "desktopViewport": "2560x1440",
+    "mobileViewports": [
+      "390x844",
+      "844x390",
+      "390x430"
+    ],
+    "fixture": "native direct host, synthetic history, no Grok process",
+    "cropFixture": "product image code with synthetic capabilities and forbidden host operations",
+    "csp": "HTTP headers from deploy/remote/build-output.json plus crop fixture CSP",
+    "privateEvidenceDirectory": "/tmp/direct-pwa-browser-wxwgrued"
+  },
+  "scope": {
+    "webTests": 770,
+    "testFiles": 77,
+    "typecheck": "passed",
+    "encryptedBuild": "passed, 45 shell files",
+    "screenshotsReviewed": [
+      "layout-390x844.png",
+      "crop-editor-mobile.png",
+      "crop-result-mobile.png",
+      "offline-history.png"
+    ],
+    "performanceInterpretation": "offlineShellMs is one laboratory navigation, not a percentile or production latency guarantee"
+  }
+}

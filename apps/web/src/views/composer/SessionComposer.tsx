@@ -37,7 +37,7 @@ import {
   type ReactNode,
 } from "react";
 import { IconButton, cn } from "../../components/ui";
-import { formatAttachments } from "../../services/attachments";
+import { formatAttachments, isTextishFile } from "../../services/attachments";
 import {
   applyDraftForBash,
   bashBody,
@@ -59,6 +59,10 @@ import { effortsForModel } from "../../services/models";
 import type { SessionPhase } from "../SessionView";
 import { MentionMenu } from "./MentionMenu";
 import { PromptQueue } from "./PromptQueue";
+import { Dictation } from "../../components/Dictation";
+import { ImageAttachments } from "../../components/ImageAttachments";
+import type { ImageComposer } from "../../services/useImageComposer";
+import { remoteExperimentEnabled } from "../../services/experiments";
 
 const PROMPT_PLACEHOLDER = "Ask anything, / for commands, @ for context…";
 const SHELL_PLACEHOLDER = "Enter shell command… git status";
@@ -71,6 +75,8 @@ export function SessionComposer({
   phase,
   draft,
   onDraftChange,
+  draftFits,
+  imageComposer,
   queued,
   onRemoveQueued,
   configTools = [],
@@ -91,6 +97,8 @@ export function SessionComposer({
   phase: SessionPhase;
   draft: string;
   onDraftChange: (text: string) => void;
+  draftFits?: (text: string) => boolean;
+  imageComposer?: ImageComposer;
   queued: { entryId: string; text: string }[];
   onRemoveQueued: (entryId: string) => void;
   /** Host-projected configuration entries; only MCP names are rendered. */
@@ -113,9 +121,15 @@ export function SessionComposer({
 }) {
   const bash = isBashMode(draft);
   const efforts = effortsForModel(models, modelId);
-  const canSend = connected && (bash ? bashCommandReady(draft) : draft.trim().length > 0);
+  const tooLarge = draftFits ? !draftFits(draft) : false;
+  const canSend = connected && !tooLarge && !imageComposer?.busy && (bash ? bashCommandReady(draft) && !imageComposer?.images.length : draft.trim().length > 0 || Boolean(imageComposer?.images.length));
 
+  const currentDraft = useRef(draft);
+  currentDraft.current = draft;
+  const mounted = useRef(true);
+  useEffect(() => {mounted.current = true; return () => {mounted.current = false;};}, []);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dictationInsertion = useRef<{draft: string; start: number; end: number} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
   const [caret, setCaret] = useState(0);
@@ -324,7 +338,23 @@ export function SessionComposer({
     if (list === null || list.length === 0 || bash) {
       return;
     }
-    const { text, attached, skipped } = await formatAttachments(list);
+    const raster = [...list].filter(file => /^image\/(png|jpeg|webp)$/i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name));
+    if (raster.length) {
+      if (!imageComposer?.capable) {setAttachNotice("This host does not support image input. Update Spanreed and use a qualified Grok Build version."); return;}
+      await imageComposer.add(raster);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (raster.length !== list.length) setAttachNotice("Images were selected. Attach text files separately so each selection can be reviewed.");
+      return;
+    }
+    const pickedDraft = draft;
+    let result: Awaited<ReturnType<typeof formatAttachments>>;
+    try {result = await formatAttachments(list);} catch {
+      if (mounted.current) setAttachNotice("The files could not be read. Your draft is unchanged.");
+      return;
+    }
+    if (!mounted.current) return;
+    if (currentDraft.current !== pickedDraft) {setAttachNotice("Your draft changed while the files were being read. Attach them again."); return;}
+    const { text, attached, skipped } = result;
     if (fileInputRef.current !== null) {
       fileInputRef.current.value = "";
     }
@@ -350,6 +380,11 @@ export function SessionComposer({
     const padAfter = end < draft.length && !/^\s/.test(draft.slice(end)) ? "\n" : "";
     const insert = `${padBefore}${text}${padAfter}`;
     const next = `${draft.slice(0, start)}${insert}${draft.slice(end)}`;
+    if (draftFits && !draftFits(next)) {
+      setAttachNotice("Those files exceed the 256 KiB command limit with this draft after encoding. Your draft is unchanged.");
+      return;
+    }
+    if ([...list].some((file) => !isTextishFile(file))) setAttachNotice("Binary files are attached as encoded text. This connection does not send images to vision input.");
     onDraftChange(next);
     focusAt(start + insert.length);
   }
@@ -365,6 +400,7 @@ export function SessionComposer({
 
   return (
     <div className="shrink-0 px-3 pb-3 pt-1">
+      {imageComposer && <ImageAttachments composer={imageComposer} />}
       <div className="relative mx-auto w-[min(760px,100%)]">
         {menuOpen ? (
           <MentionMenu
@@ -377,11 +413,11 @@ export function SessionComposer({
           />
         ) : null}
 
-        <PromptQueue queued={queued} onRemove={onRemoveQueued} />
-
+        <PromptQueue queued={queued} onRemove={onRemoveQueued} disabled={!connected} />
+        {tooLarge && <p role="status" className="mb-2 px-1 text-body-sm text-warning">This message exceeds the 256 KiB command limit after encoding. Shorten it or remove an attachment. Your draft is still here.</p>}
         {attachNotice !== null ? (
           <p
-            className="mb-2 truncate px-1 font-mono text-label text-subtle-foreground"
+            className="mb-2 px-1 font-mono text-label text-subtle-foreground"
             aria-live="polite"
           >
             {attachNotice}
@@ -530,6 +566,7 @@ export function SessionComposer({
                 {modelOptions.length === 0 ? null : (
                   <ComposerSelect
                     label="Model"
+                    unknownLabel="Model unknown"
                     value={modelId ?? ""}
                     options={modelOptions}
                     disabled={!connected || bash}
@@ -539,6 +576,7 @@ export function SessionComposer({
                 {effortOptions.length === 0 ? null : (
                   <ComposerSelect
                     label="Reasoning effort"
+                    unknownLabel="Effort unknown"
                     value={effortId ?? ""}
                     options={effortOptions}
                     disabled={!connected || bash}
@@ -548,6 +586,21 @@ export function SessionComposer({
               </div>
 
               <div className="ml-auto flex shrink-0 items-center gap-1">
+                {remoteExperimentEnabled("dictation") && !bash && <Dictation disabled={!connected} onOpen={() => {
+                  const start = inputRef.current?.selectionStart ?? draft.length;
+                  dictationInsertion.current = {draft, start, end: inputRef.current?.selectionEnd ?? start};
+                }} onInsert={text => {
+                  const insertion = dictationInsertion.current;
+                  if (!connected || !insertion || insertion.draft !== currentDraft.current) return false;
+                  const {start, end} = insertion;
+                  const inserted = `${start > 0 && !/\s$/.test(draft.slice(0, start)) ? " " : ""}${text}`;
+                  const next = `${draft.slice(0, start)}${inserted}${draft.slice(end)}`;
+                  if (draftFits && !draftFits(next)) return false;
+                  onDraftChange(next);
+                  setDismissedAt(null);
+                  focusAt(start + inserted.length);
+                  return true;
+                }} />}
                 {phase === "streaming" ? (
                   <>
                     <IconButton
@@ -562,6 +615,7 @@ export function SessionComposer({
                     <IconButton
                       size="sm"
                       onClick={onCancel}
+                      disabled={!connected}
                       title="Stop the current turn and send nothing"
                       aria-label="Stop the current turn"
                     >
@@ -756,12 +810,14 @@ function ComposerPlusMenu({
  */
 function ComposerSelect({
   label,
+  unknownLabel,
   value,
   options,
   disabled,
   onChange,
 }: {
   label: string;
+  unknownLabel: string;
   value: string;
   options: { id: string; label: string }[];
   disabled: boolean;
@@ -774,7 +830,7 @@ function ComposerSelect({
   useDismissOnOutside(open, rootRef, () => setOpen(false));
 
   const selected = options.find((option) => option.id === value);
-  const display = selected?.label ?? label;
+  const display = selected?.label ?? unknownLabel;
 
   return (
     <div ref={rootRef} className="relative min-w-0 max-w-[11rem] shrink">

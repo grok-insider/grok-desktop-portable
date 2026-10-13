@@ -27,8 +27,8 @@ export function ConnectionBanner({
         </span>
         <span>
           {reconnecting
-            ? "Reconnecting to the local host…"
-            : "Disconnected from the local host. The agent will not receive prompts until the channel is back."}
+            ? "Reconnecting to your computer…"
+            : "Disconnected. Your draft is kept here. Reconnect to see the agent's current progress."}
         </span>
       </p>
       <Button variant="secondary" onClick={onRetry} disabled={reconnecting}>

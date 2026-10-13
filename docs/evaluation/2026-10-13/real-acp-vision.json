@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "scope": "official-acp-synthetic-provider-vision",
+  "model": "grok-4.7-build",
+  "programSha256": "1668414b047e1050a96d25fe17dfc3efe63190fbf66d8cc1c3de8633caf50d11",
+  "trials": [
+    {
+      "imageSha256": "f50de11f80002ccf183a00962f1a82fda7b818d76e8a9407a629f1274b4ed77b",
+      "expectedDigits": "15267980",
+      "answerMatches": true,
+      "answerLength": 8,
+      "durationSeconds": 6.273,
+      "stopReason": "end_turn"
+    },
+    {
+      "imageSha256": "58ea005840718221dfb5c1d07622da243653047bcfddbc9448d6a4f00e15f8cf",
+      "expectedDigits": "50174892",
+      "answerMatches": true,
+      "answerLength": 8,
+      "durationSeconds": 4.069,
+      "stopReason": "end_turn"
+    }
+  ],
+  "privateProfileMounted": false,
+  "permissionRequestsDenied": true,
+  "advertisedImage": false,
+  "deniedToolRequests": 0,
+  "observedToolCalls": 0,
+  "imageDroppedEvents": 0,
+  "passed": true,
+  "childStopped": true,
+  "scriptSha256": "e44a274041b0d9f90e67e6c28d71656e94f7d52560607c65039563852652ab01",
+  "providerEndpoint": "https://ai.fabrials.com/v1",
+  "credentialRole": "local-dev",
+  "qualificationLimit": "Official ACP provider vision; not the browser-to-Spanreed path or hardware qualification."
+}

@@ -50,7 +50,6 @@ export function probeAfterHostGone(): BridgeProbeState {
 export function shouldDemoteFromWork(failure: ClientFailure): boolean {
   return (
     failure.kind === "not_paired" ||
-    failure.kind === "unreachable" ||
     failure.kind === "rejected" ||
     failure.kind === "protocol_mismatch"
   );

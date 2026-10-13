@@ -8,7 +8,8 @@ Read this before changing the repository.
 ## Host moved to Spanreed
 
 This repository is web-only: the Work SPA served at `https://desktop.grok.me`
-(Vercel runs `pnpm build` into `public/`, see `vercel.json`) and the installers.
+(Vercel runs `pnpm build:remote` into `public/`, requiring the compiled Noise
+WASM artifact, see `vercel.json`) and the installers.
 The local host ships as `spanreed agent` (Spanreed CLI); its code is the crate
 `fabrials-agent-host` in `grok-insider/fabrials-libs`. Change host code there,
 not here. `site/install.sh` and `site/install.ps1` install Spanreed and keep a
@@ -23,19 +24,30 @@ human-facing text names Spanreed.
   Desktop daemon.
 - The host executes the **user's** Grok Build CLI against the **user's**
   `GROK_HOME`, auth, plugins, hooks, MCP, and endpoints.
-- Production ACP transport is `grok agent --no-leader stdio`. Never expose
-  `grok agent serve` to a browser.
+- Production ACP transport remains stdio through Spanreed. Remote mode uses the
+  shared Grok leader for terminal continuity; isolated compatibility mode uses
+  `--no-leader`. Never expose `grok agent serve` to a browser.
 - Never pass `--always-approve` or `--plugin-dir` to the agent.
-- **Production UI** is hosted at `https://desktop.grok.me` and talks to the
-  host on **loopback** (ADR light 0016). There is no Portable cloud backend
-  that runs the CLI. CORS only for the exact allowlisted web origin(s).
+- The public entry at `https://desktop.grok.me` uses locally paired private
+  HTTPS/WSS endpoints with pinned Noise identities
+  (ADR 0020). Private sessions never depend on Fabrials account availability or
+  fall back to a relay. `remote.fabrials.com` redirects to the canonical origin
+  without consuming pairing fragments. `#pair=` retains the loopback launch path.
+  The CLI executes on the user's computer. Origins remain exactly allowlisted.
+  The explicit qualification build may select `https://grok.fabrials.com` through
+  `FABRIALS_REMOTE_ORIGIN` / artifact `--origin`. It uses a separate host-bound
+  deployment configuration and matching native `--web-origin`; the production
+  default and legacy alias remain unchanged. Source and publication gates apply
+  equally; see `docs/remote-deployment.md`.
 - Loopback-served SPA remains a **fallback** (dev/offline), not the primary path.
 - Never accept a filesystem path from the browser; workspaces are opaque ids.
 - Permission UI: only `allow-once`, `reject-once`, `allow-edits-session` in v1.
 - `interrupted_needs_review` for ambiguous non-idempotent effects; never auto-replay.
 - Credentials never enter the SPA, protocol, or logs.
-- Supported browsers: Chromium and Firefox 84+. WebKit unsupported. Hosted mode
-  needs local-network permission where the browser requires it.
+- Chromium and Firefox support the loopback path. WebKit is enabled for remote
+  and private HTTPS paths only behind experimental Apple opt-in until real-device
+  qualification (ADR 0020).
+  Hosted loopback mode requires local-network permission where applicable.
 
 ## Branch model (Model A)
 

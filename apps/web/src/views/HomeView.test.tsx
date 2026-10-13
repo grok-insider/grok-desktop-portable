@@ -22,6 +22,44 @@ function renderView(overrides: Partial<Parameters<typeof HomeView>[0]> = {}) {
 }
 
 describe("HomeView projects rail", () => {
+  it.each([{connected: true, canControl: false}, {connected: false, canControl: true}])("gates creation and loading while allowing open-session navigation: %j", async (authority) => {
+    const onOpenPicker = vi.fn();
+    const onNewSession = vi.fn();
+    const onResumeSession = vi.fn();
+    const onSelectProject = vi.fn();
+    const props = {workspaces: [{id: "w-1", displayName: "Project", available: true}], sessions: ["open", "archived"].map((id) => ({id, title: id, updatedAt: "2026-10-11T00:00:00Z", messageCount: 1})), openSessionIds: ["open"], selectedWorkspaceId: "w-1", busy: false, onOpenPicker, onNewSession, onResumeSession, onSelectProject, onRefreshProjects: vi.fn(), onRefreshSessions: vi.fn()};
+    const {rerender} = render(<HomeView {...props} connected canControl />);
+    const create = screen.getByRole("button", {name: "New session"});
+    create.focus();
+    rerender(<HomeView {...props} {...authority} />);
+    expect(create).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Add a project"})).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Resume archived"})).toBeDisabled();
+    await userEvent.keyboard("{Enter} ");
+    await userEvent.click(create);
+    await userEvent.click(screen.getByRole("button", {name: "Add a project"}));
+    await userEvent.click(screen.getByRole("button", {name: "Resume archived"}));
+    expect(onNewSession).not.toHaveBeenCalled();
+    expect(onOpenPicker).not.toHaveBeenCalled();
+    expect(onResumeSession).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", {name: "Resume open"}));
+    expect(onResumeSession).toHaveBeenCalledWith("open");
+    await userEvent.click(screen.getByRole("button", {name: "Open project Project"}));
+    expect(onSelectProject).toHaveBeenCalledWith("w-1");
+    rerender(<HomeView {...props} connected canControl />);
+    create.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onNewSession).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", {name: "Add a project"})).toBeEnabled();
+    expect(screen.getByRole("button", {name: "Resume archived"})).toBeEnabled();
+  });
+
+  it("also gates the empty-state directory and session actions", () => {
+    renderView({canControl: false, selectedWorkspaceId: "w-1"});
+    expect(screen.getByRole("button", {name: "Choose a directory"})).toBeDisabled();
+    for (const button of screen.getAllByRole("button", {name: "New session"})) expect(button).toBeDisabled();
+  });
+
   it("never offers a way to type a filesystem path", () => {
     renderView();
     // Search is allowed; a free-form path field is not.

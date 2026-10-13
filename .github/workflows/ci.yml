@@ -35,7 +35,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck:web
       - run: pnpm test:web
+      - run: node --test scripts/remote-artifact.test.mjs
       - run: pnpm build:web
+      - run: node scripts/check-pwa-build.mjs apps/web/dist
       - run: pnpm test:public
       - run: pnpm test:install
       - uses: actions/upload-artifact@v4
@@ -43,4 +45,3 @@ jobs:
           name: web-dist
           path: apps/web/dist
           retention-days: 3
-

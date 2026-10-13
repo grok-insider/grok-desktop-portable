@@ -11,6 +11,32 @@ function renderShell(ui: ReactElement) {
 }
 
 describe("WorkShell", () => {
+  it.each([{connected: true, canControl: false}, {connected: false, canControl: true}])("gates host close actions while preserving navigation: %j", async (authority) => {
+    const onCloseTab = vi.fn();
+    const onSelectTab = vi.fn();
+    const onGoHome = vi.fn();
+    const ui = (state: typeof authority) => <ThemeProvider><WorkShell {...state} tabs={[{sessionId: "s-1", title: "Session"}]} onCloseTab={onCloseTab} onSelectTab={onSelectTab} onGoHome={onGoHome} onNewTab={onGoHome}><span /></WorkShell></ThemeProvider>;
+    const {rerender} = render(ui({connected: true, canControl: true}));
+    const close = screen.getByRole("button", {name: "Close Session"});
+    close.focus();
+    rerender(ui(authority));
+    expect(close).toBeDisabled();
+    await userEvent.keyboard("{Enter} ");
+    await userEvent.click(close);
+    expect(onCloseTab).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("tab", {name: "Session"}));
+    expect(onSelectTab).toHaveBeenCalledWith("s-1");
+    const home = screen.getByRole("button", {name: "Home"});
+    home.focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(screen.getByRole("button", {name: "Start a new conversation"}));
+    expect(onGoHome).toHaveBeenCalledTimes(2);
+    rerender(ui({connected: true, canControl: true}));
+    close.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onCloseTab).toHaveBeenCalledOnce();
+  });
+
   it("shows Home as the primary navigation control", () => {
     renderShell(
       <WorkShell connected phase="streaming">

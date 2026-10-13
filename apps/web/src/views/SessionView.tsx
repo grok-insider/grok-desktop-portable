@@ -1,3 +1,4 @@
+import type { ImageComposer } from "../services/useImageComposer";
 /**
  * The Work session: transcript, composer, and interrupted review.
  *
@@ -8,8 +9,9 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowDown, MessagesSquare, PanelRight } from "lucide-react";
-import { MarkdownMessage } from "../components/MarkdownMessage";
-import { Button, Card, EmptyState, IconButton, cn } from "../components/ui";
+import { remoteExperimentEnabled } from "../services/experiments";
+import { MessageRow, TranscriptRows } from "./TranscriptRows";
+import { Button, Card, EmptyState, IconButton } from "../components/ui";
 import {
   reviewCauseMessage,
   type SessionChangesProjection,
@@ -63,6 +65,9 @@ export interface TranscriptEntry extends Sequenced {
   id: string;
   role: "user" | "agent";
   text: string;
+  images?: import("../services/protocol").ImageDescriptor[];
+  unavailableImages?: number;
+  liveImages?: Array<{id: string; phase: "pending" | "ready" | "unavailable"; image?: import("../services/protocol").ImageDescriptor}>;
 }
 
 /** A tool call the agent reported. */
@@ -123,12 +128,15 @@ export function SessionView({
   onRepairSession,
   onDismissDiagnosis,
   connected,
+  canControl = true,
   workspaceName,
   sessions,
   activeSessionId,
   sessionTitles,
   draft,
   onDraftChange,
+  draftFits,
+  imageComposer,
   queued,
   onSendNow,
   onRemoveQueued,
@@ -136,6 +144,9 @@ export function SessionView({
   onCloseSession,
   onLeaveSession,
   connectionBanner,
+  shareControl,
+  toolsControl,
+  draftRecovery,
   hostMessage,
   onPrompt,
   onCancel,
@@ -182,6 +193,7 @@ export function SessionView({
   onRepairSession?: () => void;
   onDismissDiagnosis?: () => void;
   connected: boolean;
+  canControl?: boolean;
   /** Host-projected display name only — never a filesystem path. */
   workspaceName?: string;
   /** Every open conversation, host-ordered (light ADR 0011). */
@@ -199,6 +211,8 @@ export function SessionView({
    */
   draft: string;
   onDraftChange: (text: string) => void;
+  draftFits?: (text: string, kind?: "prompt" | "sendNow") => boolean;
+  imageComposer?: ImageComposer;
   /** Messages waiting for the turn in flight, in the order they were sent. */
   queued: { entryId: string; text: string }[];
   /** Stop the current turn and run this message next. */
@@ -209,6 +223,9 @@ export function SessionView({
   /** Leave the transcript without closing anything. */
   onLeaveSession: () => void;
   connectionBanner?: ReactNode;
+  shareControl?: ReactNode;
+  toolsControl?: ReactNode;
+  draftRecovery?: ReactNode;
   /** Host-level error or refusal shown above the transcript. */
   hostMessage?: string;
   onPrompt: (text: string) => void;
@@ -370,14 +387,15 @@ export function SessionView({
       setActiveCheckpointId(null);
       return;
     }
+    const nodesById = remoteExperimentEnabled("transcript") ? new Map([...scroller.querySelectorAll<HTMLElement>("[data-turn-id]")].map((node) => [node.dataset.turnId, node])) : null;
     const mid = scroller.scrollTop + scroller.clientHeight / 3;
     let nearest: string | null = userCheckpoints[0]?.id ?? null;
     let best = Number.POSITIVE_INFINITY;
     for (const turn of userCheckpoints) {
-      const node = scroller.querySelector<HTMLElement>(
+      const node = nodesById ? nodesById.get(turn.id) : scroller.querySelector<HTMLElement>(
         `[data-turn-id="${escapeTurnId(turn.id)}"]`,
       );
-      if (node === null) {
+      if (node == null) {
         continue;
       }
       const top = node.offsetTop;
@@ -479,10 +497,12 @@ export function SessionView({
    * and say nothing about why.
    */
   function submit() {
+    if (imageComposer?.images.length) {void imageComposer.submit(draft, false); return;}
     const text = draft.trim();
     if (text.length === 0 || text === "!") {
       return;
     }
+    if (draftFits && !draftFits(text, "prompt")) return;
     setStuck(true);
     onPrompt(text);
     // Cleared here rather than by the caller: this is the component that knows
@@ -492,10 +512,12 @@ export function SessionView({
 
   /** Stop what is running so this message goes next. */
   function sendNow() {
+    if (imageComposer?.images.length) {void imageComposer.submit(draft, true); return;}
     const text = draft.trim();
     if (text.length === 0 || text === "!") {
       return;
     }
+    if (draftFits && !draftFits(text, "sendNow")) return;
     setStuck(true);
     onSendNow(text);
     onDraftChange("");
@@ -534,6 +556,8 @@ export function SessionView({
       surface="session"
       phase={phase}
       connected={connected}
+      canControl={canControl}
+      showThemeControl={!toolsControl}
       tabs={tabs}
       activeTabId={activeSessionId}
       onGoHome={onLeaveSession}
@@ -541,6 +565,9 @@ export function SessionView({
       onCloseTab={onCloseSession}
       onNewTab={onLeaveSession}
       trailing={
+        <>
+        {shareControl}
+        {toolsControl}
         <IconButton
           size="sm"
           onClick={() => onReviewPanelOpenChange?.(!reviewPanelOpen)}
@@ -549,12 +576,13 @@ export function SessionView({
         >
           <PanelRight size={14} aria-hidden="true" />
         </IconButton>
+        </>
       }
     >
-      {connectionBanner}
-      <div className="relative flex min-h-0 flex-1">
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1">
+      {connectionBanner && <div role="region" aria-label="Connection and computer tools" className="min-h-0 max-h-[calc(var(--app-viewport-height,100dvh)*0.4)] shrink-0 overflow-y-auto">{connectionBanner}</div>}
+      <div className="relative flex min-h-0 flex-auto shrink-0">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="relative min-h-32 flex-1 overflow-hidden">
             <TranscriptCheckpoints
               turns={userCheckpoints}
               activeId={activeCheckpointId}
@@ -564,7 +592,7 @@ export function SessionView({
               ref={scrollRef}
               // Extra right padding keeps the native scrollbar clear of the
               // compact checkpoint stack.
-              className="h-full overflow-y-auto px-6 py-6 pr-8"
+              className="absolute inset-0 overflow-y-auto px-6 py-6 pr-8"
               onScroll={() => {
                 recomputeStuck();
                 updateActiveCheckpoint();
@@ -646,6 +674,7 @@ export function SessionView({
                               <Button
                                 variant="secondary"
                                 onClick={() => onAcknowledge(review.recordId)}
+                                disabled={!connected || !canControl}
                                 aria-label={`Mark ${review.operation ?? "the interrupted action"} as reviewed`}
                               >
                                 Mark reviewed
@@ -690,7 +719,7 @@ export function SessionView({
                 />
               ) : (
                 <>
-                {timeline.map((item) => {
+                {remoteExperimentEnabled("transcript") ? <TranscriptRows timeline={timeline} agentId={phase === "streaming" ? transcript[lastAgentIndex]?.id : undefined} thoughtId={phase === "streaming" ? thoughts.at(-1)?.id : undefined} /> : timeline.map((item) => {
                   if (item.kind === "tool") {
                     return <ToolRow key={`tool-${item.tool.id}`} tool={item.tool} />;
                   }
@@ -714,28 +743,7 @@ export function SessionView({
                     phase === "streaming" &&
                     transcript.indexOf(entry) === lastAgentIndex;
                   return (
-                    <article
-                      key={entry.id}
-                      data-turn-id={entry.id}
-                      className={cn("flex flex-col", isUser && "items-end")}
-                      aria-label={isUser ? "Your message" : "Agent message"}
-                    >
-                      {isUser ? (
-                        /* The fill is the boundary: a border as well made every
-                           turn read as a filed document. */
-                        <div className="max-w-[min(82%,64ch)] rounded-lg bg-secondary px-3.5 py-2.5">
-                          <p className="whitespace-pre-wrap text-body-lg text-foreground">
-                            {entry.text}
-                          </p>
-                        </div>
-                      ) : (
-                        /* No card. The agent's answer is the page, not an
-                           object on it — the reading measure already bounds it. */
-                        <MarkdownMessage streaming={streamingHere}>
-                          {entry.text}
-                        </MarkdownMessage>
-                      )}
-                    </article>
+                    <MessageRow key={entry.id} entry={entry} streaming={streamingHere} />
                   );
                 })}
                 <PlanRow entries={plan} />
@@ -753,6 +761,8 @@ export function SessionView({
                   <SessionRepairBanner
                     diagnosis={diagnosis}
                     busy={repairBusy}
+                    connected={connected}
+                    canControl={canControl}
                     onDiagnose={onDiagnoseSession}
                     onRepair={onRepairSession}
                     onDismiss={onDismissDiagnosis}
@@ -782,8 +792,12 @@ export function SessionView({
             {lastToolOutcome}
           </div>
 
+          {draftRecovery && <div className="shrink-0">{draftRecovery}</div>}
           <SessionComposer
-            connected={connected}
+            key={activeSessionId}
+            imageComposer={imageComposer}
+            draftFits={draftFits}
+            connected={connected && canControl}
             phase={phase}
             draft={draft}
             onDraftChange={onDraftChange}

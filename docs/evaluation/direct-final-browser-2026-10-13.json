@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-13T05:43:45.776Z",
+  "finishedAt": "2026-10-13T05:43:51.221Z",
+  "checks": [
+    "deployment_response_csp_enforced",
+    "alias_redirect_preserves_pairing_fragment_and_uses_canonical_origin",
+    "source_identity_binds_the_loaded_shell",
+    "review_artifact_reports_unavailable_source_without_false_links",
+    "source_dialog_returns_keyboard_focus",
+    "source_dialog_accepts_version_bound_synthetic_metadata",
+    "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+    "source_dialog_fits_mobile_viewport",
+    "real_direct_noise_pairing_restores_synthetic_native_history",
+    "pairing_fragment_erased",
+    "closing_source_preserves_computer_settings_and_connection",
+    "source_information_does_not_disconnect_the_private_session",
+    "no_horizontal_overflow_2560x1440",
+    "composer_reachable_2560x1440",
+    "no_horizontal_overflow_390x844",
+    "composer_reachable_390x844",
+    "no_horizontal_overflow_844x390",
+    "composer_reachable_844x390",
+    "no_horizontal_overflow_390x430",
+    "composer_reachable_390x430",
+    "direct_pairing_and_draft_survive_reload",
+    "private_drafts_and_history_never_enter_static_shell_cache",
+    "installed_shell_opens_with_app_origin_blackholed",
+    "consented_history_readable_without_cloud_or_private_host",
+    "private_host_remains_usable_without_fabrials_or_app_origin",
+    "explicit_forget_revokes_and_removes_saved_profile",
+    "forget_removes_durable_draft_and_history_rows",
+    "crop_width_supports_keyboard",
+    "cancel_crop_preserves_original_image",
+    "crop_move_has_visible_keyboard_focus",
+    "crop_preview_geometry_matches_selection_surface",
+    "crop_editor_fits_mobile_viewport",
+    "crop_canvas_preserves_selected_pixels",
+    "crop_never_sends_or_changes_text_draft",
+    "no_uncaught_browser_errors"
+  ],
+  "errors": [],
+  "browser": "155.0.8059.39",
+  "artifactSha256": "354ba10f7b0180c72b0aebfa01bfab2cd78531a92a52bba38cc29c379554a809",
+  "cropArtifactSha256": "291261bf5b74f0205aa637f020506663e014244d29b6ee747e757db3a5b63185",
+  "offlineShellMs": 38,
+  "sourceUiFixture": {
+    "metadata": "Synthetic success metadata; real missing response and real emitted third-party notices",
+    "sourceArchiveDownloadQualified": false,
+    "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c"
+  },
+  "expectedResourceErrors": [
+    {
+      "url": "https://desktop.grok.me/sources/ad443cb91cb68bf0d204a9f0c9c08876e7264643e3e85095730c1cfb92d12073.json",
+      "status": 404
+    }
+  ],
+  "result": "passed",
+  "notQualified": [
+    "Production TLS trust: laboratory self-signed certificate",
+    "Tailscale",
+    "Physical Android and Apple hardware",
+    "Grok inference: synthetic history only",
+    "Real push delivery",
+    "GPU performance: hidden software compositor"
+  ],
+  "scope": "Final encrypted shell, direct native fixture, offline behavior, source/license UI and crop in hidden Syl Sway",
+  "scriptSha256": "4a0e72ed128b6ffc2bddc66d1636c6df5ca25a74249b1999c7826eed00849f20",
+  "deploymentManifestSha256": "b39a7c8d3594dd192ecd0601fe93ef89ef0e1c2970c054ff831a18dc5c2ec4fa",
+  "nativeFixtureSha256": "401a2769a1e3ae21cde88276c2a4cd6832fe746fe6d131c2a1d1325896a810a8",
+  "shellMatchesDeploymentAndNativeEmbed": true,
+  "matchedShellFiles": 47,
+  "temporaryProfilesAndNativeStateRemoved": true,
+  "screenshotsReviewed": [
+    "layout-390x844.png",
+    "crop-editor-mobile.png",
+    "source-available-mobile.png",
+    "source-unavailable.png"
+  ],
+  "screenshots": {
+    "crop-editor-mobile.png": "fa7e4c76bc8e912468585b1b81aff4b0d7c24333626fe0c1ccc2ab086d5855c5",
+    "crop-result-mobile.png": "09fe925d68ca7998966d2846e01a774cc55ea49c2071f6c0acb79febf59daa35",
+    "layout-2560x1440.png": "65b64aeffe743d6429d1e496be94e76725696bcaae1a6f1f8204f503953ebbe1",
+    "layout-390x430.png": "f9ae73f4424e25694ba02ebaa852f956ee142f69974d1527ecd6eacc0cca68ea",
+    "layout-390x844.png": "eff96325ddc6a45453b47cc4a7e26348959f6840f5c936cfe81e69fc872d268c",
+    "layout-844x390.png": "065b9a2b33cff938c276422a71db6e0b99093ca3d41418ee7fcba2afd4472c27",
+    "offline-history.png": "d05de39b35605ca539030c9520e53770acf822b5a35294d1228cb7664c8c4775",
+    "source-available-mobile.png": "9342faeeac4177ba0f88b36bbbfab9bebf5ee17b80451652fd463ac2c633f6dd",
+    "source-unavailable.png": "ed53083322fd54f40c4629042ed58303796ccff73fa5676e08f3ba576e774061"
+  },
+  "priorTrial": {
+    "checksPassed": 10,
+    "failure": "Computer settings was hidden with all experiment flags disabled",
+    "correction": "Direct settings stay available without enabling experimental operations; a component regression also caught nested cancel propagation",
+    "followupChecksPassed": 28
+  }
+}
