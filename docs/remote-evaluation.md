@@ -1,7 +1,12 @@
 # Grok Remote evaluation
 
 This program evaluates the Portable PWA, Spanreed host, shared libraries and
-Fabrials account service as one product. An experimental implementation is not
+the optional Fabrials publication service. Paired private access must work
+without a Fabrials account or relay. The current release contract is
+[`public-release-plan.md`](public-release-plan.md); the original experiment
+catalogue and dated receipts also contain superseded relay and control-transfer
+experiments. Those remain historical evidence, not current release requirements.
+An experimental implementation is not
 an acceptance result. The machine-readable criteria are in
 [`experiments/remote-evaluation.json`](experiments/remote-evaluation.json).
 
@@ -9,7 +14,7 @@ an acceptance result. The machine-readable criteria are in
 
 Freeze tracked files and non-ignored untracked files before each candidate.
 Record the source manifest, executable and served JavaScript/WASM hashes.
-Preserve the original Git index separately. The current evaluation started from
+Preserve the original Git index separately. The original evaluation started from
 four uncommitted worktrees; it is not a release qualification. Do not edit a
 consumer's vendored libraries to make the release gate pass. Integration copies
 may combine canonical sources, but their manifests must say so.
@@ -70,10 +75,10 @@ permissions or changes the agent's advertised capabilities.
 | `drafts` | Explicit opt-in; strict durable IndexedDB transactions; account/host/key/installation/session scope; seven-day validity | Physical Android process eviction and S24 utility |
 | `transcript` | Memoized completed rows and indexed checkpoint lookup, with all transcript DOM retained | Non-target resource measurements and physical-device validation |
 | `dictation` | Browser recognition, review field and explicit insertion into draft | Ten paired tasks including correction time, microphone/network failure and S24 utility |
-| `speech-playback` | Browser speech, bounded chunks, pause/resume/stop, cancellation on session/access change | Actual audio, long-answer comprehension and S24 utility |
+| `speech-playback` | Browser-advertised local voices only, bounded chunks, pause/resume/stop, cancellation on session/access change | Actual audio, long-answer comprehension and S24 utility |
 | `share-target` | Bounded multipart inbox, explicit destination/review, atomic claim, cancellation and duplicate detection | Installed-PWA handoff and task-step reduction on S24 |
 | `remote-projects` | Locally authorized roots, opaque expiring directory handles and explicit enrollment; managed PWA browsing checked | S24 utility |
-| `control-transfer` | Connection-bound requests, current-controller approval and epoch replacement; managed PWA transfers checked | S24 utility |
+| `control-transfer` | Legacy connection-bound control experiment; superseded for direct protocol 4 by concurrent paired writers and a durable host FIFO | Historical experiment only; current acceptance covers concurrent enqueue, targeted stop, stale revisions and receipt recovery |
 | `device-panel` | Authenticated browser list, connection state and explicit revocation | Physical-device usefulness and final combined recovery receipt |
 | `push` | Explicit permission, encrypted subscriptions, bounded event delivery and revocable action resolution | Real foreground/background/closed-app delivery and S24 utility |
 
@@ -94,11 +99,16 @@ python3 scripts/probe-acp-capabilities.py /path/to/new-capability-result.json
 
 The probe runs only ACP initialization in an isolated Grok home and shuts down
 its child. It does not create a conversation, call a model or inspect user
-credentials. On the current station binary, Grok 1.0.52 advertises
-`embeddedContext: true`, `image: false` and `audio: false`. This blocks enabling
-image/audio input as a supported capability. Sending base64 inside a text
-prompt is not vision acceptance. A future CLI that advertises image input still
-needs the known-image, corrupt-file and MIME-mismatch experiments.
+credentials. On the tested station binary, Grok 1.0.52 advertises
+`embeddedContext: true`, `image: false` and `audio: false`. The image flag proved
+inaccurate for that binary: subsequent real ACP image blocks and random
+image-only facts passed with the official CLI and provider. The exact binary,
+endpoint and full-chain scope are recorded in
+[`public-release-plan.md`](public-release-plan.md#private-content). The host
+uses its qualified compatibility rule, not a general override for unknown CLI
+versions. Audio ACP remains unsupported. Sending base64 inside a text prompt
+is not vision acceptance. New versions still need the known-image,
+corrupt-file and MIME-mismatch experiments.
 
 The retained official Grok 1.0.50 executable advertises the same three input
 capabilities as 1.0.52. Neither result proves image understanding. The probe
@@ -122,11 +132,15 @@ iPhone, macOS and hardware DeX remain unqualified until hardware is available.
 
 ## Remaining program
 
-The catalogue also requires clean distribution/install/update/rollback,
-terminal continuity on Grok 1.0.50 and the current binary, relay readiness/drain
+The current release requires clean distribution/install/update/rollback,
+terminal continuity on the qualified official binary, direct transport recovery
 and a 60-minute load test, and publication after browser closure and host
-revocation. Optional candidates cover approved project roots, push, control
-transfer, device management, onboarding diagnostics and Syl actions. No row is
+revocation. The original catalogue's relay readiness/drain and control-transfer
+requirements apply only to those historical candidates. Multi-device acceptance
+instead exercises concurrent writers, a single active turn per session, FIFO,
+targeted stop, configuration conflicts and uncertain receipts. Optional
+candidates cover approved project roots, push, device management, onboarding
+diagnostics and Syl actions. No row is
 accepted merely because unit tests for a related component pass.
 
 After individual results, build the selected combined candidate and repeat

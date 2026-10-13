@@ -235,9 +235,11 @@ Isolate publication CPU/RAM/connections. No autoscaling. Include encrypted bytes
 retained in snapshots and physical headroom in operational admission. Do not
 delete other products' snapshots. Existing object storage has no multipart API.
 
-## Candidate evidence and unresolved boundaries
+## Historical candidate evidence, 2026-10-13
 
-These checks qualify local code paths, not the complete public product:
+These checks qualify the recorded local code paths, not the complete public
+product. They are preserved for the original candidate; the multi-device section
+above and the current integration status below describe subsequent work.
 
 - Agent host: 498 all-targets tests passed and strict Clippy passed. The image
   path includes actual ACP bytes, durable receipts, observers and queued sends.
@@ -320,15 +322,28 @@ These checks qualify local code paths, not the complete public product:
   review. See Spanreed's
   `docs/evaluation/release-license-inventory-2026-10-13.json` for scope and hashes.
 
-Browser authentication introduces revocable `bsid` families. External SSO
-consumers that only check token signatures, including the separate admin
-product, must adopt the family check before a cutover can promise immediate
-revocation. An older backend is not a safe rollback for this guarantee. No
-external consumer or production authentication deployment was changed here.
+## Current integration status, 2026-10-14
+
+Browser authentication introduces revocable `bsid` families. Admin and ai-relay
+now have draft integration PRs that verify signatures and then introspect the
+live browser family, reject malformed or mixed native/browser claims, and fail
+closed when introspection is unavailable. Admin additionally matches the signed
+identity fields used by its allowlist against the canonical user. Their local
+suites and builds passed; production rollout and cross-product logout are not
+qualified. Deploy Web's compatible endpoint before these consumers. An older
+backend is not a safe rollback for immediate-revocation guarantees.
+
+The canonical host passed 608 tests before the current Windows hardening; the
+synced Spanreed consumer passed 2,303 tests with 11 explicit exclusions. These
+counts do not qualify later edits automatically. The PWA's current 881 tests
+and 53-check multi-browser receipt are described above. Linux updater recovery
+now includes durable phases and process interruption at seven checkpoints;
+the earlier lack of power-loss recovery describes the historical implementation.
 
 The S24 candidate trial still needs a current available device window. Windows
-is not qualified: the VM's guest agent responded, but the Syl device execution
-channel remained stale and the cross-toolchain was unavailable. Prior device
+is not yet qualified: execution through Syl now works in the existing Win11
+guest, and its Rust/MSVC toolchain is available. Strict ACL validation and
+suspended process assignment to Jobs are being qualified there. Prior device
 and relay receipts cannot substitute for this candidate. Source distribution,
 installed services, production TLS/Tailscale and real push delivery remain
 release work alongside the infrastructure and elapsed-time gates below.
@@ -339,7 +354,8 @@ Run the complete suites against canonical libraries and the final artifact,
 including PostgreSQL, S3, native HTTP, WASM and browser tests. Use synthetic data.
 Verify Linux and Windows host lifecycle, real S24 installation/keyboard/rotation,
 Android share target, network changes, process death and 30-minute/8-hour sleep.
-Exercise multi-host and multi-browser isolation, control transfer, permissions,
+Exercise multi-host and multi-browser isolation, simultaneous writers, targeted
+stop, configuration conflicts, permissions,
 receipt reconciliation and N/N-1 updates. Attach the final candidate to an
 existing official Grok terminal session and hand control back in both directions.
 Validate real model vision with random
