@@ -60,12 +60,12 @@ try {
   await waitFor(async () => {try {await readFile(join(state, "ready.json")); return true;} catch {return false;}});
   const native = JSON.parse(await readFile(join(state, "ready.json"), "utf8"));
   nativePort = native.port;
-  server = Bun.serve<{upstream?: WebSocket; queued: string[]}>({hostname: "127.0.0.1", port: 0, tls: {key: Bun.file(join(directory, "key.pem")), cert: Bun.file(join(directory, "cert.pem"))}, async fetch(request, serving) {
+  server = Bun.serve<{upstream?: WebSocket; queued: string[]; origin: string}>({hostname: "127.0.0.1", port: 0, tls: {key: Bun.file(join(directory, "key.pem")), cert: Bun.file(join(directory, "cert.pem"))}, async fetch(request, serving) {
     const url = new URL(request.url);
-    if (url.pathname === "/remote") report.transport.push({at:"proxy",host:url.hostname});
+    if (url.pathname === "/remote") report.transport.push({at:"proxy",host:url.hostname,origin:request.headers.get("origin")});
     if (url.hostname === "direct-fixture.test" && url.pathname === "/remote") {
       if (denyHostNetwork) return new Response(null, {status: 503});
-      if (serving.upgrade(request, {data: {queued: []}, headers: {"sec-websocket-protocol": "fabrials.remote.v1"}})) return;
+      if (serving.upgrade(request, {data: {queued: [], origin: request.headers.get("origin") ?? ""}, headers: {"sec-websocket-protocol": "fabrials.remote.v1"}})) return;
       return new Response(null, {status: 400});
     }
     if (url.hostname === "remote.fabrials.com" && origin === origins.production) return Response.redirect(origins.production + url.pathname + url.search, 308);
@@ -91,7 +91,7 @@ try {
     return new Response(file, {headers});
   }, websocket: {
     open(socket) {
-      const upstream = new WebSocket(`ws://127.0.0.1:${nativePort}/remote`, {headers: {Host: "direct-fixture.test", Origin: origin, "Sec-WebSocket-Protocol": "fabrials.remote.v1"}});
+      const upstream = new WebSocket(`ws://127.0.0.1:${nativePort}/remote`, {headers: {Host: "direct-fixture.test", Origin: socket.data.origin, "Sec-WebSocket-Protocol": "fabrials.remote.v1"}});
       socket.data.upstream = upstream; upstreams.add(upstream);
       upstream.onopen = () => {for (const value of socket.data.queued) upstream.send(value); socket.data.queued = [];};
       upstream.onmessage = event => {report.transport.push({at:"native-frame",type:typeof event.data,bytes:event.data.length,kind:typeof event.data === "string" ? JSON.parse(event.data).type : "binary"}); socket.send(event.data);};
@@ -111,7 +111,7 @@ try {
   assert.ok(display, "real hidden Syl compositor, never its stub backend");
   const profile = join(directory, "chrome-profile");
   await mkdir(profile, {mode: 0o700});
-  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${hostname} 127.0.0.1:${server.port}, MAP direct-fixture.test 127.0.0.1:${server.port}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...process.env, WAYLAND_DISPLAY: display});
+  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, MAP direct-fixture.test 127.0.0.1:${server.port}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...process.env, WAYLAND_DISPLAY: display});
   let cdpPort = 0;
   await waitFor(async () => {try {cdpPort = Number((await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\n")[0]); return Boolean(cdpPort);} catch {return false;}});
   const {chromium} = await import(process.env.REMOTE_QA_PLAYWRIGHT ?? "/tmp/xt-work/qa/node_modules/playwright-core/index.mjs");
@@ -121,7 +121,16 @@ try {
   page = await context.newPage();
   page.setDefaultTimeout(15000);
   const cloudRequests: string[] = [];
-  await context.route(/https:\/\/(?:[^/]+\.)?fabrials\.com\//, (route: any) => {const url = new URL(route.request().url()); if (url.origin === origin || (origin === origins.production && url.hostname === "remote.fabrials.com" && route.request().isNavigationRequest())) return route.continue(); cloudRequests.push(url.hostname); return route.abort();});
+  await context.route("**/*", (route: any) => {
+    const url = new URL(route.request().url());
+    const app = url.origin === origin;
+    const host = url.origin === "https://direct-fixture.test";
+    const alias = origin === origins.production && url.origin === "https://remote.fabrials.com" && route.request().isNavigationRequest();
+    const crop = cropDist && url.origin === `https://127.0.0.1:${server.port}` && url.pathname.startsWith("/crop-qa/");
+    if (app || host || alias || crop || url.protocol === "data:" || url.protocol === "blob:") return route.continue();
+    cloudRequests.push(url.hostname);
+    return route.abort();
+  });
   page.on("websocket", (socket: any) => {socket.on("socketerror", (message: string) => report.transport.push({at:"browser-error",message}));});
   page.on("pageerror", (error: Error) => report.errors.push(error.message));
   page.on("console", (message: any) => {
@@ -190,6 +199,8 @@ try {
   await input().waitFor();
   await page.getByText("Synthetic direct connection QA. No Grok process is running.", {exact:true}).waitFor();
   check("real_direct_noise_pairing_restores_synthetic_native_history", true);
+  const handshakes = report.transport.filter((entry: any) => entry.at === "proxy");
+  check("private_handshake_preserves_the_real_browser_origin", handshakes.length > 0 && handshakes.every((entry: any) => entry.origin === origin));
   check("pairing_fragment_erased", new URL(page.url()).hash === "");
   await page.getByRole("button",{name:"Computer settings",exact:true}).click();
   await sourceButton().click();
@@ -297,6 +308,7 @@ try {
     check("crop_never_sends_or_changes_text_draft", await cropState.getAttribute("data-sends") === "0" && await cropState.getAttribute("data-image-count") === "1" && await page.getByRole("textbox", {name:"Draft",exact:true}).inputValue() === "Synthetic draft stays unchanged");
     await page.screenshot({path:join(directory,"crop-result-mobile.png")});
   }
+  check("no_external_application_requests", cloudRequests.length === 0);
   check("no_uncaught_browser_errors", report.errors.length === 0);
   report.result = "passed";
 } catch (error) {if (page) {await page.screenshot({path:join(directory,"failure.png")}).catch(() => {}); await writeFile(join(directory,"failure-page.txt"), await page.locator("body").innerText().catch(() => "unavailable"), {mode:0o600});} report.result = "failed"; report.failure = error instanceof Error ? error.message : String(error); process.exitCode = 1;}
