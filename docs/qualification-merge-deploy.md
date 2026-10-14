@@ -167,9 +167,11 @@ La prueba física de r3 en el S24 pasó teclado vertical y horizontal,
 recuperación tras forzar la parada de Chrome, notificación real en segundo
 plano y su apertura; siguen pendientes instalación desde cero, suspensión
 larga, cambio de red, pantalla bloqueada y compartir desde otra aplicación. La prueba de 24 horas iniciada
-el 14 de octubre a las 03:13:42 UTC no cuenta como aprobada hasta terminar y
-revisar sus invariantes, límites y limpieza. Las publicaciones siguen cerradas
-por el contraejemplo de escritura tardía tras el borrado en S3.
+el 14 de octubre a las 03:13:42 UTC falló en el ciclo 87: al reconectar, la
+instantánea limitada a 512 mensajes recorta la historia sin avisar. La
+siguiente candidata lo corrige y necesita su propia prueba de 24 horas. Las
+publicaciones siguen cerradas por el contraejemplo de escritura tardía tras el
+borrado; el allocator monotónico de laboratorio no las abre.
 La instalación QA de station usa un perfil y una unidad de usuario independientes,
 preparados específicamente para conservar su estado y el líder compartido; no
 se debe sustituir esa receta por el instalador de servicio normal. Guardar los recibos de reconstrucciones posteriores

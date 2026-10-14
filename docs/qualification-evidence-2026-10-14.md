@@ -104,8 +104,12 @@ Recibos: [despliegue r3](evaluation/qualification-r3-deployment-2026-10-14.json)
 [multihost](remote-multihost-qualification.md). Los originales están en
 `.worktrees/remote-release-candidate-20261014-r3/`. El primer intento con el S24
 encontró Android bloqueado y se detuvo; la prueba física posterior se describe
-más abajo. El soak de 24 horas y la cohorte de siete días
-no cuentan como completados. Las publicaciones siguen cerradas: el laboratorio
+más abajo. El soak de 24 horas **falló** en el ciclo 87, tras 86 ciclos
+completos: al reconectar, las páginas reciben una instantánea limitada a 512
+mensajes y 256 KiB, y la historia más antigua desaparece sin aviso. No es un
+duplicado; es un defecto del producto que la siguiente candidata corrige y
+vuelve a probar durante 24 horas. La cohorte de siete días no cuenta como
+completada. Las publicaciones siguen cerradas: el laboratorio
 del almacenamiento reprodujo un PUT tardío que devuelve un objeto después de
 DELETE 204 y HEAD 404; no se promete borrado físico sobre esa evidencia.
 

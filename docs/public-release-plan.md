@@ -40,8 +40,11 @@ OS eviction, long suspension, radio handoff, the locked screen and the share
 target remain open, as do the elapsed-time gates.
 
 The bounded [24-hour run](remote-soak-qualification.md) started on 2026-10-14 at
-03:13:42 UTC from clean QA commit `480f1be`; it is due on 2026-10-15 at the same
-UTC time. It is pending until its duration, invariants and cleanup all pass.
+03:13:42 UTC from clean QA commit `480f1be` and **failed** in cycle 87 after
+86 complete cycles: reconnecting clients receive a snapshot bounded to 512
+messages and 256 KiB, so older history disappears without notice. This is a
+product defect, not a duplicate; the next candidate must report omissions and
+pass a new 24-hour run.
 The six [integration PRs](evaluation/pr-integration-2026-10-14.json) were checked
 mergeable with auto-merge disabled at their recorded heads; Admin has no remote
 CI checks and retains its separate local validation. No merge was performed.

@@ -134,7 +134,24 @@ The [r3 launch receipt](evaluation/soak-r3-started-2026-10-14.json) records the
 `480f1be`. Its expected finish is 2026-10-15 at 03:13:42 UTC (05:13:42 in Paris).
 The scope is `fabrials-direct-soak-418441350551.scope`; evidence is in
 `~/.local/share/fabrials-remote-release/2026-10-14/soak-24h-r3-20261014/`.
-At launch the first cycle passed. This is a pending run, not a completed result.
+At launch the first cycle passed.
+
+**Result: failed.** The run completed 86 cycles and 37,777 checks, then failed
+during cycle 87 at 10:23:46 UTC with `permission_transcript_not_duplicated`.
+Resource bounds, receipts, queue drain and browser errors held. It is not a
+duplicate: a run with one-second intervals reproduced it at the same cycle in
+about four minutes, and an instrumented copy of the harness recorded the
+counts. Both pages reconnect every cycle. Once the host journal holds more than
+1,024 events, a reconnecting client receives the bounded session snapshot,
+which keeps at most 512 messages and 256 KiB of text. From cycle 86 both pages
+showed 258 user messages and their oldest entry moved from the fixture history
+to `SOAK_1_A`; in cycle 87 the first `permission` message left the window and
+the cumulative count stopped at 86 against 87 expected. The harness assumed a
+complete history. The product truncates silently on every reconnect, which is
+a defect: the next candidate reports omitted messages and the check counts
+visible plus omitted entries exactly. The instrumentation diff and per-cycle
+counts are in `~/.local/share/fabrials-remote-release/2026-10-14/soak-triage-counts/`;
+the frozen `480f1be` checkout is unchanged. A new 24-hour run is required.
 
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
