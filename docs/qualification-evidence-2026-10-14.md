@@ -35,7 +35,7 @@ Qué cambia respecto a r3:
 Comprobado en local contra el artefacto exacto, con TLS de laboratorio:
 
 - Piloto de 140 ciclos de un segundo: pasaron 3.914 comprobaciones de la prueba
-  larga y 103 de la ejecución. La ventana se recorta desde el ciclo 85 y la
+  larga y 103 de la ejecución. La ventana se recorta desde el ciclo 86 y la
   cuenta cuadra en cada ciclo (ciclo 140: 516 visibles y 330 omitidos de 846).
   Tras recargar, la ventana viva (512 + 334) y la copia sin conexión
   (516 + 330, con su aviso) cuentan los 846 mensajes. Se hizo sobre r4b, que
