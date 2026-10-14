@@ -9,10 +9,13 @@ import {buildOrigin, deploymentOrigin, deploymentConfigPath, origins} from "./de
 import {verifyArtifact} from "./remote-artifact.mjs";
 import {qualifyDirectMultiHost} from "./qa/direct-multihost";
 import {qualifyDirectSoak} from "./qa/direct-soak";
+import {openDirectFirefox} from "./qa/direct-firefox";
 
 const [directoryArgument] = process.argv.slice(2);
 assert.ok(directoryArgument, "Usage: bun scripts/qualify-direct-browser.ts <private-directory-with-cert.pem-and-key.pem>");
-assert.ok(process.env.REMOTE_QA_CHROME?.startsWith("/nix/store/") && process.env.REMOTE_QA_CHROME.includes("google-chrome-"), "REMOTE_QA_CHROME must name the actual Nix Chrome package, never the daily-profile wrapper");
+const engine=process.env.REMOTE_QA_ENGINE ?? "chromium";
+assert.ok(["chromium","firefox"].includes(engine),"Direct browser qualification supports Chromium or Firefox");
+if(engine==="chromium") assert.ok(process.env.REMOTE_QA_CHROME?.startsWith("/nix/store/") && process.env.REMOTE_QA_CHROME.includes("google-chrome-"), "REMOTE_QA_CHROME must name the actual Nix Chrome package, never the daily-profile wrapper");
 const directory = resolve(directoryArgument);
 const artifact = process.env.REMOTE_QA_ARTIFACT ? resolve(process.env.REMOTE_QA_ARTIFACT) : undefined;
 const dist = artifact ? join(artifact, ".vercel/output/static") : resolve("apps/web/dist");
@@ -24,10 +27,13 @@ assert.equal(buildOrigin(await readFile(join(dist, "index.html"), "utf8")), orig
 const hostname = new URL(origin).hostname;
 const cropDist = process.env.REMOTE_QA_CROP_DIST ? resolve(process.env.REMOTE_QA_CROP_DIST) : undefined;
 const soak = process.env.REMOTE_QA_SOAK === "1";
+assert.ok(!soak || engine==="chromium","Firefox soak has not been qualified");
+if(engine==="firefox") assert.ok(process.env.REMOTE_QA_FIREFOX?.startsWith("/"),"Firefox requires an explicit executable path");
 const multiwriter = process.env.REMOTE_QA_MULTIWRITER === "1" || soak;
 const multihost = process.env.REMOTE_QA_MULTIHOST === "1";
 assert.ok(!multihost || !multiwriter, "Multi-host qualification uses separate hosts without the multiwriter fixture");
 const layoutImages = process.env.REMOTE_QA_LAYOUT_IMAGES === "1";
+assert.ok(engine!=="firefox" || (!cropDist && !upgradeArtifact && !layoutImages),"Firefox qualification currently covers base, multiwriter and multihost modes only");
 const deployment = JSON.parse(await readFile(artifact ? join(artifact, ".vercel/output/config.json") : resolve(deploymentConfigPath(origin)), "utf8"));
 const report: any = {schema: 1, startedAt: new Date().toISOString(), origin, checks: [], errors: [], transport: [], notQualified: ["Production TLS trust: laboratory self-signed certificate", "Actual hosting and CDN routing", "Tailscale", "Physical Android and Apple hardware", "Grok inference: synthetic history only", "Real push delivery", "GPU performance: hidden software compositor"]};
 const processes: {name: string; child: ChildProcess}[] = [];
@@ -35,6 +41,7 @@ const spawnFailures: string[] = [];
 const cleanEnv = {...process.env};
 for (const name of Object.keys(cleanEnv)) if (/KEY|TOKEN|SECRET|PASSWORD|AUTH|CREDENTIAL/i.test(name)) delete cleanEnv[name];
 let browser: any, page: any, server: any, syl: ChildProcess | undefined;
+let firefoxRuntime: Awaited<ReturnType<typeof openDirectFirefox>> | undefined;
 const check = (name: string, value: unknown) => {assert.ok(value, name); report.checks.push(name);};
 const waitFor = async (ready: () => Promise<boolean>, timeout = 15000) => {const end = Date.now() + timeout; while (!await ready()) {assert.ok(Date.now() < end, "fixture readiness deadline"); await Bun.sleep(50);}};
 const start = (name: string, command: string, args: string[], env: Record<string,string | undefined> = cleanEnv) => {
@@ -152,24 +159,34 @@ try {
     message(socket, message) {report.transport.push({at:"browser-frame",bytes:message.length}); const value = typeof message === "string" ? message : message.toString(); if (socket.data.upstream?.readyState === 1) socket.data.upstream.send(value); else if (socket.data.queued.length < 16) socket.data.queued.push(value); else socket.close();},
     close(socket) {socket.data.upstream?.close();},
   }});
-  const sylLog = openSync(join(directory, "syl.log"), "wx", 0o600);
-  syl = spawn("syl", ["mcp"], {env: {...cleanEnv, SYL_MCP_PROFILE: "visual", SYL_NESTED_RES: "2560x1440", ...(soak ? {DBUS_SESSION_BUS_ADDRESS:"unix:path=/dev/null"} : {})}, detached: true, stdio: ["pipe", "pipe", sylLog]});
-  closeSync(sylLog);
-  syl.on("error", () => spawnFailures.push("syl"));
-  createInterface({input: syl.stdout!}).on("line", line => {const value = JSON.parse(line); const entry = pending.get(value.id); if (entry) {pending.delete(value.id); if (value.error) entry.reject(new Error(value.error.message)); else entry.resolve(value.result);}});
-  await rpc("initialize", {protocolVersion:"2024-11-05", capabilities:{}, clientInfo:{name:"direct-browser-qualification",version:"1"}});
-  const nested = await rpc("tools/call", {name:"gui_open",arguments:{target:"nested",app:"foot"}});
-  const display = nested.content?.map((item: any) => item.text ?? "").join(" ").match(/display=(wayland-\d+)/)?.[1];
-  assert.ok(display, "real hidden Syl compositor, never its stub backend");
-  const profile = join(directory, "chrome-profile");
-  await mkdir(profile, {mode: 0o700});
-  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, ${[...nativeHosts.keys()].map(host => `MAP ${host} 127.0.0.1:${server.port}`).join(", ")}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...cleanEnv, WAYLAND_DISPLAY: display, ...(soak ? {DBUS_SESSION_BUS_ADDRESS:"unix:path=/dev/null"} : {})});
-  let cdpPort = 0;
-  await waitFor(async () => {try {cdpPort = Number((await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\n")[0]); return Boolean(cdpPort);} catch {return false;}});
-  const {chromium} = await import(process.env.REMOTE_QA_PLAYWRIGHT ?? "/tmp/xt-work/qa/node_modules/playwright-core/index.mjs");
-  browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
-  report.browser = browser.version();
-  const context = browser.contexts()[0];
+  const playwright=await import(process.env.REMOTE_QA_PLAYWRIGHT ?? "/tmp/xt-work/qa/node_modules/playwright-core/index.mjs");
+  let context: any;
+  if(engine==="firefox") {
+    firefoxRuntime=await openDirectFirefox({firefox:playwright.firefox,executablePath:process.env.REMOTE_QA_FIREFOX!,port:server.port,hosts:[...new Set([new URL(origins.production).hostname,new URL(origins.qualification).hostname,...nativeHosts.keys(),"remote.fabrials.com"])],environment:cleanEnv,owned(child){processes.push({name:"firefox",child});},report});
+    ({browser,context}=firefoxRuntime);
+    check("firefox_proxy_refuses_non_fixture_authorities",report.firefox.proxy.outsideAuthorityDenied);
+    report.notQualified.push("Firefox touchscreen/mobile-keyboard emulation and native installation prompt; Chromium CDP-only checks are omitted");
+    report.omittedChecks={reason:"Firefox does not implement Chromium CDP touch emulation",touchMediaQueries:7,touchShortViewports:[{width:750,height:136},{width:667,height:136}],shortViewportAssertions:16};
+  } else {
+    const sylLog = openSync(join(directory, "syl.log"), "wx", 0o600);
+    syl = spawn("syl", ["mcp"], {env: {...cleanEnv, SYL_MCP_PROFILE: "visual", SYL_NESTED_RES: "2560x1440", ...(soak ? {DBUS_SESSION_BUS_ADDRESS:"unix:path=/dev/null"} : {})}, detached: true, stdio: ["pipe", "pipe", sylLog]});
+    closeSync(sylLog);
+    syl.on("error", () => spawnFailures.push("syl"));
+    createInterface({input: syl.stdout!}).on("line", line => {const value = JSON.parse(line); const entry = pending.get(value.id); if (entry) {pending.delete(value.id); if (value.error) entry.reject(new Error(value.error.message)); else entry.resolve(value.result);}});
+    await rpc("initialize", {protocolVersion:"2024-11-05", capabilities:{}, clientInfo:{name:"direct-browser-qualification",version:"1"}});
+    const nested = await rpc("tools/call", {name:"gui_open",arguments:{target:"nested",app:"foot"}});
+    const display = nested.content?.map((item: any) => item.text ?? "").join(" ").match(/display=(wayland-\d+)/)?.[1];
+    assert.ok(display, "real hidden Syl compositor, never its stub backend");
+    const profile = join(directory, "chrome-profile");
+    await mkdir(profile, {mode: 0o700});
+    start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, ${[...nativeHosts.keys()].map(host => `MAP ${host} 127.0.0.1:${server.port}`).join(", ")}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...cleanEnv, WAYLAND_DISPLAY: display, ...(soak ? {DBUS_SESSION_BUS_ADDRESS:"unix:path=/dev/null"} : {})});
+    let cdpPort = 0;
+    await waitFor(async () => {try {cdpPort = Number((await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\n")[0]); return Boolean(cdpPort);} catch {return false;}});
+    browser = await playwright.chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
+    context = browser.contexts()[0];
+  }
+  report.browser=browser.version();
+  report.engine=engine;
   page = await context.newPage();
   page.setDefaultTimeout(15000);
   const cloudRequests: string[] = [];
@@ -188,7 +205,7 @@ try {
   page.on("pageerror", (error: Error) => report.errors.push(error.message));
   page.on("console", (message: any) => {
     if (message.type() !== "error") return;
-    if ([...blockedHosts].some(host => message.text().includes(host)) && /WebSocket|503/.test(message.text())) {
+    if ([...blockedHosts].some(host => message.text().includes(host) && (/WebSocket|503/.test(message.text()) || (engine === "firefox" && message.text().includes(`Firefox can’t establish a connection to the server at wss://${host}/remote.`))))) {
       (report.expectedConnectionErrors ??= []).push({reason:"deliberately blocked private host", message:message.text().slice(0,500)});
     } else if (expectedResourceErrors.has(message.location().url) && message.text().includes("404")) {
       (report.expectedResourceErrors ??= []).push({url:message.location().url, status:404});
@@ -271,7 +288,7 @@ try {
     await writeFile(join(state, "pair-next"), "", {mode:0o600});
     await waitFor(async () => {try {await readFile(join(state,"pair-next.json")); return true;} catch {return false;}});
     const secondPairing = JSON.parse(await readFile(join(state, "pair-next.json"), "utf8"));
-    const secondary = await browser.newContext({viewport:{width:390,height:844}, hasTouch:true, isMobile:true});
+    const secondary = await browser.newContext({viewport:{width:390,height:844}, ...(engine==="chromium" ? {hasTouch:true,isMobile:true} : {ignoreHTTPSErrors:true})});
     await secondary.route("**/*", networkRoute);
     const other = await secondary.newPage();
     other.setDefaultTimeout(15000);
@@ -456,7 +473,7 @@ try {
     }
     return [[bounds.left + 4, bounds.top + 4], [bounds.right - 4, bounds.bottom - 4], [bounds.left + bounds.width / 2, bounds.top + bounds.height / 2]].every(([x, y]) => element.contains(document.elementFromPoint(x, y)));
   };
-  const touchSession = await context.newCDPSession(page);
+  const touchSession = engine==="chromium" ? await context.newCDPSession(page) : undefined;
   await page.evaluate(() => {
     const offer = new Event("beforeinstallprompt");
     Object.assign(offer, {prompt: async () => {}, userChoice: Promise.resolve({outcome:"dismissed"})});
@@ -489,13 +506,14 @@ try {
     await page.getByRole("button", {name:"Remove synthetic-layout.png", exact:true}).waitFor();
   }
   for (const viewport of [{width:2560,height:1440},{width:390,height:844},{width:844,height:390},{width:750,height:354},{width:750,height:136},{width:667,height:136},{width:390,height:430}]) {
+    if(engine==="firefox" && viewport.height<=300) continue;
     const touch = viewport.width < 900;
-    await touchSession.send("Emulation.setTouchEmulationEnabled", {enabled:touch});
+    await touchSession?.send("Emulation.setTouchEmulationEnabled", {enabled:touch});
     await page.setViewportSize(viewport);
     await page.waitForFunction(() => Math.abs(parseFloat(document.documentElement.style.getPropertyValue("--app-viewport-height")) - (visualViewport?.height ?? innerHeight)) < 1);
     await input().focus();
     await page.evaluate(() => new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
-    check(`touch_input_${viewport.width}x${viewport.height}`, await page.evaluate(() => matchMedia("(pointer: coarse)").matches) === touch);
+    if(touchSession) check(`touch_input_${viewport.width}x${viewport.height}`, await page.evaluate(() => matchMedia("(pointer: coarse)").matches) === touch);
     check(`no_horizontal_overflow_${viewport.width}x${viewport.height}`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     check(`composer_reachable_${viewport.width}x${viewport.height}`, await input().isVisible());
     check(`editor_visible_without_clipping_${viewport.width}x${viewport.height}`, await input().evaluate(fullyVisible));
@@ -515,8 +533,8 @@ try {
     check("selected_image_and_text_survive_layout_changes_without_sending", await page.getByRole("list", {name:"Selected images", exact:true}).locator("li").count() === 1 && await input().inputValue() === "DIRECT_DRAFT_SYNTHETIC_CANARY");
     await page.getByRole("button", {name:"Remove synthetic-layout.png", exact:true}).click();
   }
-  await touchSession.send("Emulation.setTouchEmulationEnabled", {enabled:false});
-  await touchSession.detach();
+  await touchSession?.send("Emulation.setTouchEmulationEnabled", {enabled:false});
+  await touchSession?.detach();
   await page.setViewportSize({width:2560,height:1440});
   if (multiwriter) {
     await page.getByRole("button", {name:"Clear pending messages", exact:true}).click();
@@ -526,7 +544,7 @@ try {
     check("layout_queue_remains_paused_until_explicit_cleanup", await page.getByText("accepted:LAYOUT_WAITING_ONE", {exact:true}).count() === 0 && await page.getByText("accepted:LAYOUT_WAITING_TWO", {exact:true}).count() === 0);
   }
   await page.waitForFunction(() => !document.documentElement.hasAttribute("data-short-viewport"));
-  check("computer_navigation_restored_after_keyboard_dismissal", await page.getByRole("button", {name:"Computers", exact:true}).isVisible());
+  check(engine==="chromium" ? "computer_navigation_restored_after_keyboard_dismissal" : "computer_navigation_available_after_layout_checks", await page.getByRole("button", {name:"Computers", exact:true}).isVisible());
   await page.getByRole("button", {name:"Later", exact:true}).click();
   await page.reload();
   await page.getByRole("button", {name:"Connect",exact:true}).click();
@@ -562,6 +580,7 @@ try {
   check("private_host_remains_usable_without_fabrials_or_app_origin", await input().inputValue() === "DIRECT_DRAFT_SYNTHETIC_CANARY" && cloudRequests.length === 0);
   await page.getByRole("button", {name:"Forget this browser",exact:true}).click();
   await page.getByRole("heading", {name:"Your computers",exact:true}).waitFor();
+  await page.getByRole("heading", {name:"Add your first computer",exact:true}).waitFor();
   check("explicit_forget_revokes_and_removes_saved_profile", await page.getByRole("button", {name:"Connect",exact:true}).count() === 0);
   check("forget_removes_durable_draft_and_history_rows", await page.evaluate(() => new Promise<boolean>((resolveRows, reject) => {
     const request = indexedDB.open("grok-remote-drafts.v2", 1);
@@ -645,6 +664,7 @@ finally {
     report.browserClosedGracefully = await Promise.race([browser.close().then(() => true, () => false), new Promise<boolean>(resolveClosed => {timer = setTimeout(() => resolveClosed(false), 5000);})]);
     clearTimeout(timer);
   }
+  if(firefoxRuntime) {try {await firefoxRuntime.close();} catch(error) {report.cleanupFailed=true;report.firefox.cleanupFailure=String(error);}}
   for (const socket of upstreams) socket.close();
   server?.stop(true);
   if (syl) {
@@ -675,7 +695,7 @@ finally {
   }
   await rm(join(directory,"key.pem"), {force:true}).catch(() => {report.cleanupFailed = true;});
   if (spawnFailures.length) {report.spawnFailures = spawnFailures; report.cleanupFailed = true;}
-  report.notQualified.push("Descendants that leave their recorded process group; Syl compositor is closed through its own API");
+  report.notQualified.push(syl ? "Descendants that leave their recorded process group; Syl compositor is closed through its own API" : "Descendants that leave their recorded process group; no hostile-process containment claim");
   if (report.cleanupFailed) {report.result = "failed"; process.exitCode = 1;}
   report.finishedAt = new Date().toISOString();
   await writeFile(join(directory,"report.json"),JSON.stringify(report,null,2),{mode:0o600});

@@ -140,6 +140,10 @@ of the experimental controls for visual review.
 
 ## Direct multiwriter browser checks
 
+Firefox direct-mode evidence and exact reproduction are recorded separately in
+[remote-firefox-qualification.md](remote-firefox-qualification.md). This evidence
+uses r3 and does not inherit the historical managed-transport results above.
+
 `scripts/qualify-direct-browser.ts` can run the direct Noise transport with two
 independent pairings and a deterministic ACP process. Set
 `REMOTE_QA_MULTIWRITER=1` and point `DIRECT_QA_NATIVE_BINARY` to the built
