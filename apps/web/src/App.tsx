@@ -1692,6 +1692,7 @@ export function App({ client: injected, remoteHostId, draftScope: suppliedDraftS
         members={shown.members}
         workflows={shown.workflows}
         backgroundTasks={shown.backgroundTasks}
+        history={shown.history}
         connected={connected}
         canControl={canControl && !suspended}
         sessionLoading={sessionLoading}

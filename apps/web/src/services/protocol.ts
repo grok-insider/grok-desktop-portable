@@ -288,6 +288,12 @@ export type LightEvent =
       workflows?: SnapshotWorkflow[];
       /** Background bash/monitor tasks (CLI Tasks pane). */
       backgroundTasks?: SnapshotBackgroundTask[];
+      /** Earlier messages the host left out of its bounded window. */
+      omittedMessages?: number;
+      /** Tool rows left out by the same bounds. */
+      omittedTools?: number;
+      /** Some history text was cut or not loaded. */
+      historyTruncated?: boolean;
     }
   | {
       kind: "backgroundTaskUpdated";

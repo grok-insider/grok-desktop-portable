@@ -41,6 +41,20 @@ export interface Projection {
   workflows: SnapshotWorkflow[];
   /** Background bash/monitor tasks (CLI Tasks). */
   backgroundTasks: SnapshotBackgroundTask[];
+  /** What the last snapshot left out; absent when its history was complete. */
+  history?: HistoryOmission;
+}
+
+export interface HistoryOmission {
+  omittedMessages: number;
+  omittedTools: number;
+  truncated: boolean;
+}
+
+function historyOmission(event: {omittedMessages?: unknown; omittedTools?: unknown; historyTruncated?: unknown}): HistoryOmission | undefined {
+  const count = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0;
+  const omission = {omittedMessages: count(event.omittedMessages), omittedTools: count(event.omittedTools), truncated: event.historyTruncated === true};
+  return omission.omittedMessages || omission.omittedTools || omission.truncated ? omission : undefined;
 }
 
 /** Empty projection used before any event and after a hard reset. */
@@ -296,6 +310,7 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
       const backgroundTasks = (event.backgroundTasks ?? []).filter(
         (task) => typeof task.taskId === "string" && task.taskId.length > 0,
       );
+      const history = historyOmission(event);
       return {
         transcript: restored.map((message, index) => ({
           id: `restored-${index}`,
@@ -332,6 +347,7 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
         members,
         workflows,
         backgroundTasks,
+        ...(history ? {history} : {}),
       };
     }
     case "backgroundTaskUpdated": {

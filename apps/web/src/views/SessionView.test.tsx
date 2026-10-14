@@ -66,6 +66,18 @@ describe("SessionView", () => {
     }
   });
 
+  it("says how much earlier history a bounded snapshot left out", () => {
+    renderView({history: {omittedMessages: 688, omittedTools: 2, truncated: false}, transcript: [{id: "kept", role: "user", text: "kept", seq: 1}]});
+    const notice = screen.getByText(/688 earlier messages are not shown here/);
+    expect(notice).toHaveAttribute("data-omitted-messages", "688");
+    expect(screen.getAllByRole("article", {name: "Your message"})).toHaveLength(1);
+  });
+
+  it("says when history text was cut without a known count", () => {
+    renderView({history: {omittedMessages: 0, omittedTools: 0, truncated: true}});
+    expect(screen.getByText("Part of this conversation's earlier history is not shown here.")).toHaveAttribute("data-history-truncated", "true");
+  });
+
   it("sends a prompt and clears the composer", async () => {
     const props = renderView();
     const composer = screen.getByRole("textbox", { name: /message the agent/i });

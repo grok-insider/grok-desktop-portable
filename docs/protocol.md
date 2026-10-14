@@ -308,6 +308,14 @@ them. `permissionRequest` carries only the option ids Light may render.
 `sessionSnapshot` may carry restored `messages` **and** `tools` (bounded tool
 rows from `updates.jsonl`, no bodies). After refresh or resume the SPA must
 show tool activity that was already in the durable history, not only text turns.
+Both are bounded: the live window keeps the last 512 messages within 256 KiB of
+text and the last 128 tool rows, and disk rehydration keeps the first 256 KiB
+and 200 tool rows of the newest 64 MiB. Whatever the bounds leave out is
+reported, never implied: `omittedMessages` and `omittedTools` count earlier rows
+the snapshot no longer carries, and `historyTruncated` marks text that was cut
+or not loaded. All three are absent when the history is complete, so older
+browsers see the same shape. The SPA shows one notice at the top of the
+transcript and does not merge locally held rows into a snapshot.
 
 **Qualified CLI minimum:** product integrity (light ADR 0005) assumes Grok Build
 **≥ 0.2.115**. `grok-light doctor` and the `cli_matrix` module share that floor.

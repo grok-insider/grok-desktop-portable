@@ -231,6 +231,28 @@ describe("project", () => {
     expect(projectionFor(state, "s-other").transcript).toHaveLength(1);
   });
 
+  it("keeps what a bounded snapshot left out until the next snapshot", () => {
+    let state = project(
+      open(S),
+      envelope({ kind: "sessionSnapshot", sessionId: S, messages: [{ role: "agent", text: "recent", seq: 9 }], omittedMessages: 688, omittedTools: 2 }, 0),
+    );
+    expect(one(state).history).toEqual({ omittedMessages: 688, omittedTools: 2, truncated: false });
+    state = project(state, envelope({ kind: "messageDelta", sessionId: S, text: " more" }, 5));
+    expect(one(state).history?.omittedMessages).toBe(688);
+    state = project(state, envelope({ kind: "sessionSnapshot", sessionId: S, messages: [{ role: "agent", text: "complete", seq: 0 }] }, 0));
+    expect(one(state).history).toBeUndefined();
+    state = project(state, envelope({ kind: "sessionSnapshot", sessionId: S, messages: [], historyTruncated: true }, 0));
+    expect(one(state).history).toEqual({ omittedMessages: 0, omittedTools: 0, truncated: true });
+  });
+
+  it("ignores malformed omission counts", () => {
+    const state = project(
+      open(S),
+      envelope({ kind: "sessionSnapshot", sessionId: S, messages: [], omittedMessages: -3, omittedTools: 1.5, historyTruncated: "yes" } as unknown as LightEvent, 0),
+    );
+    expect(one(state).history).toBeUndefined();
+  });
+
   it("restores tool rows from a session snapshot", () => {
     const state = project(
       open(S),
