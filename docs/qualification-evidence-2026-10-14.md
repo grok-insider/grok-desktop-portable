@@ -1,11 +1,62 @@
 # Candidata multidevice desplegada, 2026-10-14
 
-Este recibo identifica la PWA que sirve `https://grok.fabrials.com` y el host
-privado instalado en station. Las horas de los recibos están en UTC; la fecha
+Este documento conserva los despliegues del día. La candidata vigente es la
+segunda, descrita a continuación; las secciones posteriores conservan la
+evidencia histórica de sus propias revisiones. Las horas están en UTC y la fecha
 del documento corresponde a Europe/Paris. Los PRs siguen en borrador y las
 publicaciones públicas siguen cerradas.
 
-## Identidades
+## Segunda candidata, vigente desde las 01:08 UTC
+
+| Componente | Revisión o SHA-256 |
+| --- | --- |
+| Portable | `00393e13e45b7dfbbfcc9844b46d758f2a582486` |
+| Librerías canónicas | `648741029f5daceeaeb61395f00f529213011926` |
+| Spanreed y archivo de fuentes | `7e2a7816c73d7e58b64852509b47ede75527859a` |
+| Archivo de fuentes, 4.469.779 bytes | `377d1352f3a6366472216216755b35fc8fc7cde89e3dd8fde4a6655588ef0197` |
+| Shell | `ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac` |
+| Binario GNU de station | `90d3f5078a3f392220f59d80d09ae96ad3f8bf4b33b28ab6f5f3d1ccbf4c6bf3` |
+| Imagen desplegada | `sha256:6df6e4e20580c51a5f4cb4f09bf1fa694d0dcb03acb5f4c1d2bf874115149b24` |
+| Imagen de recuperación | `sha256:cb2d1f85c12b0da067a3b2f727c9d006dc7506dfecd3b453d85f88e234f6ee3b` |
+
+Incluye las correcciones de disposición horizontal y confirmación de revocación
+descritas al final. La PWA pasó 905 pruebas, tipos y CI. Los avisos GNU incluyen
+387 paquetes, 815 originales y 370 fuentes de registro; el suplemento WASM
+conserva 49 paquetes y 182 originales. El wrapper Nix conserva exactamente el
+binario cualificado y su cierre de ejecución. La prueba de ciclo de vida pasó
+con estado propio; su primer intento quedó registrado como fallo del arnés por
+una ruta de socket Unix demasiado larga, antes de arrancar la candidata.
+
+Los dos adaptadores pasaron diez pruebas HTTP cada uno. Contra el despliegue
+real pasaron 238 comprobaciones por Cloudflare y 236 contra el origen TLS.
+Se activó realmente la recuperación desde Coolify, pasó otras 238 comprobaciones
+y se restauró la candidata: 238 correctas. Ambos adaptadores conservan las
+fuentes y avisos de los shells `ff22898f…`, `fe9e3a52…` y `a3612b47…`.
+Los artefactos están protegidos frente a la retención del registro.
+
+Chrome 155 en Sway oculto pasó 18 comprobaciones de actualización explícita
+desde `fe9e3a52…`, descarga de fuentes y avisos, apertura sin red y recuperación
+explícita sin red. Otros dos contextos independientes pasaron 19 comprobaciones
+con el host real por Tailscale: emparejamiento, controles simultáneos, reconexión,
+confirmación de «Forget this browser» y conservación del otro cliente. Las dos
+retiradas se comprobaron también en el host; se conservaron los emparejamientos
+preexistentes. No se enviaron prompts en esta prueba.
+
+Station conserva idénticos sus cinco archivos de identidad y configuración.
+El líder compartido, el terminal abierto y el daemon de uso habitual conservaron
+su identidad de proceso. El servicio QA responde por loopback y Tailscale; no
+se reconstruyó NixOS ni Home Manager. Mantener vivos esos procesos no acredita
+todavía la continuación funcional de una conversación desde el terminal.
+
+El [recibo saneado](evaluation/deployed-revocation-2026-10-14-r2.json) contiene
+los hashes y límites de cada comprobación. Los originales están en
+`.worktrees/remote-release-candidate-20261014-r2/`. Los cambios posteriores de
+documentación no redefinen el artefacto. La prueba física anterior del S24,
+incluida su notificación real, pertenece al shell y binario anteriores; esta
+segunda candidata aún necesita su propia prueba física. No se inició un soak
+de 24 horas ni una cohorte de siete días, ni se publicó una release estable.
+
+## Primer despliegue: identidades históricas
 
 | Componente | Revisión o SHA-256 |
 | --- | --- |

@@ -12,6 +12,13 @@ its exact sources, deployed TLS/CDN checks, N/N−1 browser update and station
 verification are recorded in [the current receipt](qualification-evidence-2026-10-14.md).
 This is not a public-launch qualification.
 
+The second 2026-10-14 qualification deployment uses Portable `00393e13`, libraries
+`64874102` and Spanreed `7e2a7816`. Its 905 PWA tests, three 96-check image/layout
+laboratory runs, deployed HTTP checks, 18-check browser update and 19-check
+two-browser revocation trial are bound to exact artifact hashes in the current
+receipt. The S24 push trial belongs to the earlier deployment; this candidate's
+physical-device and elapsed-time gates remain open.
+
 Follow-up preparation uses `https://grok.fabrials.com` as an explicitly selected
 qualification origin, with a separate hosting configuration and native pairing
 selection. The default remains `desktop.grok.me`. Its real build, sockets,
@@ -79,7 +86,7 @@ CLI versions. Unobserved external terminal turns cannot be remotely cancelled.
 Direct `!` shell mode remains unavailable in shared conversations; the UI now
 says so and preserves the draft. Grok's permission-mediated tools remain usable.
 
-Current PWA verification passes 881 tests and TypeScript checking. Hidden Chrome
+The initial multi-device PWA verification passed 881 tests and TypeScript checking. Hidden Chrome
 155 passes 53 checks with two independently paired browser contexts, real Noise
 and a deterministic ACP fixture: FIFO, custom models/efforts, stale configuration
 and queue revisions, reconnect, missing catalogues, offline storage and local
@@ -336,7 +343,7 @@ backend is not a safe rollback for immediate-revocation guarantees.
 
 The canonical host passed 608 tests before the current Windows hardening; the
 synced Spanreed consumer passed 2,303 tests with 11 explicit exclusions. These
-counts do not qualify later edits automatically. The PWA's current 881 tests
+counts do not qualify later edits automatically. The PWA's initial 881 tests
 and 53-check multi-browser receipt are described above. Linux updater recovery
 now includes durable phases and process interruption at seven checkpoints;
 the earlier lack of power-loss recovery describes the historical implementation.
