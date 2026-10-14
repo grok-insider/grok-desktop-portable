@@ -194,6 +194,22 @@ itself with an observation that was not newer. The first version of the check
 compared omitted counts alone; it now compares totals and records both windows
 in the report as `offlineHistoryWindow`.
 
+**Third r4 pilot (`soak-pilot-r4b-fast-cycles-2`): passed.** Same r4b artifact,
+harness `ef269b1`. 140 cycles and 3,914 soak checks, 103 run checks, no browser
+errors; the live window after the final reload (512 visible, 334 omitted) and
+the offline copy (516 visible, 330 omitted, one notice) both account for all
+846 messages. Cleanup left the cgroup and scratch empty.
+
+**r4b 24-hour run: stopped, superseded.** Launched from the clean frozen
+checkout `ef269b1` (scope `fabrials-direct-soak-9d28061a6883.scope`); its first
+cycle passed at 19:46:44 UTC. It was stopped by hand 136 seconds in, because the
+multi-host qualification of the same artifact in Chromium and Firefox failed
+`multihost_computer_actions_have_44px_targets_2560_*`: the Highstorm restyle
+dropped the 44 px minimum from each computer card's Connect button (83 × 40 px
+at 2560 px, 44 px at 390 px). Its unit result records the interruption, an
+empty cgroup and empty scratch. The next candidate restores the target, and the
+24-hour run starts again on that candidate.
+
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
 Grok/provider failure modes, GPU performance, host suspension or OS reboot.
