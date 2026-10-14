@@ -210,6 +210,17 @@ at 2560 px, 44 px at 390 px). Its unit result records the interruption, an
 empty cgroup and empty scratch. The next candidate restores the target, and the
 24-hour run starts again on that candidate.
 
+**r4c 24-hour run.** The [launch receipt](evaluation/soak-r4c-started-2026-10-14.json)
+records the 86,400-second run against the r4c artifact (Portable `6870159`,
+libs `bd01164`, Spanreed `4219cba`) from the same frozen harness checkout
+`ef269b1`, whose four QA scripts are byte-identical to `6870159`. Scope
+`fabrials-direct-soak-40b66ca4c008.scope`; the soak loop started on 2026-10-14
+at 19:51:08 UTC and is due on 2026-10-15 at 19:51:08 UTC. Evidence is in
+`~/.local/share/fabrials-remote-release/2026-10-14/soak-24h-r4c-20261014/`.
+The first cycle passed. With 300-second intervals the host window starts
+truncating after about seven hours, so most of the run exercises the
+accounting. Until its final report, it is progress, not a result.
+
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
 Grok/provider failure modes, GPU performance, host suspension or OS reboot.

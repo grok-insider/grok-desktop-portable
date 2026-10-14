@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "qaCommit": "ef269b168c5f3cf539b51ca7c69bc5324bd79c09",
+  "unit": "fabrials-direct-soak-40b66ca4c008.scope",
+  "soakStartedAt": "2026-10-14T19:51:08.858700Z",
+  "expectedFinishUtc": "2026-10-15T19:51:08.858700+00:00",
+  "durationSeconds": 86400,
+  "intervalSeconds": 300,
+  "candidate": {
+    "portable": "6870159256e77ddcd62ebbf216339d956d7a4379",
+    "libs": "bd01164cf98dc416c52482d5c9f5a2f5d9acfae2",
+    "spanreed": "4219cba",
+    "correspondingSource": "/sources/5bf49c9f5c116b8f8c715850ba38a9579d7db44f787ca521909961a4bd38693a.json"
+  },
+  "fixture": {
+    "runtimeBaseCommit": "bd01164cf98dc416c52482d5c9f5a2f5d9acfae2",
+    "binarySha256": "88450851dc5df70f2bcdd410b0b3d76cccbbe212a33fe8817d6f07788b4dcfd7",
+    "sourceSha256": "2b295f0785209789735a9fa58f4ef26fb4b9ad0f774ebdb176af53ea53363b59"
+  },
+  "firstCycle": {
+    "at": "2026-10-14T19:51:11.954Z",
+    "transcriptWindow": {
+      "visible": 12,
+      "omitted": 0,
+      "expected": 12
+    }
+  },
+  "reviewAfterCompletion": [
+    "soak-checkpoint.json",
+    "soak-checkpoints.jsonl",
+    "report.json",
+    "bounded-run.json",
+    "unit-result.json",
+    "unit-properties.json",
+    "cgroup-metrics.json"
+  ],
+  "mustPass": [
+    "requested 86400-second duration reached",
+    "all cycle assertions, including exact transcript-window accounting once the host truncates",
+    "offline history accounts for every message after the soak",
+    "resource thresholds and cgroup membership",
+    "final report passed",
+    "unit result passed with cgroup empty and no tagged/readable namespace processes"
+  ],
+  "notQualified": [
+    "paid inference",
+    "trusted TLS",
+    "physical Android/Apple",
+    "general product capacity",
+    "OS sleep or restart"
+  ],
+  "statusAtRecordedTime": "running; 24-hour result pending",
+  "recordedAt": "2026-10-14T19:51:34.089289+00:00",
+  "qaCheckoutWasClean": true,
+  "scripts": {
+    "scripts/qualify-direct-browser.ts": "79953d7742db6a6e8bfd22fa6a5b47f05eca2fde09521276b42f6b4cd1a9685c",
+    "scripts/qa/direct-soak.ts": "1db74e440b04072ca05057c79fc6c1075a914df9cb0d945db645eea3435c2229",
+    "scripts/qa/direct-multihost.ts": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+    "scripts/qa/run-direct-soak.py": "130b1ab61652cd6185c4ac7831f931f9e084440e6a07724a6c1324640d9d2584"
+  },
+  "limitations": [
+    "This receipt records launch only, not a completed run",
+    "Final receipts must be collected after termination; a live checkpoint is insufficient",
+    "The harness checkout ef269b1 predates the candidate's Portable commit; their scripts are byte-identical"
+  ]
+}

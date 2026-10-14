@@ -6,6 +6,61 @@ evidencia histórica de sus propias revisiones. Las horas están en UTC y la fec
 del documento corresponde a Europe/Paris. Los PRs siguen en borrador y las
 publicaciones públicas siguen cerradas.
 
+## Cuarta candidata (r4c): local, sin desplegar
+
+Preparada la noche del 14 de octubre. No se ha desplegado: grok.fabrials.com
+sigue sirviendo r3 hasta tener el recibo del S24 tras la noche, porque un
+cambio de shell alteraría esa prueba.
+
+| Componente | Revisión o SHA-256 |
+| --- | --- |
+| Portable del shell | `6870159256e77ddcd62ebbf216339d956d7a4379` |
+| Librerías canónicas | `bd01164cf98dc416c52482d5c9f5a2f5d9acfae2` |
+| Spanreed de la candidata y archivo de fuentes | `4219cba26344ea3cbd87c56fed9a4d3cc01bccec` |
+| Archivo de fuentes, 4.587.249 bytes | `dde13f30387dba30cc464611e0fb7dd7a3e0880374af231ab3cf490f1b1c69d1` |
+| Shell | `5bf49c9f5c116b8f8c715850ba38a9579d7db44f787ca521909961a4bd38693a` |
+| Manifiesto de despliegue | `83ddc0e93a46a437bdc462909461b7e5ce3df5147f6a39df08ffc77fb30471cd` |
+
+Qué cambia respecto a r3:
+
+- Toda la interfaz de `apps/web` pasa a Fabrials UI 0.9.0 (Highstorm), con la
+  CSP intacta y las excepciones recogidas en `DESIGN.md`.
+- La prueba de 24 h de r3 falló porque el host recorta en silencio la ventana
+  de la sesión al reconectar. Ahora el host informa de lo que deja fuera
+  (`omittedMessages`, `omittedTools`, `historyTruncated`), la conversación lo
+  dice con un aviso y la copia sin conexión guarda y muestra lo mismo.
+- Vuelve el objetivo de 44 px del botón Connect de cada equipo, que el cambio
+  de estilo había perdido en pantallas anchas.
+
+Comprobado en local contra el artefacto exacto, con TLS de laboratorio:
+
+- Piloto de 140 ciclos de un segundo: pasaron 3.914 comprobaciones de la prueba
+  larga y 103 de la ejecución. La ventana se recorta desde el ciclo 85 y la
+  cuenta cuadra en cada ciclo (ciclo 140: 516 visibles y 330 omitidos de 846).
+  Tras recargar, la ventana viva (512 + 334) y la copia sin conexión
+  (516 + 330, con su aviso) cuentan los 846 mensajes. Se hizo sobre r4b, que
+  solo difiere en el botón Connect. Antes de pasar fallaron dos pilotos:
+  el primero sobre un r4 que aún guardaba sin aviso la copia sin conexión, y
+  el segundo por una comprobación que comparaba los omitidos y no los totales.
+- Chrome 155: varios escritores, 103 comprobaciones; dos hosts, 108.
+- Firefox 157: varios escritores, 81; dos hosts, 86. Los objetivos de las
+  tarjetas miden 44 px a 390 y a 2560 px, en claro y en oscuro.
+- Contenedor Coolify generado a partir del artefacto: 10 de 10 pruebas HTTP.
+  Conserva las fuentes de r3 y de las tres versiones anteriores.
+- Imagen de recuperación a r3, que conserva también las fuentes de r4c: 10 de 10.
+- Prueba de 24 h en marcha desde las 19:51:08 UTC, prevista hasta las 19:51:08
+  UTC del 15 de octubre ([recibo de inicio](evaluation/soak-r4c-started-2026-10-14.json)).
+  Es progreso, no resultado.
+
+Pendiente para la mañana y para el despliegue: el recibo del S24 sobre r3;
+construir y publicar las imágenes en el registro; desplegar r4c en
+grok.fabrials.com con la recuperación a r3 preparada; la actualización real
+desde r3 y la recuperación; el emparejamiento real con el host de la estación;
+una pasada en el S24 sobre r4c; y la revisión de diseño a 768 px, al 200 % de
+texto, en colores forzados y en RTL. La estación sigue con el binario nativo
+r3: una PWA r4c contra un host r3 no recibe los recuentos de omisión y no
+muestra el aviso.
+
 ## Tercera candidata: PWA desplegada y nativo activado
 
 | Componente | Revisión o SHA-256 |
