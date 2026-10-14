@@ -79,7 +79,10 @@ Canonical libs `ea695a14dca7a19335a50271088bd92ddd4f1f16` differs from r3 libs
 `ee3060d` only in the browser fixture example: its lifetime is configurable
 between 60 and 90,000 seconds, default 1,800. This run requests 90,000 seconds.
 No native runtime source changes, Spanreed subtree sync or r3 rebuild occurred.
-The wrapper requires that exact one-file diff and a clean libs tree, records
+The wrapper takes the runtime base as `--runtime-base` (default `ee3060d`, the
+r3 base) and accepts only a diff confined to that fixture example, or none when
+the base already contains it, so a later candidate names its own base instead
+of reusing r3's. It requires a clean libs tree, records
 fixture source and binary hashes, copies both the fixture and fake agent into
 tmpfs, and verifies the copied bytes before launch. It also records Portable
 commit/dirty state and the hashes of all four QA scripts. This is recorded local

@@ -175,6 +175,7 @@ def main():
     parser.add_argument('--fault', choices=['duplicate'])
     parser.add_argument('--native-rss-mib', type=int)
     parser.add_argument('--kill-after-seconds', type=int)
+    parser.add_argument('--runtime-base', default='ee3060d')
     args = parser.parse_args()
     assert 16 <= args.tasks <= 512
     assert 10 <= args.duration_seconds <= 86400 and 1 <= args.interval_seconds <= 3600 and 2 <= args.cycles <= 10000
@@ -186,9 +187,10 @@ def main():
     source = args.libs.resolve() / 'crates/fabrials-remote-host/examples/direct_browser_fixture.rs'
     commit = subprocess.check_output(['git', '-C', str(args.libs), 'rev-parse', 'HEAD'], text=True).strip()
     assert not subprocess.check_output(['git', '-C', str(args.libs), 'status', '--porcelain'], text=True).strip(), 'Fixture source tree must be clean'
-    changed = subprocess.check_output(['git', '-C', str(args.libs), 'diff', '--name-only', 'ee3060d', commit], text=True).splitlines()
-    assert changed == ['crates/fabrials-remote-host/examples/direct_browser_fixture.rs'], 'Soak source may only extend the test fixture'
-    write_json(output / 'fixture-seal.json', {'schema':1, 'commit':commit, 'runtimeBaseCommit':'ee3060d', 'sourceSha256':digest(source), 'binarySha256':digest(fixture), 'fakeAgentSha256':digest(fixture.parent / 'fake_multiwriter_agent'), 'scope':'Recorded local build provenance; only example lifetime differs from the r3 runtime. Not a reproducible-build attestation.'})
+    base = subprocess.check_output(['git', '-C', str(args.libs), 'rev-parse', '--verify', args.runtime_base + '^{commit}'], text=True).strip()
+    changed = subprocess.check_output(['git', '-C', str(args.libs), 'diff', '--name-only', base, commit], text=True).splitlines()
+    assert set(changed) <= {'crates/fabrials-remote-host/examples/direct_browser_fixture.rs'}, 'Soak source may only extend the test fixture'
+    write_json(output / 'fixture-seal.json', {'schema':1, 'commit':commit, 'runtimeBaseCommit':base, 'sourceSha256':digest(source), 'binarySha256':digest(fixture), 'fakeAgentSha256':digest(fixture.parent / 'fake_multiwriter_agent'), 'scope':'Recorded local build provenance; only example lifetime differs from the r3 runtime. Not a reproducible-build attestation.'})
     config = {'runId':uuid.uuid4().hex, 'portable':str(root), 'fixture':str(fixture), 'artifact':str(args.artifact.resolve()), 'spanreed':str(args.spanreed.resolve()), 'chrome':str(args.chrome.resolve()), 'playwright':str(args.playwright.resolve()), 'openssl':str(args.openssl.resolve()), 'bun':str(args.bun.resolve()), 'durationSeconds':args.duration_seconds, 'intervalSeconds':args.interval_seconds, 'cycles':args.cycles, 'fault':args.fault, 'nativeRssMiB':args.native_rss_mib, 'killAfterSeconds':args.kill_after_seconds,'portableCommit':subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip(),'portableDirty':bool(subprocess.check_output(['git','-C',str(root),'status','--porcelain'],text=True).strip()),'scriptHashes':{name:digest(root/name) for name in ['scripts/qualify-direct-browser.ts','scripts/qa/direct-soak.ts','scripts/qa/direct-multihost.ts','scripts/qa/run-direct-soak.py']}}
     config_path = output / 'bounded-config.json'
     write_json(config_path, config)
