@@ -6,7 +6,7 @@ evidencia histórica de sus propias revisiones. Las horas están en UTC y la fec
 del documento corresponde a Europe/Paris. Los PRs siguen en borrador y las
 publicaciones públicas siguen cerradas.
 
-## Tercera candidata: PWA desplegada, actualización nativa pendiente
+## Tercera candidata: PWA desplegada y nativo activado
 
 | Componente | Revisión o SHA-256 |
 | --- | --- |
@@ -52,9 +52,25 @@ y el shell final: turnos en ambas direcciones, recarga sin duplicados, permiso
 pendiente conservado, aprobación desde el terminal con un único efecto y
 denegación desde la PWA sin repetirlo. Se usaron perfil y proveedor sintéticos
 aislados, sin inferencia de pago. Su ciclo de vida local pasó siete comprobaciones
-y el doctor catorce tanto sobre el binario como sobre el paquete Nix. La activación
-en station espera los tres workflows del commit exacto `e6d9cc8`; el suplemento
+y el doctor catorce tanto sobre el binario como sobre el paquete Nix. Los tres
+workflows de `e6d9cc8` terminaron correctamente: CI, Desktop y Nix. Windows ejecutó
+el merge sintético del PR; su árbol Git es idéntico al de la candidata. La etapa
+firmada de macOS se omitió y no se acredita distribución de Apple. El suplemento
 del doctor solo corrige expectativas del arnés y no cambia ese binario.
+
+Station activó r3 a las 03:11:52 UTC mediante su perfil Nix independiente.
+Se comprobaron los bytes del ejecutable activo, salud local y HTTPS, los cinco
+archivos de identidad idénticos, el líder y terminal conservados y el daemon/CLI
+habituales intactos. No se reconstruyó el sistema. El doctor operativo confirmó
+sus comprobaciones básicas y de control, pero no acredita por sí solo el socket
+del líder, continuidad del terminal, entorno del servicio ni ruta del navegador.
+
+Después de activar, otros dos navegadores independientes pasaron las 24
+comprobaciones con el binario y shell finales: vinculación, controles simultáneos,
+recarga y revocación de uno sin afectar al otro. Se conservaron los accesos
+anteriores y el proceso del host; se retiraron las dos vinculaciones propias y
+el grupo Chrome. No hubo prompts ni inferencia. Esta comprobación posterior
+complementa la compatibilidad con el nativo anterior, no la reemplaza.
 
 Recibos: [despliegue r3](evaluation/qualification-r3-deployment-2026-10-14.json),
 [terminal r3](evaluation/terminal-continuity-r3-2026-10-14.json) y

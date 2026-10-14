@@ -129,6 +129,13 @@ and successful cleanup. A running checkpoint is progress, never a completed
 24-hour result. Exact r3 multi-host evidence is described separately in
 [remote-multihost-qualification.md](remote-multihost-qualification.md).
 
+The [r3 launch receipt](evaluation/soak-r3-started-2026-10-14.json) records the
+86,400-second run started on 2026-10-14 at 03:13:42 UTC from clean QA commit
+`480f1be`. Its expected finish is 2026-10-15 at 03:13:42 UTC (05:13:42 in Paris).
+The scope is `fabrials-direct-soak-418441350551.scope`; evidence is in
+`~/.local/share/fabrials-remote-release/2026-10-14/soak-24h-r3-20261014/`.
+At launch the first cycle passed. This is a pending run, not a completed result.
+
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
 Grok/provider failure modes, GPU performance, host suspension or OS reboot.

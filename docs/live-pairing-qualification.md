@@ -59,3 +59,14 @@ Esa ejecución terminó con el error inyectado, como debía.
 El [recibo](evaluation/live-pairing-cleanup-2026-10-14.json) conserva los hashes
 de ambos ejecutores y resultados. No valida el paquete posterior `f3ebb334` ni
 supone que se haya actualizado station.
+
+## Candidata r3 instalada
+
+El shell r3 `e2ed580c…` pasó 24 comprobaciones con el nativo anterior `7e2a7816`
+y otras 24 después de activar `e6d9cc8` (binario `5cdd5c4d…`). El segundo recibo
+comprueba los bytes del ejecutable activo y conserva su identidad de proceso.
+Ambos ensayos retiraron sus accesos propios y conservaron los anteriores, sin
+prompts ni inferencia. Los hashes de cada versión del ejecutor y sus resultados
+están en [el recibo r3](evaluation/qualification-r3-deployment-2026-10-14.json).
+La segunda ejecución incluye la comprobación del indicador `isError` de Syl
+durante el cierre del compositor.

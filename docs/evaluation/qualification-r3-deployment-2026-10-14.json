@@ -127,7 +127,7 @@
     }
   },
   "notQualified": [
-    "Current native installation and lifecycle belong to separate receipts",
+    "Stable native release, public installers and current physical-device lifecycle remain separate gates",
     "Physical S24, push, sleep and network handoff",
     "Active conversations across this deployed update",
     "24-hour soak and seven-day release cohort",
@@ -172,5 +172,145 @@
     "reportSha256": "a1c321b02abc5d15ef72a3429eb1f604ffd85229660bc26304c15195cb100b94",
     "cleanupFailed": false,
     "scope": "New r3 PWA with previous station native 7e2a7816; no prompts or inference"
+  },
+  "livePairingFinalNative": {
+    "result": "passed",
+    "runnerSha256": "b03529825f90e032e2295b2a14b661a434ddc3675a9bc8bdac732ebfe53c0d5b",
+    "nativeSha256": "5cdd5c4d8aa6c9d04cc99d9772b0964a3d2fde67658818f91a9180bdc2ff7e47",
+    "shellId": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+    "browser": "155.0.8059.39",
+    "finishedAt": "2026-10-14T03:12:23.573Z",
+    "chromeProcessGroupEmpty": true,
+    "testPairingsRemoved": true,
+    "unattributedNewPairings": 0,
+    "checks": 24,
+    "reportSha256": "6ce143f57e4597b4e43f2198d87e6d78f455c607d240a17f4d4465de624c6452",
+    "cleanupFailed": false,
+    "scope": "Final r3 PWA with final native e6d9cc8 installed on station; no prompts or inference"
+  },
+  "stationActivation": {
+    "result": "passed",
+    "candidateSource": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "binarySha256": "5cdd5c4d8aa6c9d04cc99d9772b0964a3d2fde67658818f91a9180bdc2ff7e47",
+    "stationActivated": true,
+    "fiveIdentitiesByteIdentical": true,
+    "preservedProcessesUnchanged": true,
+    "ordinaryServiceAndCliUnchanged": true,
+    "tailscaleServeUnchanged": true,
+    "publicSourceMetadataMatchesNative": true,
+    "inferencePerformed": false,
+    "finishedAt": "2026-10-14T03:11:52.725615+00:00",
+    "doctor": {
+      "grok-program": "passed",
+      "grok-home": "passed",
+      "state-directory": "passed",
+      "host-identity": "passed",
+      "private-origin": "passed",
+      "leader-socket": "unverified",
+      "terminal-continuity": "unverified",
+      "service-environment": "unverified",
+      "browser-route": "unverified",
+      "host-control": "passed"
+    },
+    "reportSha256": "20f753897332cb0f6353e19a5dcf3557da400943fcd6a0db979d3aef3dc74b60"
+  },
+  "nativeCi": {
+    "schema": 1,
+    "checkedAt": "2026-10-14T03:11:33.654945+00:00",
+    "sourceCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "result": "passed",
+    "runs": [
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "headSha": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+        "jobs": [
+          {
+            "databaseId": 115649984042,
+            "name": "fmt + clippy + test",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649984289,
+            "name": "fabrials-libs drift",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649984304,
+            "name": "cross (macos-latest)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649984380,
+            "name": "cross (windows-latest)",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "status": "completed",
+        "url": "https://github.com/grok-insider/spanreed/actions/runs/38501614130",
+        "runId": 38501614130
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "headSha": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+        "jobs": [
+          {
+            "databaseId": 115649921332,
+            "name": "desktop (ubuntu-24.04, deb)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649921537,
+            "name": "desktop (windows-latest, nsis)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115655478996,
+            "name": "signed-macos",
+            "status": "completed",
+            "conclusion": "skipped"
+          }
+        ],
+        "status": "completed",
+        "url": "https://github.com/grok-insider/spanreed/actions/runs/38501614113",
+        "runId": 38501614113
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "headSha": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+        "jobs": [
+          {
+            "databaseId": 115649966630,
+            "name": "nix build (x86_64-linux)",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "status": "completed",
+        "url": "https://github.com/grok-insider/spanreed/actions/runs/38501614104",
+        "runId": 38501614104
+      }
+    ],
+    "windowsTestSource": {
+      "reportedCommit": "ba997e9c8931bb1984e5556687a0e2f778d3a1fa",
+      "sourceHeadCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+      "executedTree": "b5b83cfd28cd64a193a0737d40776752f14076eb",
+      "sourceHeadTree": "b5b83cfd28cd64a193a0737d40776752f14076eb",
+      "treesEqual": true,
+      "explanation": "GitHub pull_request checked out its synthetic merge revision; Git trees independently queried through the GitHub Git API are identical.",
+      "logSha256": "b11022cf8593721785fdf762df99d75c41c0f1dce371feaa76bcc4e7ca5d8fc5",
+      "limitedUserResult": "passed",
+      "administratorRoleActive": false,
+      "cargoCommandsPassed": 5
+    },
+    "reportSha256": "4072579fab2132e44e42243eb20132bf62153dac3ef234f87e35cc81ee74c418"
   }
 }

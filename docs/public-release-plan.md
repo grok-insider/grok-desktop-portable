@@ -17,10 +17,19 @@ The third 2026-10-14 qualification deployment uses Portable `abe4f35`, libraries
 107-check multi-host laboratory run, 243 origin/245 CDN checks, real hosting
 rollback/restoration, two 18-check browser update trials and 22-check official
 terminal trial are bound to exact artifact hashes in the current receipt.
-Station still runs `7e2a7816`: the new shell passed 24 checks against that previous
-host. Installing the new native requires all three exact-commit CI workflows.
+The new shell passed 24 checks against previous host `7e2a7816`. After all three
+native CI workflows passed, station activated `e6d9cc8` and the same trial passed
+another 24 checks against the installed final binary. Identity, pairings and
+the existing shared leader/terminal were preserved.
 The S24 push trial belongs to the first deployment; this candidate's physical
 device and elapsed-time gates remain open.
+
+The bounded [24-hour run](remote-soak-qualification.md) started on 2026-10-14 at
+03:13:42 UTC from clean QA commit `480f1be`; it is due on 2026-10-15 at the same
+UTC time. It is pending until its duration, invariants and cleanup all pass.
+The six [integration PRs](evaluation/pr-integration-2026-10-14.json) were checked
+mergeable with auto-merge disabled at their recorded heads; Admin has no remote
+CI checks and retains its separate local validation. No merge was performed.
 
 Follow-up preparation uses `https://grok.fabrials.com` as an explicitly selected
 qualification origin, with a separate hosting configuration and native pairing
@@ -53,7 +62,7 @@ repositories.
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented; exact N/N−1 shell transitions preserve a live synthetic turn, queue and draft in two browsers; physical-device release qualification pending |
 | Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Final r3 shell passes 107 laboratory checks with independent hosts and deliberately matching session IDs; deployed trusted TLS/Tailscale passes with two browser stores. Real custom-domain TLS and two physical hosts remain pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
-| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption and r3 isolated lifecycle pass. Windows limited-user security/updater/process checks pass on their recorded revisions; final distribution and exact-commit CI gates remain open |
+| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption, r3 isolated lifecycle and station activation pass. Windows limited-user security/updater/process checks pass on their recorded revisions; r3 CI passes. Final platform installers remain separate gates |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
 | Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic provider/S24 delivery passed on the first deployment; final r3 delivery and notification click-through remain pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
@@ -382,9 +391,12 @@ the existing guest; updater checks passed 26 normal tests and one opt-in test
 under a limited user. A real-listener relay fixture passes four limited-user
 checks and process lifetime passes one check. The historical Windows NSIS
 candidate passed 25 install/upgrade/repair/uninstall checks; final-artifact
-qualification and green exact-commit CI remain required. Linux station runs
-`7e2a7816` in its own QA service, retaining identity and pairings, while the r3
-native waits for CI. The new shell works against this previous host. Real
+qualification remains required. All three r3 native workflows passed, including
+the five Cargo invocations under a dedicated non-administrator Windows account.
+The PR's synthetic merge tree was verified identical to the candidate tree.
+Linux station runs `e6d9cc8` in its own QA service, retaining identity, pairings
+and the existing shared leader/terminal. The new shell was verified against both
+the previous and final host binaries. Real
 TLS/Tailscale, two independent browser connections, N/N−1 source retention,
 browser update and rollback passed for the deployed r3 PWA. The earlier 71-check laboratory
 trial exercised exact N→N−1→N shells with an active synthetic turn, queued

@@ -1,0 +1,151 @@
+{
+  "checkedAt": "2026-10-14T03:12:10.440140+00:00",
+  "prs": [
+    {
+      "autoMergeRequest": null,
+      "baseRefName": "master",
+      "headRefOid": "ea695a14dca7a19335a50271088bd92ddd4f1f16",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "url": "https://github.com/grok-insider/fabrials-libs/pull/1",
+      "checks": [
+        {
+          "name": "checks",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "autoMergeRequest": null,
+      "baseRefName": "dev",
+      "headRefOid": "4d7fc64367d50391290c0fca4f273b6d64d4f2d0",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "url": "https://github.com/grok-insider/grok-desktop-portable/pull/7",
+      "checks": [
+        {
+          "name": "web",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "static hosting",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "autoMergeRequest": null,
+      "baseRefName": "dev",
+      "headRefOid": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "url": "https://github.com/grok-insider/spanreed/pull/56",
+      "checks": [
+        {
+          "name": "fabrials-libs drift",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "desktop (ubuntu-24.04, deb)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "nix build (x86_64-linux)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "desktop (windows-latest, nsis)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "signed-macos",
+          "status": "COMPLETED",
+          "conclusion": "SKIPPED"
+        },
+        {
+          "name": "fmt + clippy + test",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "cross (windows-latest)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "cross (macos-latest)",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "autoMergeRequest": null,
+      "baseRefName": "master",
+      "headRefOid": "63a7d6f586f46a65ff8d9391a07a4f46af6fa6ce",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "url": "https://github.com/grok-insider/fabrials-web/pull/7",
+      "checks": [
+        {
+          "name": "check",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "autoMergeRequest": null,
+      "baseRefName": "master",
+      "headRefOid": "92791838b6e68301d730dd1d02f82d917798bded",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "url": "https://github.com/grok-insider/fabrials-admin/pull/1",
+      "checks": []
+    },
+    {
+      "autoMergeRequest": null,
+      "baseRefName": "master",
+      "headRefOid": "7d4c4211f1ef2f57f9bf197cd6e9b2b471d3d19a",
+      "isDraft": true,
+      "mergeStateStatus": "CLEAN",
+      "mergeable": "MERGEABLE",
+      "url": "https://github.com/grok-insider/ai-relay/pull/29",
+      "checks": [
+        {
+          "name": "fabrials-libs",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "rust",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        },
+        {
+          "name": "dashboard",
+          "status": "COMPLETED",
+          "conclusion": "SUCCESS"
+        }
+      ]
+    }
+  ],
+  "scope": "Mergeability and CI at the recorded heads; no merges performed",
+  "limitations": [
+    "Admin PR has no reported CI checks; local checks belong to its separate receipt",
+    "Later commits require their own verification",
+    "A clean merge is not a public release qualification"
+  ]
+}
