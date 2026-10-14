@@ -153,6 +153,14 @@ visible plus omitted entries exactly. The instrumentation diff and per-cycle
 counts are in `~/.local/share/fabrials-remote-release/2026-10-14/soak-triage-counts/`;
 the frozen `480f1be` checkout is unchanged. A new 24-hour run is required.
 
+From the next candidate the cycle check counts exactly instead of assuming a
+complete history. It reads each device's transcript window: the visible
+message articles plus the `data-omitted-messages` count reported by the host
+must equal the messages produced by every completed turn, no `SOAK_n_A/B`
+marker may appear twice, `permission` rows may not exceed the turns that sent
+them, and both devices must show the same window and omission count. A run
+against a host that drops history without reporting it fails this accounting.
+
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
 Grok/provider failure modes, GPU performance, host suspension or OS reboot.

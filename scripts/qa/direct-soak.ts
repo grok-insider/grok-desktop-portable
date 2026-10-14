@@ -45,6 +45,12 @@ export async function qualifyDirectSoak(options: SoakOptions) {
   const initialCompleted = initialReceipts.filter(value => value.state === "completed").length;
   const initialPermissionCount = await page.getByRole("article", {name:"Your message",exact:true}).filter({hasText:/^permission$/}).count();
   const initialAcceptedPermissionCount = await page.getByText("accepted:permission", {exact:true}).count();
+  const transcriptWindow = async (target: any) => {
+    const notice = target.locator("[data-omitted-messages]");
+    return {messages: await target.locator("article[data-turn-id]").count(), omitted: await notice.count() ? Number(await notice.first().getAttribute("data-omitted-messages")) : 0, users: (await target.getByRole("article",{name:"Your message",exact:true}).allTextContents()).map((text: string) => text.trim())};
+  };
+  const initialWindow = await transcriptWindow(page);
+  const initialMessages = initialWindow.messages + initialWindow.omitted;
   const data: any = {schema:1,resourceEnforcement:envelope ? "Verified cgroup CPU/memory/task limits and bounded tmpfs; sampled process RSS/FD/disk thresholds every 5 seconds; no general product capacity or IO qualification" : "Sampled soft thresholds every 5 seconds; no hard capacity or CPU/IO qualification",startedAt:new Date().toISOString(),durationSeconds,cycleIntervalSeconds,maxCycles,nativeLifetime,limits,envelope,faultInjection:fault ?? null,fixtureSha256:report.nativeFixtureSha256,artifactSha256:report.artifactSha256,deploymentManifestSha256:report.deploymentManifestSha256,helperSha256:hash(await readFile(import.meta.filename)),cycles:0,checks:0,checkpoints:[],notQualified:["A short pilot is not a 24-hour soak","Synthetic ACP permissions do not execute a tool","Resource bounds apply to this configured workload, not general product capacity","No trusted TLS, physical device, paid inference or provider outage evidence"]};
   report.soak = data;
   let stopped = false;
@@ -135,11 +141,18 @@ export async function qualifyDirectSoak(options: SoakOptions) {
     alive();await (index%2 ? other : page).getByRole("button",{name:index%2 ? "Allow once" : "Deny",exact:true}).click();
     for(const target of both) await target.getByRole("button",{name:"Allow once",exact:true}).waitFor({state:"hidden"});
     await release();await waitFor(async () => (await execution()).activeTurn===null);
+    const receipts=Object.values((await ledger()).receipts) as any[];
+    const expectedMessages=initialMessages+2*(receipts.filter(value=>value.state==="completed").length-initialCompleted);
+    const windows=[];
     for(const target of both) {
       await waitFor(async()=>await target.getByRole("button",{name:"Model",exact:true}).isEnabled());
-      check("permission_transcript_not_duplicated",await target.getByRole("article",{name:"Your message",exact:true}).filter({hasText:/^permission$/}).count()===initialPermissionCount+index && await target.getByText("accepted:permission",{exact:true}).count()===initialAcceptedPermissionCount+index);
+      const view=await transcriptWindow(target);
+      const markers=view.users.filter((text: string)=>/^SOAK_\d+_[AB]$/.test(text));
+      check("permission_transcript_not_duplicated",new Set(markers).size===markers.length && view.users.filter((text: string)=>text==="permission").length<=initialPermissionCount+index && await target.getByText("accepted:permission",{exact:true}).count()<=initialAcceptedPermissionCount+index);
+      check("transcript_window_accounts_for_every_message",view.messages+view.omitted===expectedMessages);
+      windows.push(view);
     }
-    const receipts=Object.values((await ledger()).receipts) as any[];
+    check("devices_show_the_same_transcript_window",windows[0].omitted===windows[1].omitted && windows[0].users.join("\n")===windows[1].users.join("\n"));
     check("completed_receipts_exactly_once",receipts.filter(value=>value.state==="completed").length===initialCompleted+index*3);
     check("queue_fully_drained",(await execution()).queue.length===0 && (await execution()).activeTurn===null);
     check("no_browser_errors",report.errors.length===0);
