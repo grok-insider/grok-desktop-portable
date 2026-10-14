@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import {spawn, type ChildProcess} from "node:child_process";
 import {createHash} from "node:crypto";
-import {mkdir, readFile, writeFile, readdir} from "node:fs/promises";
+import {mkdir, readFile, writeFile, readdir, rm} from "node:fs/promises";
 import {closeSync, openSync} from "node:fs";
 import {createInterface} from "node:readline";
 import {resolve, join} from "node:path";
 import {buildOrigin, deploymentOrigin, deploymentConfigPath, origins} from "./deployment-origin.mjs";
 import {verifyArtifact} from "./remote-artifact.mjs";
+import {qualifyDirectMultiHost} from "./qa/direct-multihost";
 
 const [directoryArgument] = process.argv.slice(2);
 assert.ok(directoryArgument, "Usage: bun scripts/qualify-direct-browser.ts <private-directory-with-cert.pem-and-key.pem>");
@@ -22,17 +23,22 @@ assert.equal(buildOrigin(await readFile(join(dist, "index.html"), "utf8")), orig
 const hostname = new URL(origin).hostname;
 const cropDist = process.env.REMOTE_QA_CROP_DIST ? resolve(process.env.REMOTE_QA_CROP_DIST) : undefined;
 const multiwriter = process.env.REMOTE_QA_MULTIWRITER === "1";
+const multihost = process.env.REMOTE_QA_MULTIHOST === "1";
+assert.ok(!multihost || !multiwriter, "Multi-host qualification uses separate hosts without the multiwriter fixture");
 const layoutImages = process.env.REMOTE_QA_LAYOUT_IMAGES === "1";
 const deployment = JSON.parse(await readFile(artifact ? join(artifact, ".vercel/output/config.json") : resolve(deploymentConfigPath(origin)), "utf8"));
 const report: any = {schema: 1, startedAt: new Date().toISOString(), origin, checks: [], errors: [], transport: [], notQualified: ["Production TLS trust: laboratory self-signed certificate", "Actual hosting and CDN routing", "Tailscale", "Physical Android and Apple hardware", "Grok inference: synthetic history only", "Real push delivery", "GPU performance: hidden software compositor"]};
-const processes: ChildProcess[] = [];
+const processes: {name: string; child: ChildProcess}[] = [];
+const spawnFailures: string[] = [];
+const cleanEnv = {...process.env};
+for (const name of Object.keys(cleanEnv)) if (/KEY|TOKEN|SECRET|PASSWORD|AUTH|CREDENTIAL/i.test(name)) delete cleanEnv[name];
 let browser: any, page: any, server: any, syl: ChildProcess | undefined;
 const check = (name: string, value: unknown) => {assert.ok(value, name); report.checks.push(name);};
 const waitFor = async (ready: () => Promise<boolean>, timeout = 15000) => {const end = Date.now() + timeout; while (!await ready()) {assert.ok(Date.now() < end, "fixture readiness deadline"); await Bun.sleep(50);}};
-const start = (name: string, command: string, args: string[], env: Record<string,string | undefined> = process.env) => {
+const start = (name: string, command: string, args: string[], env: Record<string,string | undefined> = cleanEnv) => {
   const fd = openSync(join(directory, `${name}.log`), "wx", 0o600);
   const child = spawn(command, args, {env, detached: true, stdio: ["ignore", fd, fd]});
-  closeSync(fd); processes.push(child); return child;
+  closeSync(fd); child.on("error", () => spawnFailures.push(name)); processes.push({name, child}); return child;
 };
 let rpcId = 0;
 const pending = new Map<number, {resolve(value: any): void; reject(error: Error): void}>();
@@ -43,6 +49,9 @@ const rpc = (method: string, params: object) => new Promise<any>((resolveReply, 
   syl!.stdin!.write(JSON.stringify({jsonrpc: "2.0", id, method, params}) + "\n");
 });
 let nativePort = 0, denyAppNetwork = false, denyHostNetwork = false;
+const nativeHosts = new Map<string, number>();
+const blockedHosts = new Set<string>();
+const hostUpstreams = new Map<string, Set<WebSocket>>();
 let sourceMetadataPath = "", syntheticSourceMetadata: any;
 let sourceNoticesPath = "", sourceNotices = "";
 let sourceUnavailable = true;
@@ -72,16 +81,29 @@ try {
   report.nativeFixtureSha256 = createHash("sha256").update(await readFile(nativeBinary)).digest("hex");
   const state = join(directory, "native");
   await mkdir(state, {mode: 0o700});
-  start("native", nativeBinary, [], {...process.env, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", DIRECT_BROWSER_QA_IMAGES: layoutImages ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
+  start("native", nativeBinary, [], {...cleanEnv, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", DIRECT_BROWSER_QA_IMAGES: layoutImages ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
   await waitFor(async () => {try {await readFile(join(state, "ready.json")); return true;} catch {return false;}});
   const native = JSON.parse(await readFile(join(state, "ready.json"), "utf8"));
   nativePort = native.port;
-  server = Bun.serve<{upstream?: WebSocket; queued: string[]; origin: string}>({hostname: "127.0.0.1", port: 0, tls: {key: Bun.file(join(directory, "key.pem")), cert: Bun.file(join(directory, "cert.pem"))}, async fetch(request, serving) {
+  nativeHosts.set(new URL(native.pairing.endpoint).hostname, nativePort);
+  let secondNative: any;
+  const secondMarker = "Synthetic second host history. This text belongs only to computer B.";
+  if (multihost) {
+    const secondState = join(directory, "native-b");
+    await mkdir(secondState, {mode:0o700});
+    start("native-b", nativeBinary, [], {...cleanEnv, DIRECT_BROWSER_QA_DIRECTORY: secondState, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ENDPOINT: "https://direct-fixture-b.test", DIRECT_BROWSER_QA_LABEL: "Synthetic computer B", DIRECT_BROWSER_QA_MARKER: secondMarker, DIRECT_BROWSER_QA_ACP: "0", GROK_HOME: join(secondState, "synthetic-grok")});
+    await waitFor(async () => {try {await readFile(join(secondState, "ready.json")); return true;} catch {return false;}});
+    secondNative = JSON.parse(await readFile(join(secondState, "ready.json"), "utf8"));
+    check("two_real_native_hosts_have_distinct_endpoint_installation_and_identity", secondNative.pairing.endpoint !== native.pairing.endpoint && secondNative.pairing.installationId !== native.pairing.installationId && secondNative.pairing.hostPublicKey !== native.pairing.hostPublicKey && secondNative.port !== native.port);
+    nativeHosts.set(new URL(secondNative.pairing.endpoint).hostname, secondNative.port);
+    report.multihost = {nativeFixtureSha256: report.nativeFixtureSha256, runnerSha256:createHash("sha256").update(await readFile(new URL("./qa/direct-multihost.ts", import.meta.url))).digest("hex"), runtime: "Two instances of the same fixture binary with isolated state and synthetic GROK_HOME; no Grok process or deployed CLI", hosts: 2, fixtureHistorySessionIds: "Deliberately identical to exercise host scoping", trustedTls: false};
+  }
+  server = Bun.serve<{upstream?: WebSocket; queued: string[]; origin: string; host: string; port: number}>({hostname: "127.0.0.1", port: 0, tls: {key: Bun.file(join(directory, "key.pem")), cert: Bun.file(join(directory, "cert.pem"))}, async fetch(request, serving) {
     const url = new URL(request.url);
     if (url.pathname === "/remote") report.transport.push({at:"proxy",host:url.hostname,origin:request.headers.get("origin")});
-    if (url.hostname === "direct-fixture.test" && url.pathname === "/remote") {
-      if (denyHostNetwork) return new Response(null, {status: 503});
-      if (serving.upgrade(request, {data: {queued: [], origin: request.headers.get("origin") ?? ""}, headers: {"sec-websocket-protocol": "fabrials.remote.v1"}})) return;
+    if (nativeHosts.has(url.hostname) && url.pathname === "/remote") {
+      if (denyHostNetwork || blockedHosts.has(url.hostname)) return new Response(null, {status: 503});
+      if (serving.upgrade(request, {data: {queued: [], origin: request.headers.get("origin") ?? "", host:url.hostname, port:nativeHosts.get(url.hostname)!}, headers: {"sec-websocket-protocol": "fabrials.remote.v1"}})) return;
       return new Response(null, {status: 400});
     }
     if (url.hostname === "remote.fabrials.com" && origin === origins.production) return Response.redirect(origins.production + url.pathname + url.search, 308);
@@ -108,19 +130,22 @@ try {
   }, websocket: {
     open(socket) {
       const connection = ++nextConnection;
-      const upstream = new WebSocket(`ws://127.0.0.1:${nativePort}/remote`, {headers: {Host: "direct-fixture.test", Origin: socket.data.origin, "Sec-WebSocket-Protocol": "fabrials.remote.v1"}});
+      const upstream = new WebSocket(`ws://127.0.0.1:${socket.data.port}/remote`, {headers: {Host: socket.data.host, Origin: socket.data.origin, "Sec-WebSocket-Protocol": "fabrials.remote.v1"}});
       socket.data.upstream = upstream; upstreams.add(upstream);
+      const scoped = hostUpstreams.get(socket.data.host) ?? new Set<WebSocket>();
+      scoped.add(upstream); hostUpstreams.set(socket.data.host, scoped);
       upstream.onopen = () => {for (const value of socket.data.queued) upstream.send(value); socket.data.queued = [];};
       upstream.onmessage = event => {report.transport.push({at:"native-frame",connection,type:typeof event.data,bytes:event.data.length,kind:typeof event.data === "string" ? JSON.parse(event.data).type : "binary"}); if (heldDownstreams.has(connection)) {const buffered = bufferedDownstreams.get(connection) ?? []; assert.ok(buffered.length < 512, "bounded synthetic downstream delay"); buffered.push(() => socket.send(event.data)); bufferedDownstreams.set(connection, buffered);} else socket.send(event.data);};
-      upstream.onclose = () => {upstreams.delete(upstream); socket.close();};
+      upstream.onclose = () => {upstreams.delete(upstream); scoped.delete(upstream); socket.close();};
       upstream.onerror = event => {report.transport.push({at:"native-error",message:event.message}); socket.close();};
     },
     message(socket, message) {report.transport.push({at:"browser-frame",bytes:message.length}); const value = typeof message === "string" ? message : message.toString(); if (socket.data.upstream?.readyState === 1) socket.data.upstream.send(value); else if (socket.data.queued.length < 16) socket.data.queued.push(value); else socket.close();},
     close(socket) {socket.data.upstream?.close();},
   }});
   const sylLog = openSync(join(directory, "syl.log"), "wx", 0o600);
-  syl = spawn("syl", ["mcp"], {env: {...process.env, SYL_MCP_PROFILE: "visual", SYL_NESTED_RES: "2560x1440"}, stdio: ["pipe", "pipe", sylLog]});
+  syl = spawn("syl", ["mcp"], {env: {...cleanEnv, SYL_MCP_PROFILE: "visual", SYL_NESTED_RES: "2560x1440"}, detached: true, stdio: ["pipe", "pipe", sylLog]});
   closeSync(sylLog);
+  syl.on("error", () => spawnFailures.push("syl"));
   createInterface({input: syl.stdout!}).on("line", line => {const value = JSON.parse(line); const entry = pending.get(value.id); if (entry) {pending.delete(value.id); if (value.error) entry.reject(new Error(value.error.message)); else entry.resolve(value.result);}});
   await rpc("initialize", {protocolVersion:"2024-11-05", capabilities:{}, clientInfo:{name:"direct-browser-qualification",version:"1"}});
   const nested = await rpc("tools/call", {name:"gui_open",arguments:{target:"nested",app:"foot"}});
@@ -128,7 +153,7 @@ try {
   assert.ok(display, "real hidden Syl compositor, never its stub backend");
   const profile = join(directory, "chrome-profile");
   await mkdir(profile, {mode: 0o700});
-  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, MAP direct-fixture.test 127.0.0.1:${server.port}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...process.env, WAYLAND_DISPLAY: display});
+  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, ${[...nativeHosts.keys()].map(host => `MAP ${host} 127.0.0.1:${server.port}`).join(", ")}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...cleanEnv, WAYLAND_DISPLAY: display});
   let cdpPort = 0;
   await waitFor(async () => {try {cdpPort = Number((await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\n")[0]); return Boolean(cdpPort);} catch {return false;}});
   const {chromium} = await import(process.env.REMOTE_QA_PLAYWRIGHT ?? "/tmp/xt-work/qa/node_modules/playwright-core/index.mjs");
@@ -141,7 +166,7 @@ try {
   const networkRoute = (route: any) => {
     const url = new URL(route.request().url());
     const app = url.origin === origin;
-    const host = url.origin === "https://direct-fixture.test";
+    const host = url.protocol === "https:" && nativeHosts.has(url.hostname) && !url.port;
     const alias = origin === origins.production && url.origin === "https://remote.fabrials.com" && route.request().isNavigationRequest();
     const crop = cropDist && url.origin === `https://127.0.0.1:${server.port}` && url.pathname.startsWith("/crop-qa/");
     if (app || host || alias || crop || url.protocol === "data:" || url.protocol === "blob:") return route.continue();
@@ -153,7 +178,9 @@ try {
   page.on("pageerror", (error: Error) => report.errors.push(error.message));
   page.on("console", (message: any) => {
     if (message.type() !== "error") return;
-    if (expectedResourceErrors.has(message.location().url) && message.text().includes("404")) {
+    if ([...blockedHosts].some(host => message.text().includes(host)) && /WebSocket|503/.test(message.text())) {
+      (report.expectedConnectionErrors ??= []).push({reason:"deliberately blocked private host", message:message.text().slice(0,500)});
+    } else if (expectedResourceErrors.has(message.location().url) && message.text().includes("404")) {
       (report.expectedResourceErrors ??= []).push({url:message.location().url, status:404});
     } else report.errors.push(message.text().slice(0, 500));
   });
@@ -534,6 +561,16 @@ try {
       transaction.onerror = () => {db.close(); reject(transaction.error);};
     };
   })));
+  if (multihost) {
+    denyAppNetwork = false;
+    await writeFile(join(state, "pair-next"), "", {mode:0o600});
+    await waitFor(async () => {try {await readFile(join(state, "pair-next.json")); return true;} catch {return false;}});
+    const nextPairing = JSON.parse(await readFile(join(state, "pair-next.json"), "utf8"));
+    await qualifyDirectMultiHost({page, origin, pairingA:nextPairing, pairingB:secondNative.pairing, markerA:"Synthetic direct connection QA. No Grok process is running.", markerB:secondMarker, directory, check, waitFor, network(host, blocked) {
+      if (blocked) {blockedHosts.add(host); for (const socket of hostUpstreams.get(host) ?? []) socket.close();}
+      else blockedHosts.delete(host);
+    }, active(host) {return hostUpstreams.get(host)?.size ?? 0;}, attempts(host) {return report.transport.filter((value: any) => value.at === "proxy" && value.host === host).length;}, geometry(value) {report.multihost.geometry = value;}});
+  }
   if (cropDist) {
     report.cropArtifactSha256 = createHash("sha256").update(await readFile(join(cropDist, "crop.html"))).digest("hex");
     await page.goto(`https://127.0.0.1:${server.port}/crop-qa/crop.html`);
@@ -579,12 +616,57 @@ try {
 } catch (error) {if (page) {await page.screenshot({path:join(directory,"failure.png")}).catch(() => {}); await writeFile(join(directory,"failure-page.txt"), await page.locator("body").innerText().catch(() => "unavailable"), {mode:0o600});} report.result = "failed"; report.failure = (error instanceof Error ? error.message : String(error)).replace(/#directPair=[A-Za-z0-9_-]+/g,"#directPair=[redacted]"); process.exitCode = 1;}
 finally {
   denyAppNetwork = false;
-  await browser?.close().catch(() => {});
-  for (const child of [...processes].reverse()) if (child.exitCode === null && child.pid) {try {process.kill(-child.pid,"SIGTERM");} catch {}}
+  const members = async (group: number) => {
+    const values: {pid: number; startTicks: string}[] = [];
+    for (const entry of await readdir("/proc")) {
+      if (!/^[0-9]+$/.test(entry)) continue;
+      try {
+        const stat = await readFile(`/proc/${entry}/stat`, "utf8"), fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+        if (Number(fields[2]) === group && fields[0] !== "Z") values.push({pid:Number(entry),startTicks:fields[19]});
+      } catch {}
+    }
+    return values;
+  };
+  const cleanup: {name: string; child: ChildProcess; members: Awaited<ReturnType<typeof members>>}[] = [];
+  for (const value of [...processes, ...(syl ? [{name:"syl",child:syl}] : [])]) cleanup.push({...value,members:value.child.pid ? await members(value.child.pid) : []});
+  if (browser) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    report.browserClosedGracefully = await Promise.race([browser.close().then(() => true, () => false), new Promise<boolean>(resolveClosed => {timer = setTimeout(() => resolveClosed(false), 5000);})]);
+    clearTimeout(timer);
+  }
   for (const socket of upstreams) socket.close();
   server?.stop(true);
-  if (syl) {await rpc("tools/call", {name:"gui_close",arguments:{}}).catch(() => {}); syl.kill("SIGTERM");}
+  if (syl) {
+    try {const closed = await rpc("tools/call", {name:"gui_close",arguments:{}}); assert.ok(!closed.isError); report.hiddenCompositorClosed = true;}
+    catch {report.cleanupFailed = true;}
+  }
+  report.cleanup = {};
+  for (const value of cleanup.reverse()) {
+    try {
+      const ended = () => value.child.exitCode !== null || value.child.signalCode !== null;
+      if (!ended()) value.child.kill("SIGTERM");
+      try {await waitFor(async () => ended(), 5000);}
+      catch {value.child.kill("SIGKILL"); await waitFor(async () => ended(), 5000);}
+      if (value.child.pid) {
+        for (const member of value.members) {
+          const remaining = await members(value.child.pid);
+          if (remaining.some(current => current.pid === member.pid && current.startTicks === member.startTicks)) {
+            try {process.kill(member.pid, "SIGKILL");} catch (error: any) {if (error.code !== "ESRCH") throw error;}
+          }
+        }
+        await waitFor(async () => !(await members(value.child.pid!)).length, 5000);
+      }
+      report.cleanup[value.name] = {exited:true,processGroupEmpty:true};
+    } catch {report.cleanupFailed = true; report.cleanup[value.name] = {exited:false,processGroupEmpty:false};}
+  }
+  for (const [name, state] of [["chrome", "chrome-profile"], ["native", "native"], ["native-b", "native-b"]]) {
+    if (report.cleanup[name]?.processGroupEmpty) await rm(join(directory,state), {recursive:true,force:true}).catch(() => {report.cleanupFailed = true;});
+  }
+  await rm(join(directory,"key.pem"), {force:true}).catch(() => {report.cleanupFailed = true;});
+  if (spawnFailures.length) {report.spawnFailures = spawnFailures; report.cleanupFailed = true;}
+  report.notQualified.push("Descendants that leave their recorded process group; Syl compositor is closed through its own API");
+  if (report.cleanupFailed) {report.result = "failed"; process.exitCode = 1;}
   report.finishedAt = new Date().toISOString();
   await writeFile(join(directory,"report.json"),JSON.stringify(report,null,2),{mode:0o600});
-  console.log(JSON.stringify({result:report.result,checks:report.checks.length,failure:report.failure,report:join(directory,"report.json")}));
+  console.log(JSON.stringify({result:report.result,checks:report.checks.length,failure:report.failure,cleanupFailed:report.cleanupFailed ?? false,report:join(directory,"report.json")}));
 }
