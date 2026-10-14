@@ -72,6 +72,31 @@ anteriores y el proceso del host; se retiraron las dos vinculaciones propias y
 el grupo Chrome. No hubo prompts ni inferencia. Esta comprobación posterior
 complementa la compatibilidad con el nativo anterior, no la reemplaza.
 
+Firefox 157 de Playwright 1.64 pasó 80 comprobaciones con dos escritores y 85
+con varios hosts; Chrome 155 pasó otras 107 con el mismo ejecutor final. Los
+tres recibos coinciden con los originales, incluidas sus horas. Los perfiles y
+procesos propios se retiraron y no hubo errores inesperados. Esta evidencia
+cubre Firefox de laboratorio en Linux, con TLS sintético: no acredita Firefox
+de distribución habitual, Android ni GPU. Se omiten siete comprobaciones táctiles de CDP y
+dieciséis de los dos tamaños que simulan un teclado horizontal; los otros cinco
+tamaños sí se probaron. Alcance y recibo en
+[cualificación de Firefox](remote-firefox-qualification.md).
+
+El instalador NSIS sin firma construido exactamente desde `e6d9cc8` pasó 31
+comprobaciones bajo un usuario estándar en la VM Windows 11: instalación en
+perfil nuevo, desinstalación, actualización desde 0.7.0, reparación y nueva
+desinstalación. Los binarios y avisos originales coinciden con el artefacto de
+CI. Se retiraron la cuenta, tarea, perfil, hives y permiso temporal; se
+conservaron los 351 archivos inventariados del usuario habitual, sus registros,
+Defender y las definiciones normalizadas de servicios. La limpieza necesitó
+reiniciar la VM. El guard inicial falló por el modo transitorio de
+`IsolationSession`; el recibo conserva ese fallo y distingue la comprobación
+posterior correcta. No acredita interfaz gráfica, UAC/SmartScreen, primer
+arranque gráfico, MSI, reemplazo real del actualizador CLI ni Windows físico.
+El [recibo nativo en un commit firmado](https://github.com/grok-insider/spanreed/blob/6fd1a55c986cb5fc9372f0ceee94326b05072b0b/docs/evaluation/windows-nsis-e6d9cc8-2026-10-14.json)
+identifica sus bytes y estos límites. Es distinto del ensayo histórico de 25
+comprobaciones sobre `9eaabe2`.
+
 Recibos: [despliegue r3](evaluation/qualification-r3-deployment-2026-10-14.json),
 [terminal r3](evaluation/terminal-continuity-r3-2026-10-14.json) y
 [multihost](remote-multihost-qualification.md). Los originales están en

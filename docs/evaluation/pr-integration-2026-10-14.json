@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T03:12:10.440140+00:00",
+  "checkedAt": "2026-10-14T03:39:08.661995+00:00",
   "prs": [
     {
       "autoMergeRequest": null,
@@ -20,7 +20,7 @@
     {
       "autoMergeRequest": null,
       "baseRefName": "dev",
-      "headRefOid": "4d7fc64367d50391290c0fca4f273b6d64d4f2d0",
+      "headRefOid": "cc1190503f6c9d6ea9b874756a06e8f0d1c7640f",
       "isDraft": true,
       "mergeStateStatus": "CLEAN",
       "mergeable": "MERGEABLE",
@@ -41,46 +41,41 @@
     {
       "autoMergeRequest": null,
       "baseRefName": "dev",
-      "headRefOid": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+      "headRefOid": "6fd1a55c986cb5fc9372f0ceee94326b05072b0b",
       "isDraft": true,
-      "mergeStateStatus": "CLEAN",
+      "mergeStateStatus": "UNSTABLE",
       "mergeable": "MERGEABLE",
       "url": "https://github.com/grok-insider/spanreed/pull/56",
       "checks": [
+        {
+          "name": "desktop (ubuntu-24.04, deb)",
+          "status": "IN_PROGRESS",
+          "conclusion": ""
+        },
+        {
+          "name": "nix build (x86_64-linux)",
+          "status": "IN_PROGRESS",
+          "conclusion": ""
+        },
         {
           "name": "fabrials-libs drift",
           "status": "COMPLETED",
           "conclusion": "SUCCESS"
         },
         {
-          "name": "desktop (ubuntu-24.04, deb)",
-          "status": "COMPLETED",
-          "conclusion": "SUCCESS"
-        },
-        {
-          "name": "nix build (x86_64-linux)",
-          "status": "COMPLETED",
-          "conclusion": "SUCCESS"
-        },
-        {
           "name": "desktop (windows-latest, nsis)",
-          "status": "COMPLETED",
-          "conclusion": "SUCCESS"
-        },
-        {
-          "name": "signed-macos",
-          "status": "COMPLETED",
-          "conclusion": "SKIPPED"
+          "status": "IN_PROGRESS",
+          "conclusion": ""
         },
         {
           "name": "fmt + clippy + test",
-          "status": "COMPLETED",
-          "conclusion": "SUCCESS"
+          "status": "IN_PROGRESS",
+          "conclusion": ""
         },
         {
           "name": "cross (windows-latest)",
-          "status": "COMPLETED",
-          "conclusion": "SUCCESS"
+          "status": "IN_PROGRESS",
+          "conclusion": ""
         },
         {
           "name": "cross (macos-latest)",

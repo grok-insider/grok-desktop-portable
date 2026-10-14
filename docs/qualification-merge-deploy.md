@@ -152,10 +152,19 @@ con navegador. Las identidades, hashes y límites están en el
 [recibo fechado](qualification-evidence-2026-10-13.md). Los recibos de la fase
 restringida siguen siendo históricos y no describen el resultado posterior.
 
-La cualificación de Windows y los checks pendientes requieren corrección y
-verificación antes de fusionar. La candidata multidevice del 2026-10-14 ya está
+Los tres workflows de la candidata nativa r3 pasan. Su instalador NSIS exacto
+pasó 31 comprobaciones bajo un usuario estándar en la VM y la limpieza final
+conservó los datos y registros anteriores; la interfaz gráfica y distribución
+estable siguen sin cualificar. Firefox de laboratorio pasó 80 comprobaciones
+con dos escritores y 85 con varios hosts. Cada suplemento posterior de pruebas
+o documentación necesita sus propios checks y no redefine los bytes de r3.
+La candidata multidevice del 2026-10-14 ya está
 desplegada en Coolify: TLS/CDN, recuperación real del contenedor, actualización
 de shell N/N−1 y dos navegadores emparejados con station están comprobados.
+La prueba física de r3 en el S24 sigue pendiente. La prueba de 24 horas iniciada
+el 14 de octubre a las 03:13:42 UTC no cuenta como aprobada hasta terminar y
+revisar sus invariantes, límites y limpieza. Las publicaciones siguen cerradas
+por el contraejemplo de escritura tardía tras el borrado en S3.
 La instalación QA de station usa un perfil y una unidad de usuario independientes,
 preparados específicamente para conservar su estado y el líder compartido; no
 se debe sustituir esa receta por el instalador de servicio normal. Guardar los recibos de reconstrucciones posteriores

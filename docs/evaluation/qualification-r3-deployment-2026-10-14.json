@@ -312,5 +312,70 @@
       "cargoCommandsPassed": 5
     },
     "reportSha256": "4072579fab2132e44e42243eb20132bf62153dac3ef234f87e35cc81ee74c418"
+  },
+  "browserEngineSupplement": {
+    "receipt": "direct-firefox-browser-2026-10-14.json",
+    "receiptSha256": "d913d51bc00178c18d90ff1e950603dc10579d1b73f5283da49e873725d14193",
+    "qaCommit": "cc1190503f6c9d6ea9b874756a06e8f0d1c7640f",
+    "runs": [
+      {
+        "engine": "firefox",
+        "browser": "157.0",
+        "startedAt": "2026-10-14T03:27:28.048Z",
+        "finishedAt": "2026-10-14T03:27:46.643Z",
+        "result": "passed",
+        "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+        "checks": 80,
+        "originalReportSha256": "5b23de4cb719abe75828b68f13215ecfc79fabdeda0a9ad23d3b440ed25c805b"
+      },
+      {
+        "engine": "firefox",
+        "browser": "157.0",
+        "startedAt": "2026-10-14T03:27:28.048Z",
+        "finishedAt": "2026-10-14T03:27:46.849Z",
+        "result": "passed",
+        "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+        "checks": 85,
+        "originalReportSha256": "b43bb9e27e74f6cb46f2e5ee40ec9f13ea51e39e5bf7c900f92ee508dc522ded"
+      },
+      {
+        "engine": "chromium",
+        "browser": "155.0.8059.39",
+        "startedAt": "2026-10-14T03:27:53.346Z",
+        "finishedAt": "2026-10-14T03:28:10.560Z",
+        "result": "passed",
+        "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+        "checks": 107,
+        "originalReportSha256": "9cd2b077164becd5b753cc09632e989d2aed13c4af5ffa49ab7c30d3ee4a5691"
+      }
+    ],
+    "scope": "Exact r3 direct-mode laboratory qualification on Firefox157 and shared-runner Chromium regression; no production or retail-browser release attestation",
+    "limitations": "Patched Playwright Firefox on Linux, headless laboratory TLS; seven CDP touch checks and sixteen short-viewport assertions omitted. No retail Firefox, Android Firefox, trusted production TLS, real notifications or GPU qualification."
+  },
+  "windowsNsisSupplement": {
+    "receipt": "https://github.com/grok-insider/spanreed/blob/6fd1a55c986cb5fc9372f0ceee94326b05072b0b/docs/evaluation/windows-nsis-e6d9cc8-2026-10-14.json",
+    "receiptSha256": "6cc30356e3cf96ea0475bf4dd0e142c4759918c87065870efa6005ee082eb176",
+    "sourceCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "workflowRun": 38504260236,
+    "installerSha256": "d0220e5fb1ab462b94649d78e3dd7e31de7d78557eaf4a7d4b2eea0ef2af71bd",
+    "extractedBinarySha256": "70def19b0f4048d5ac0664e2218080f6984ad1e73126a438fdb9780e2f1aef45",
+    "startedAt": "2026-10-14T03:25:41.0772456Z",
+    "finishedAt": "2026-10-14T03:25:57.9312728Z",
+    "lifecycleResult": "passed",
+    "lifecycleChecks": 31,
+    "lifecycleReportSha256": "c5b445957f916bcddb4508dda8734734ba2740078452a25461043c8182cd77e9",
+    "cleanupResult": "resources_removed_and_final_read_only_baselines_passed",
+    "cleanupReportSha256": "67c1c4549ceaaad5332d8329ae5e49eab10bfb3e802e08a98f0bd6b9d984b9ab",
+    "standardUser": true,
+    "originalCleanupGuardExitCode": 1,
+    "finalReadOnlyBaselinePassed": true,
+    "notQualified": [
+      "Interactive installer UI, UAC and SmartScreen",
+      "First graphical application start",
+      "Machine-wide MSI installation",
+      "CLI self-update replacement and rollback",
+      "Active application upgrade",
+      "Power loss and physical Windows hardware"
+    ]
   }
 }

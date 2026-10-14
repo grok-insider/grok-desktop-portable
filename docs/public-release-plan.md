@@ -21,6 +21,12 @@ The new shell passed 24 checks against previous host `7e2a7816`. After all three
 native CI workflows passed, station activated `e6d9cc8` and the same trial passed
 another 24 checks against the installed final binary. Identity, pairings and
 the existing shared leader/terminal were preserved.
+Firefox 157 passed 80 multiwriter and 85 multihost laboratory checks; Chromium
+passed a 107-check regression with the same final runner. The exact `e6d9cc8`
+unsigned Windows NSIS installer passed 31 standard-user lifecycle checks in
+the existing VM, with final cleanup and baseline preservation verified. These
+scoped results do not qualify retail Firefox, graphical installer interaction,
+stable signing or physical Windows hardware.
 The S24 push trial belongs to the first deployment; this candidate's physical
 device and elapsed-time gates remain open.
 
@@ -62,7 +68,7 @@ repositories.
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented; exact N/N−1 shell transitions preserve a live synthetic turn, queue and draft in two browsers; physical-device release qualification pending |
 | Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Final r3 shell passes 107 laboratory checks with independent hosts and deliberately matching session IDs; deployed trusted TLS/Tailscale passes with two browser stores. Real custom-domain TLS and two physical hosts remain pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
-| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption, r3 isolated lifecycle and station activation pass. Windows limited-user security/updater/process checks pass on their recorded revisions; r3 CI passes. Final platform installers remain separate gates |
+| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption, r3 isolated lifecycle and station activation pass. Windows limited-user security/updater/process checks pass on their recorded revisions; r3 CI and the exact unsigned NSIS lifecycle pass. Graphical installer, real CLI replacement and stable distribution remain separate gates |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
 | Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic provider/S24 delivery passed on the first deployment; final r3 delivery and notification click-through remain pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
@@ -391,7 +397,12 @@ the existing guest; updater checks passed 26 normal tests and one opt-in test
 under a limited user. A real-listener relay fixture passes four limited-user
 checks and process lifetime passes one check. The historical Windows NSIS
 candidate passed 25 install/upgrade/repair/uninstall checks; final-artifact
-qualification remains required. All three r3 native workflows passed, including
+NSIS qualification subsequently passed 31 checks on exact `e6d9cc8`, including
+candidate installation in a new profile. Cleanup removed all temporary
+resources after a VM reboot; the original transient service-baseline guard
+failure is retained separately from the successful later comparison. Interactive
+installation, first graphical start and stable signing remain unqualified.
+All three r3 native workflows passed, including
 the five Cargo invocations under a dedicated non-administrator Windows account.
 The PR's synthetic merge tree was verified identical to the candidate tree.
 Linux station runs `e6d9cc8` in its own QA service, retaining identity, pairings
@@ -405,6 +416,15 @@ successor and saved draft, without replay or loss of pairing; its receipt is
 or a hardware trial. Prior device and relay receipts cannot
 substitute for this candidate. Final-device push, platform distribution and the
 infrastructure and elapsed-time gates below remain release work.
+
+The [Firefox laboratory qualification](remote-firefox-qualification.md) records
+80 multiwriter and 85 multihost checks on Playwright Firefox 157, plus 107 checks
+on Chromium 155 with the same runner. All profiles and process groups were
+retired. Seven CDP touch checks and sixteen assertions at two short mobile
+viewports are omitted explicitly; five other viewport sizes pass. This does
+not qualify a retail Firefox build, Android Firefox, trusted production TLS,
+real notifications or GPU performance. These harness/docs supplements and the
+native doctor expectation fix do not redefine the frozen r3 artifacts.
 
 ## Final qualification
 
