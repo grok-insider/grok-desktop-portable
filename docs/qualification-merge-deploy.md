@@ -52,6 +52,13 @@ de librerías o Portable exige regenerar su identidad, crear un nuevo commit del
 manifiesto y construir otro archivo de fuentes, aunque los bytes del shell no
 cambien. No modificar a mano las identidades ni los textos de licencia.
 
+Una corrección exclusivamente nativa puede distribuirse con su nuevo archivo
+de fuentes sin volver a desplegar la PWA cuando sus 47 archivos siguen siendo
+idénticos. En ese caso, conservar el archivo de fuentes y los metadatos
+inmutables del shell ya publicado: no sustituir `/sources/<shell-id>.json`
+por los del binario nuevo. La identidad del paquete nativo y la del shell son
+evidencias distintas. Esta es la estrategia del cierre WebSocket `f3ebb334`.
+
 Comandos de construcción, desde el worktree de Spanreed, con los SHA y las
 rutas previamente revisados:
 

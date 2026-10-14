@@ -86,6 +86,15 @@ CLI versions. Unobserved external terminal turns cannot be remotely cancelled.
 Direct `!` shell mode remains unavailable in shared conversations; the UI now
 says so and preserves the draft. Grok's permission-mediated tools remain usable.
 
+The subsequent [interactive-terminal qualification](terminal-continuity-qualification.md)
+passed 22 checks with native `f3ebb334` and the unchanged deployed shell. An
+official Grok 1.0.52 TUI and a real browser exchanged five synthetic turns over
+one shared leader. A pending permission survived browser reload, terminal
+approval executed one effect, and browser denial of the identical command's
+next request cancelled the terminal turn without a second effect. The test
+used an isolated profile and local provider; public TLS, personal sessions and
+concurrent terminal submissions during an active turn remain separate checks.
+
 The initial multi-device PWA verification passed 881 tests and TypeScript checking. Hidden Chrome
 155 passes 53 checks with two independently paired browser contexts, real Noise
 and a deterministic ACP fixture: FIFO, custom models/efforts, stale configuration

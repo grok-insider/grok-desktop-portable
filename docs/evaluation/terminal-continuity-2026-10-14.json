@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "scope": "Isolated real Grok terminal and browser sharing one official leader through the exact native candidate",
+  "startedAt": "2026-10-14T01:44:33.137Z",
+  "finishedAt": "2026-10-14T01:44:38.933Z",
+  "result": "passed",
+  "checks": [
+    "official_grok_1_0_52_hash",
+    "terminal_prompt_ready",
+    "real_terminal_completed_first_turn",
+    "browser_loaded_existing_live_terminal_session",
+    "browser_turn_appeared_in_live_terminal",
+    "terminal_followup_appeared_live_in_browser",
+    "TERMINAL_FIRST_once_after_reload",
+    "BROWSER_SECOND_once_after_reload",
+    "TERMINAL_THIRD_once_after_reload",
+    "exactly_three_provider_calls_without_replay",
+    "same_approval_visible_in_terminal_and_browser",
+    "browser_reconnect_preserved_terminal_permission",
+    "terminal_approval_completes_browser_turn",
+    "tool_effect_exactly_once",
+    "external_terminal_decision_cleared_browser_permission",
+    "same_tool_requires_fresh_approval",
+    "browser_denial_cleared_pending_approval",
+    "browser_denial_resolves_terminal_request",
+    "denied_identical_tool_left_one_original_effect",
+    "five_user_turns_six_provider_requests_no_replay",
+    "no_unexpected_intercepted_http_requests",
+    "no_uncaught_browser_errors"
+  ],
+  "identities": {
+    "nativeCommit": "f3ebb3348d30397cc3b1b1583807c71426574904",
+    "nativeSha256": "723b3f16d27c70c65b00471f3b239ab6b508e418233bf27cd0a00052cfdf9a2d",
+    "portableCommit": "00393e13e45b7dfbbfcc9844b46d758f2a582486",
+    "shellSha256": "ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac",
+    "grokVersion": "1.0.52",
+    "grokSha256": "1668414b047e1050a96d25fe17dfc3efe63190fbf66d8cc1c3de8633caf50d11",
+    "browser": "155.0.8059.39",
+    "scriptSha256": "a285291da6ec7918dbc97ae31d71eb2b162c7d1c18955fbc09e36aa4448e4fd7",
+    "artifactManifestSha256": "1bd18dc27b8d71271bdcb8611633a9eecdddc32cb2058a6f7b69481cc5a0697b"
+  },
+  "fixture": {
+    "terminal": "Official interactive TUI launched and controlled by Syl in its own tmux session; text captured from that owned pane.",
+    "browser": "Chrome on a Syl hidden Sway compositor at 2560x1440.",
+    "provider": "Loopback HTTP fixture returning deterministic text and two precisely bounded tool calls.",
+    "leader": "Explicit grok --leader; same synthetic GROK_HOME and socket as the native adapter.",
+    "paidInference": false,
+    "userTurns": 5,
+    "providerRequests": 6,
+    "nativeHome": "Temporary isolated directory, with Grok confined by bubblewrap to that directory and read-only Nix executables.",
+    "existingUserStateTouched": false
+  },
+  "permissions": {
+    "first": "Browser prompt requests one fixed append to effect.txt; terminal and browser both show approval; browser reload preserves it; terminal explicitly selects Yes, proceed once; effect contains exactly one line.",
+    "second": "Terminal requests exactly the same command again; it requires a fresh approval. Browser denial cancels the terminal turn; the effect file still contains only the first line.",
+    "standingPermissionGranted": false,
+    "lostOrAmbiguousEffectAutomaticallyRetried": false
+  },
+  "negativeObservation": {
+    "configuration": "Clean Grok home without --leader or cli.use_leader=true",
+    "result": "The browser could load persisted history but the embedded terminal did not receive the subsequent browser turn. This does not qualify live control of embedded terminals.",
+    "existingGuidance": "TerminalSessionHelp and Spanreed doctor already require shared leader mode and explain finishing, exiting and resuming an embedded session."
+  },
+  "cleanup": {
+    "temporaryNativeStateRemoved": true,
+    "ownedBrowserClosed": true,
+    "ownedTuiClosed": true,
+    "ownedCompositorClosed": true,
+    "ownedSubprocessesExited": true,
+    "fullDescendantInventoryVerified": false
+  },
+  "notQualified": [
+    "Production TLS trust: isolated laboratory certificate",
+    "Tailscale",
+    "Real Android/Windows/Apple",
+    "Long-running battery, suspend and load",
+    "Publications and push",
+    "Service-worker and WebSocket egress inventory",
+    "Full descendant-process inventory after cleanup",
+    "Existing personal terminal session or credentials",
+    "Real model inference or vision",
+    "Concurrent interactive terminal and browser submissions within one in-flight turn",
+    "Process crash during a granted effect",
+    "Windows or macOS interactive terminal continuity"
+  ],
+  "evidence": {
+    "rawArtifactsCommitted": false,
+    "files": {
+      "terminal-first.txt": {
+        "sha256": "e43970215ebf64c0dbcb3db590da8e0e7ecfd1b669f7d06c78298ea9b799a86b",
+        "bytes": 1483
+      },
+      "terminal-second.txt": {
+        "sha256": "aee2cdcf3c8d0c787ec04456fc55fa39de26ce7024011520ca2e92a64bdb5c11",
+        "bytes": 4871
+      },
+      "terminal-permission.txt": {
+        "sha256": "b9a60d23f5625273239683ea12ff92becd13ebf3d8206fec29e7d0296c6c4be5",
+        "bytes": 2471
+      },
+      "browser-permission.txt": {
+        "sha256": "1a97cabb442d966163ddc73d62f1447e3d7eb037a2d23716e151f3929b52c675",
+        "bytes": 871
+      },
+      "continuity.png": {
+        "sha256": "303fa683a91278d59771f214bcbe76d2fd1058b601c9c2740e2cd71549c009fa",
+        "bytes": 77184
+      },
+      "report.json": {
+        "sha256": "0809ca8a892387b2ecec797259b1ac01d39965814f90420030730736b10c5660",
+        "bytes": 15807
+      }
+    }
+  }
+}
