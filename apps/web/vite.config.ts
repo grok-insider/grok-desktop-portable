@@ -151,7 +151,7 @@ export default defineConfig(({ command }) => ({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
-    server: {deps: {inline: ["sonner"]}},
+    server: {deps: {inline: ["sonner", "@fabrials/ui", "@fabrials/ai-ui"]}},
     exclude: ["dist/**", "node_modules/**"],
   },
 }));

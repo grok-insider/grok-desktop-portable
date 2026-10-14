@@ -406,13 +406,14 @@
   color: var(--foreground);
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: .75rem;
+  border-radius: var(--fui-radius-xl);
+  box-shadow: var(--fui-shadow-lg);
 }
 
-.interaction-dialog::backdrop { background: var(--scrim); }
+.interaction-dialog::backdrop { background: var(--fui-scrim); }
 .interaction-option { display: flex; gap: .75rem; align-items: center; min-height: 44px; padding: .5rem 0; }
-.interaction-dialog textarea, .interaction-dialog input:not([type="checkbox"]):not([type="radio"]), .interaction-dialog select { width: 100%; min-height: 44px; margin-top: .5rem; padding: .5rem; border: 1px solid var(--input); border-radius: .25rem; }
-.interaction-dialog :is(input, textarea, select, a):focus-visible, .remote-signin:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.interaction-dialog textarea, .interaction-dialog input:not([type="checkbox"]):not([type="radio"]), .interaction-dialog select { width: 100%; min-height: 44px; margin-top: .5rem; padding: .5rem; border: 1px solid var(--fui-control-border); border-radius: var(--fui-radius-sm); background: var(--background); color: var(--foreground); }
+.interaction-dialog :is(input, textarea, select, a):focus-visible, .remote-signin:focus-visible { outline: 2px solid var(--fui-focus); outline-offset: 2px; }
 
 @media (pointer: coarse) {
   button, [role="button"] { min-width: 44px; min-height: 44px; }

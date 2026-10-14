@@ -71,4 +71,5 @@ reviewed again.
 | Monospace textbox in shell mode | The shell composer edits commands. |
 | Gem `stormlight` | Owner decision for Grok Remote; the house guide assigns Ruby to Spanreed. |
 | English-only interface | Portable has no localisation yet; layouts use logical properties so RTL can follow. |
+| Native `<dialog>` overlays restyled with Fabrials tokens instead of Base UI `Dialog` | The modal top layer, focus return, Escape handling and short-viewport geometry are part of the qualified contract (crop editor and computer settings at 136 px of visible height). Portalled Fabrials primitives such as tooltips are disabled inside them, because a portal outside the top layer is inert. |
 | Stable selectors | Accessible names, ids, `data-*` hooks and the classes listed in `docs/ui.md` are part of the qualification contract and survive restyling. |

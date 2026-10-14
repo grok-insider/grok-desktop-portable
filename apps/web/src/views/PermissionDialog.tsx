@@ -65,7 +65,7 @@ export function PermissionDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim px-6 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim px-6"
       role="presentation"
     >
       <div
@@ -75,7 +75,7 @@ export function PermissionDialog({
         aria-labelledby="permission-title"
         aria-describedby="permission-body"
         tabIndex={-1}
-        className="w-full max-w-[520px] rounded-xl border border-border bg-card p-5 shadow-dialog outline-none"
+        className="w-full max-w-[520px] rounded-xl border border-border bg-card p-5 shadow-lg outline-none"
       >
         <div className="flex items-start gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning-soft text-warning">

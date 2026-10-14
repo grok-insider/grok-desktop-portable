@@ -1,19 +1,21 @@
 /**
- * Minimal primitives for Grok Desktop Portable, built against Grok Desktop tokens.
- *
- * Read `apps/desktop/DESIGN.md` before changing anything here. These follow
- * §5 (component stylings) and §4 (spacing, radius, elevation) and use only
- * semantic tokens — never raw hex.
- *
- * This is deliberately small. The shared `packages/ui` extraction is a later
- * phase; until then Light carries the few primitives it actually needs rather
- * than copying a registry it does not use.
+ * Portable's primitives, as thin adapters over Fabrials UI so views keep their
+ * names and props while rendering the house components (DESIGN.md).
  */
 
 import { clsx, type ClassValue } from "clsx";
 import { extendTailwindMerge } from "tailwind-merge";
 import { Search as SearchIcon } from "lucide-react";
 import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button as FabrialsButton,
+  Card as FabrialsCard,
+  IconButton as FabrialsIconButton,
+  StatePanel,
+} from "@fabrials/ui";
 
 /** Merge Tailwind classes with later values winning. */
 const merge = extendTailwindMerge({
@@ -26,11 +28,6 @@ export function cn(...values: ClassValue[]): string {
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
-/**
- * `sm` is for controls that sit inside a row or a toolbar, `md` for standalone
- * ones. Before the split every button was 36px, so a cluster of three read as
- * heavy as the content it acted on.
- */
 type ControlSize = "sm" | "md";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -38,115 +35,44 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ControlSize;
 }
 
-const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  // Charcoal Ink fill, off-white text (DESIGN.md §5).
-  primary:
-    "bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[.98]",
-  secondary:
-    "bg-card text-foreground border border-input hover:bg-muted hover:border-input-hover active:scale-[.98]",
-  ghost: "bg-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground active:scale-[.98]",
-  danger:
-    "bg-destructive-soft text-destructive border border-destructive/30 hover:bg-destructive hover:text-destructive-foreground active:scale-[.98]",
-};
+const BUTTON_VARIANTS = {
+  primary: "default",
+  secondary: "outline",
+  ghost: "ghost",
+  danger: "destructive",
+} as const;
 
-const BUTTON_SIZES: Record<ControlSize, string> = {
-  sm: "h-7 gap-1.5 px-2 text-body-sm",
-  md: "h-9 gap-2 px-3 text-body",
-};
-
-/** Standard action button. One primary per view (DESIGN.md §5). */
-export function Button({
-  variant = "secondary",
-  size = "md",
-  className,
-  ...rest
-}: ButtonProps) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center justify-center rounded-md font-semibold",
-        "transition-[background-color,border-color,color,transform]",
-        "duration-150 ease-fluid disabled:opacity-48",
-        BUTTON_SIZES[size],
-        BUTTON_VARIANTS[variant],
-        className,
-      )}
-      {...rest}
-    />
-  );
+export function Button({ variant = "secondary", size = "md", type = "button", ...rest }: ButtonProps) {
+  return <FabrialsButton type={type} variant={BUTTON_VARIANTS[variant]} size={size === "sm" ? "sm" : "default"} {...rest} />;
 }
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** Required: the control has no text of its own (DESIGN.md §8). */
   "aria-label": string;
   size?: ControlSize;
   children: ReactNode;
 }
 
-/**
- * Square, transparent until hover (DESIGN.md §5).
- *
- * `md` is 36px, above the 34px standalone-target floor. `sm` is 28px, which
- * §6 permits for compact inline and auxiliary controls only — a row's close
- * button, a toolbar affordance — never for a standalone action.
- */
-export function IconButton({
-  size = "md",
-  className,
-  children,
-  ...rest
-}: IconButtonProps) {
+export function IconButton({ size = "md", type = "button", "aria-label": label, children, ...rest }: IconButtonProps) {
   return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-md",
-        "text-muted-foreground transition-[background-color,color,transform]",
-        "duration-150 ease-fluid hover:bg-accent/60 hover:text-foreground",
-        "active:scale-[.98] disabled:opacity-48",
-        size === "sm" ? "size-7" : "size-9",
-        className,
-      )}
-      {...rest}
-    >
+    <FabrialsIconButton type={type} label={label} tooltip={false} size={size === "sm" ? "icon-sm" : "icon"} {...rest}>
       {children}
-    </button>
+    </FabrialsIconButton>
   );
 }
 
-/** Pure Surface panel with a hairline border (DESIGN.md §5). */
 export function Card({
   children,
   className,
-  /** Drop the inner padding so a list can own its own row rhythm. */
   flush = false,
 }: {
   children: ReactNode;
   className?: string;
   flush?: boolean;
 }) {
-  return (
-    <section
-      className={cn(
-        "rounded-lg border border-border bg-card",
-        flush ? "p-0" : "p-5",
-        className,
-      )}
-    >
-      {children}
-    </section>
-  );
+  return <FabrialsCard className={cn(flush && "p-0", className)}>{children}</FabrialsCard>;
 }
 
-/**
- * The shared list-row recipe.
- *
- * Rows are the primary navigation surface on every list Light has, so they are
- * defined once rather than re-derived per view. A resting row draws nothing:
- * hover tints with Accent Wash (DESIGN.md §7) and the selected row lifts onto
- * Pure Surface, which is the same treatment §5 gives an active sidebar item.
- */
+/** The shared list-row recipe: a resting row draws nothing; the selected row takes the accent surface. */
 export function rowClass({
   selected = false,
   className,
@@ -155,7 +81,7 @@ export function rowClass({
     "group flex w-full min-w-0 items-center rounded-md text-left",
     "transition-[background-color,color] duration-150 ease-fluid",
     selected
-      ? "bg-card text-foreground shadow-raised ring-1 ring-border/60"
+      ? "bg-accent text-accent-foreground"
       : "hover:bg-accent/60 focus-visible:bg-accent/60",
     "disabled:pointer-events-auto disabled:opacity-48",
     className,
@@ -225,54 +151,20 @@ export function SearchField({
   );
 }
 
-/** Uppercase section label, 11px mono, Ink Tertiary (DESIGN.md §3). */
 export function SectionLabel({ children }: { children: ReactNode }) {
-  return (
-    <p className="mb-2 font-mono text-label font-semibold uppercase tracking-[0.06em] text-subtle-foreground">
-      {children}
-    </p>
-  );
+  return <p className="mb-2 text-body-sm font-medium text-muted-foreground">{children}</p>;
 }
 
 type Tone = "neutral" | "info" | "success" | "warning" | "destructive";
 
-const TONE_STYLES: Record<Tone, string> = {
-  neutral: "bg-muted text-muted-foreground",
-  info: "bg-info-soft text-info",
-  success: "bg-success-soft text-success",
-  warning: "bg-warning-soft text-warning",
-  destructive: "bg-destructive-soft text-destructive",
-};
-
-const TONE_DOTS: Record<Tone, string> = {
-  neutral: "bg-muted-foreground",
-  info: "bg-info",
-  success: "bg-success",
-  warning: "bg-warning",
-  destructive: "bg-destructive",
-};
-
-/**
- * Status chip: soft fill, matching ink, dot, and a label.
- *
- * Status is never colour alone (DESIGN.md §2), so the label is required.
- */
 export function StatusChip({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
-        "text-label font-semibold",
-        TONE_STYLES[tone],
-      )}
-    >
-      <span className={cn("size-1.5 rounded-full", TONE_DOTS[tone])} aria-hidden="true" />
+    <Badge tone={tone === "destructive" ? "danger" : tone} dot>
       {children}
-    </span>
+    </Badge>
   );
 }
 
-/** Empty state: icon, one line, one action (DESIGN.md §5). */
 export function EmptyState({
   icon,
   title,
@@ -284,28 +176,13 @@ export function EmptyState({
   description: string;
   action?: ReactNode;
 }) {
-  return (
-    <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-      <span className="text-subtle-foreground" aria-hidden="true">
-        {icon}
-      </span>
-      <h2 className="text-title-sm font-semibold text-foreground">{title}</h2>
-      <p className="max-w-[52ch] text-body text-muted-foreground">{description}</p>
-      {action}
-    </div>
-  );
+  return <StatePanel state="empty" icon={icon} title={title} description={description} actions={action} align="center" variant="inline" />;
 }
 
-/**
- * A disclosure the product is required to make.
- *
- * Light is a control surface, not containment. The threat model says so and
- * the interface must too, so this is a primitive rather than ad-hoc copy.
- */
 export function Disclosure({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-md bg-warning-soft px-3 py-2 text-body-sm text-warning">
-      {children}
-    </p>
+    <Alert variant="warning" layout="inline">
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
   );
 }
