@@ -199,11 +199,25 @@ buffers does not establish immediate forensic erasure of JavaScript strings or
 browser copies. These are launch requirements, not claims established by unit
 tests or a key-node-only deployment.
 
+Web revision `3eff2d9b` adds sequential retirement of both key processes and the
+writer while preserving active publications. A durable cutoff, process
+identities, anonymous receipt association and revocation watermark prevent a
+later withdrawal from claiming coverage by an earlier batch. Lost fence,
+start and resume acknowledgments remain recoverable without replaying a
+retirement against the replacement. The exact image passed 105 laboratory
+checks, 53 Docker/kernel checks and 344 publication tests with real disposable
+PostgreSQL/S3 and no skipped tests. Those results qualify the recorded local
+image, not production storage or backup policy. Uncertain PUT debt remains
+charged; process retirement does not confirm physical storage cleanup or
+forensic erasure. Public sharing remains closed.
+
 ## Fixed resource budgets
 
 | Resource | Limit |
 | --- | --- |
 | Active publications / account | 5 |
+| Global publication records, including pending removal | 1,000 |
+| Process-retirement batches | At most one every five minutes |
 | Creates / account / UTC day | 10 |
 | Text / publication | 2 MiB, 10,000 entries |
 | Entire publication | 10 MiB |
