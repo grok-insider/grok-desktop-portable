@@ -12,7 +12,7 @@ function harness() {
     return new Response(JSON.stringify(body));
   });
   const transport: HostTransport = {request, openEvents: (next, cursor) => {handlers = next; cursors.push(cursor); return connection;}};
-  return {transport, request, connection, cursors, emit: (kind: string, eventSequence: number, payload: Record<string, unknown> = {}) => handlers.onEvent({protocolVersion: PROTOCOL_VERSION, eventSequence, event: {kind, ...payload} as never}), open: () => handlers.onOpen(), close: () => handlers.onClose()};
+  return {transport, request, connection, cursors, emit: (kind: string, eventSequence: number, payload: Record<string, unknown> = {}) => handlers.onEvent({protocolVersion: PROTOCOL_VERSION, eventSequence, event: {kind, ...payload} as never}), open: () => handlers.onOpen(), close: () => handlers.onClose(), revoked: () => handlers.onFailure?.({kind: "not_paired"})};
 }
 
 beforeEach(() => {localStorage.clear(); sessionStorage.clear();});
@@ -307,6 +307,29 @@ describe("uncertain command responses", () => {
     finishBody({result: {outcome: "remoteCapabilities", multiWriter: true}});
     expect(await pending).toEqual({ok: false, failure: {kind: "unreachable"}});
     expect(client.multiWriter).toBe(false);
+  });
+
+  it.each(["unchanged", "cleared", "disposed"])("validates the explicit revocation reply before its close notification without adopting discarded authority (%s)", async authority => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    await client.resume();
+    const failure = vi.fn(() => client.clearPairing());
+    client.openEvents({onEvent: vi.fn(), onOpen: vi.fn(), onClose: vi.fn(), onFailure: failure});
+    let finishBody!: (value: unknown) => void;
+    const response = new Response();
+    response.json = () => new Promise(resolve => {finishBody = resolve;});
+    host.request.mockResolvedValueOnce(Response.json({result: {outcome: "remoteCapabilities", projects: false, controlTransfer: false, devicePanel: false}})).mockResolvedValueOnce(response);
+    const pending = client.revokePairing();
+    await vi.waitFor(() => expect(finishBody).toBeDefined());
+    host.revoked();
+    host.close();
+    expect(failure).not.toHaveBeenCalled();
+    if (authority === "cleared") client.clearPairing();
+    if (authority === "disposed") client.dispose();
+    finishBody({result: {outcome: "acknowledged"}});
+    expect(await pending).toEqual(authority === "unchanged" ? {ok: true, value: {outcome: "acknowledged"}} : {ok: false, failure: {kind: "unreachable"}});
+    expect(failure).toHaveBeenCalledTimes(authority === "unchanged" ? 1 : 0);
+    client.dispose();
   });
 
   it.each([

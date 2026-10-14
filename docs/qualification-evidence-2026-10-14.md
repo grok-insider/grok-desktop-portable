@@ -215,3 +215,34 @@ fuentes, ejecutable sintético y arnés. Esta prueba usa TLS de laboratorio y no
 repite el despliegue CDN; el despliegue real anterior se comprobó por separado.
 No cualifica Android ni inferencia, ni el binario posterior con el arreglo del
 ciclo de vida ACP. No se abrió ninguna ventana en el escritorio del usuario.
+
+
+## Imágenes y confirmación de revocación, candidata local posterior
+
+La matriz se repitió tres veces con una imagen PNG sintética seleccionada:
+96 comprobaciones correctas en cada pasada. Incluyó la cola pausada, el borrador,
+el aviso de instalación y los siete tamaños anteriores. La imagen y el texto
+se conservaron sin enviar; la retirada local de la imagen fue explícita.
+El fixture ahora usa el supervisor normal del host, que proyecta las capacidades
+ACP, en vez de adjuntar el proceso sin proyectarlas. Los hashes y las limitaciones
+están en [el recibo](evaluation/landscape-images-revocation-2026-10-14.json).
+
+Estas pruebas descubrieron dos carreras de «Forget this browser». Primero, una
+pulsación antes de negociar las capacidades podía enviar el protocolo anterior;
+ahora se restaura la autoridad y se valida la negociación antes de emitir una
+única retirada. Después, una respuesta válida inmediatamente anterior al cierre
+podía perderse en la cola asíncrona del WebSocket, o quedar invalidada cuando la
+interfaz procesaba la revocación antes de terminar de leer esa respuesta.
+Ahora se procesan los mensajes recibidos antes del cierre y, únicamente durante
+la retirada explícita, se entrega el aviso de revocación después de validar su
+respuesta. Un cierre anterior a la respuesta, una respuesta inválida o perdida
+y una autoridad descartada manualmente siguen sin confirmar la operación.
+No se repite el efecto automáticamente.
+
+Pasaron las 905 pruebas de la PWA y la comprobación de tipos. Retirar por separado
+cada una de las dos correcciones del cierre hace fallar las nuevas regresiones.
+El host pasó además una prueba de orden de confirmación con 32 conexiones,
+una suscripción y ocho lecturas en vuelo por conexión; no necesitó un cambio de
+runtime para resolver esta carrera. Las tres pasadas de navegador usan el
+fixture limpio, sin la instrumentación temporal de diagnóstico. Esta evidencia
+sigue siendo local: no actualiza la identidad del despliegue de la tabla inicial.

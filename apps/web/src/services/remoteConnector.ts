@@ -188,12 +188,16 @@ async function createNoiseTransport(options: RemoteTransportOptions, direct?: Di
         ws.onerror = () => ws.close();
         ws.onclose = () => {
           finishHandshake();
-          if (socket === ws && version === connectionVersion) {socket = undefined; fail(closingFailure);}
-          reject(new Error("host_offline"));
+          const finish = () => {
+            if (socket === ws && version === connectionVersion) {socket = undefined; fail(closingFailure);}
+            reject(new Error("host_offline"));
+          };
+          if (phase === "active") chain = chain.then(finish);
+          else finish();
         };
         ws.onmessage = (event: MessageEvent) => {
           chain = chain.then(async () => {
-            if (socket !== ws || version !== connectionVersion || ws.readyState !== WebSocket.OPEN) return;
+            if (socket !== ws || version !== connectionVersion || closingFailure !== undefined || (phase !== "active" && ws.readyState !== WebSocket.OPEN)) return;
             if (typeof event.data !== "string" || event.data.length > MAX_WIRE) throw new Error("protocol_error");
             const frame = JSON.parse(event.data) as { type: string; channelId?: string; payload?: string; reason?: string };
             if (frame.type === "closed") throw new Error("host_offline");

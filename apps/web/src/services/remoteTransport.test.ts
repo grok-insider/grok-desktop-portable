@@ -3,6 +3,7 @@ import { createRemoteTransport, createDirectNoiseTransport } from "./remoteConne
 import { listDirectProfiles, saveDirectProfile, type DirectProfile } from "./directProfiles";
 import { loadNoiseModule } from "./remoteCrypto";
 import { readGrant, writeGrant, deleteGrant } from "./remoteDevice";
+import { LightClient } from "./client";
 
 vi.mock("./remoteCrypto", () => ({loadNoiseModule: vi.fn()}));
 vi.mock("./remoteDevice", () => ({readGrant: vi.fn(), writeGrant: vi.fn(), deleteGrant: vi.fn()}));
@@ -178,6 +179,46 @@ describe("remote transport lifecycle with synthetic crypto and storage ports", (
     expect(handlers.onClose).not.toHaveBeenCalled();
     expect(sockets[1].readyState).toBe(1);
     transport.dispose?.();
+  });
+
+  it("delivers an authenticated response queued before the socket close event", async () => {
+    const transport = await createRemoteTransport({hostId: "host"});
+    const socket = sockets[0];
+    socket.respond = false;
+    const command = transport.request("/command", {method: "POST", body: JSON.stringify({operation: {kind: "forgetBrowserPairing"}})});
+    const outcome = command.then(response => response.json(), error => ({error: error.message}));
+    await vi.waitFor(() => expect(socket.requests).toHaveLength(1));
+    socket.host({type: "response", id: socket.requests[0].id, status: 200, body: {result: {outcome: "acknowledged"}}});
+    socket.host({type: "closed", reason: "revoked"});
+    queueMicrotask(() => socket.close());
+    expect(await outcome).toEqual({result: {outcome: "acknowledged"}});
+    transport.dispose?.();
+  });
+
+  it.each(["confirmed", "lost", "invalid", "disposed", "close-first"])("settles explicit revocation before reporting the authenticated close (%s)", async mode => {
+    const transport = await createRemoteTransport({hostId: "host"});
+    const client = new LightClient({transport, storageKey: `revoke-close-${mode}`});
+    expect((await client.resume()).ok).toBe(true);
+    const handlers = {onEvent: vi.fn(), onOpen: vi.fn(), onClose: vi.fn(), onFailure: vi.fn(() => client.clearPairing())};
+    client.openEvents(handlers);
+    await vi.waitFor(() => expect(handlers.onOpen).toHaveBeenCalledOnce());
+    const socket = sockets[0];
+    socket.respond = false;
+    const outcome = client.revokePairing();
+    await vi.waitFor(() => expect(socket.requests.at(-1)).toMatchObject({body: {operation: {kind: "getRemoteCapabilities"}}}));
+    const capabilities = socket.requests.at(-1)!;
+    socket.host({type: "response", id: capabilities.id, status: 200, body: {result: {outcome: "remoteCapabilities", projects: false, controlTransfer: false, devicePanel: false, multiWriter: true, multiWriterProtocolVersion: 4}}});
+    await vi.waitFor(() => expect(socket.requests.at(-1)).toMatchObject({body: {operation: {kind: "forgetBrowserPairing"}}}));
+    const forget = socket.requests.at(-1)!;
+    if (mode === "disposed") client.dispose();
+    if (mode === "close-first") socket.host({type: "closed", reason: "revoked"});
+    if (mode !== "lost") socket.host({type: "response", id: forget.id, status: 200, body: {requestId: mode === "invalid" ? "different-request" : (forget.body as {requestId: string}).requestId, result: {outcome: "acknowledged"}}});
+    socket.host({type: "closed", reason: "revoked"});
+    queueMicrotask(() => socket.close());
+    expect(await outcome).toEqual(mode === "confirmed" ? {ok: true, value: {outcome: "acknowledged"}} : {ok: false, failure: {kind: "unreachable"}});
+    if (mode !== "disposed") expect(handlers.onFailure).toHaveBeenCalledExactlyOnceWith({kind: "not_paired"});
+    expect(socket.requests.filter(request => (request.body as {operation?: {kind: string}})?.operation?.kind === "forgetBrowserPairing")).toHaveLength(1);
+    client.dispose();
   });
 
   it("acknowledges multiwriter cursors without a controller lease through lifecycle events", async () => {

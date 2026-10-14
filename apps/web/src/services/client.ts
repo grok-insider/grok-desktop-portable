@@ -134,6 +134,7 @@ export class LightClient {
   #resumeAttempt: {generation: number; promise: Promise<ClientResult<PairResult>>} | null = null;
   #authorityGeneration = 0;
   #draftCleanup: Promise<void> = Promise.resolve();
+  #revocationFailure: {generation: number; notify?: () => void} | null = null;
 
   constructor(options: LightClientOptions = {}) {
     this.#transport = options.transport;
@@ -195,7 +196,14 @@ export class LightClient {
       if (!asRemoteCapabilities(capabilities.value)) return unreachable();
     }
     if (!this.#browserSessionId) return {ok: false, failure: {kind: "not_paired"}};
-    return this.send({kind: "forgetBrowserPairing"}, {idempotencyKey: crypto.randomUUID()});
+    if (this.#revocationFailure) return unreachable();
+    const revocation: {generation: number; notify?: () => void} = {generation: this.#authorityGeneration};
+    this.#revocationFailure = revocation;
+    try {return await this.send({kind: "forgetBrowserPairing"}, {idempotencyKey: crypto.randomUUID()});}
+    finally {
+      if (this.#revocationFailure === revocation) this.#revocationFailure = null;
+      if (revocation.generation === this.#authorityGeneration) revocation.notify?.();
+    }
   }
 
   dispose(): void {
@@ -635,7 +643,12 @@ export class LightClient {
       handlers.onEvent(envelope);
     };
     const wrapped: EventHandlers = {
-      onFailure: (failure) => {if (current()) handlers.onFailure?.(failure);},
+      onFailure: (failure) => {
+        if (!current()) return;
+        const revocation = this.#revocationFailure;
+        if (failure.kind === "not_paired" && revocation?.generation === this.#authorityGeneration) revocation.notify = () => handlers.onFailure?.(failure);
+        else handlers.onFailure?.(failure);
+      },
       onEvent: receive,
       onOpen: () => {
         if (!current()) return;
