@@ -22,6 +22,7 @@ assert.equal(buildOrigin(await readFile(join(dist, "index.html"), "utf8")), orig
 const hostname = new URL(origin).hostname;
 const cropDist = process.env.REMOTE_QA_CROP_DIST ? resolve(process.env.REMOTE_QA_CROP_DIST) : undefined;
 const multiwriter = process.env.REMOTE_QA_MULTIWRITER === "1";
+const layoutImages = process.env.REMOTE_QA_LAYOUT_IMAGES === "1";
 const deployment = JSON.parse(await readFile(artifact ? join(artifact, ".vercel/output/config.json") : resolve(deploymentConfigPath(origin)), "utf8"));
 const report: any = {schema: 1, startedAt: new Date().toISOString(), origin, checks: [], errors: [], transport: [], notQualified: ["Production TLS trust: laboratory self-signed certificate", "Actual hosting and CDN routing", "Tailscale", "Physical Android and Apple hardware", "Grok inference: synthetic history only", "Real push delivery", "GPU performance: hidden software compositor"]};
 const processes: ChildProcess[] = [];
@@ -71,7 +72,7 @@ try {
   report.nativeFixtureSha256 = createHash("sha256").update(await readFile(nativeBinary)).digest("hex");
   const state = join(directory, "native");
   await mkdir(state, {mode: 0o700});
-  start("native", nativeBinary, [], {...process.env, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
+  start("native", nativeBinary, [], {...process.env, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", DIRECT_BROWSER_QA_IMAGES: layoutImages ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
   await waitFor(async () => {try {await readFile(join(state, "ready.json")); return true;} catch {return false;}});
   const native = JSON.parse(await readFile(join(state, "ready.json"), "utf8"));
   nativePort = native.port;
@@ -435,6 +436,20 @@ try {
     }
     await input().fill("DIRECT_DRAFT_SYNTHETIC_CANARY");
   }
+  if (layoutImages) {
+    assert(multiwriter, "Image layout qualification requires synthetic ACP");
+    const png = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 64; canvas.height = 64;
+      const paint = canvas.getContext("2d")!;
+      paint.fillStyle = "#4682b4"; paint.fillRect(0, 0, 64, 64);
+      paint.fillStyle = "#fff"; paint.fillRect(16, 16, 32, 32);
+      return canvas.toDataURL("image/png").split(",")[1];
+    });
+    report.layoutImageSha256 = createHash("sha256").update(Buffer.from(png,"base64")).digest("hex");
+    await page.locator('input[type="file"]').setInputFiles({name:"synthetic-layout.png",mimeType:"image/png",buffer:Buffer.from(png,"base64")});
+    await page.getByRole("button", {name:"Remove synthetic-layout.png", exact:true}).waitFor();
+  }
   for (const viewport of [{width:2560,height:1440},{width:390,height:844},{width:844,height:390},{width:750,height:354},{width:750,height:136},{width:667,height:136},{width:390,height:430}]) {
     const touch = viewport.width < 900;
     await touchSession.send("Emulation.setTouchEmulationEnabled", {enabled:touch});
@@ -457,6 +472,10 @@ try {
       check(`editor_revealed_after_refocus_${viewport.width}`, await input().evaluate(fullyVisible));
     }
     await page.screenshot({path:join(directory, `layout-${viewport.width}x${viewport.height}.png`)});
+  }
+  if (layoutImages) {
+    check("selected_image_and_text_survive_layout_changes_without_sending", await page.getByRole("list", {name:"Selected images", exact:true}).locator("li").count() === 1 && await input().inputValue() === "DIRECT_DRAFT_SYNTHETIC_CANARY");
+    await page.getByRole("button", {name:"Remove synthetic-layout.png", exact:true}).click();
   }
   await touchSession.send("Emulation.setTouchEmulationEnabled", {enabled:false});
   await touchSession.detach();
