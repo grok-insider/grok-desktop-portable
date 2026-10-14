@@ -91,8 +91,10 @@ conservaron los 351 archivos inventariados del usuario habitual, sus registros,
 Defender y las definiciones normalizadas de servicios. La limpieza necesitó
 reiniciar la VM. El guard inicial falló por el modo transitorio de
 `IsolationSession`; el recibo conserva ese fallo y distingue la comprobación
-posterior correcta. No acredita interfaz gráfica, UAC/SmartScreen, primer
-arranque gráfico, MSI, reemplazo real del actualizador CLI ni Windows físico.
+posterior correcta. Esa prueba no acredita interfaz gráfica ni primer arranque
+gráfico; los cubre la prueba interactiva descrita más abajo. Siguen sin
+acreditarse SmartScreen, MSI, reemplazo real del actualizador CLI ni Windows
+físico.
 El [recibo nativo en un commit firmado](https://github.com/grok-insider/spanreed/blob/6fd1a55c986cb5fc9372f0ceee94326b05072b0b/docs/evaluation/windows-nsis-e6d9cc8-2026-10-14.json)
 identifica sus bytes y estos límites. Es distinto del ensayo histórico de 25
 comprobaciones sobre `9eaabe2`.
@@ -100,12 +102,90 @@ comprobaciones sobre `9eaabe2`.
 Recibos: [despliegue r3](evaluation/qualification-r3-deployment-2026-10-14.json),
 [terminal r3](evaluation/terminal-continuity-r3-2026-10-14.json) y
 [multihost](remote-multihost-qualification.md). Los originales están en
-`.worktrees/remote-release-candidate-20261014-r3/`. El S24 todavía no cualifica
-esta versión: al intentar la nueva ventana autorizada, Android seguía bloqueado
-y se detuvieron las acciones. El soak de 24 horas y la cohorte de siete días
+`.worktrees/remote-release-candidate-20261014-r3/`. El primer intento con el S24
+encontró Android bloqueado y se detuvo; la prueba física posterior se describe
+más abajo. El soak de 24 horas y la cohorte de siete días
 no cuentan como completados. Las publicaciones siguen cerradas: el laboratorio
 del almacenamiento reprodujo un PUT tardío que devuelve un objeto después de
 DELETE 204 y HEAD 404; no se promete borrado físico sobre esa evidencia.
+
+## S24 físico con la tercera candidata
+
+Entre las 09:16 y las 09:30 UTC, el Samsung Galaxy S24 Ultra (Android 16,
+Chrome 154) probó la PWA r3 contra el nativo r3 ya activado en station. Se usó
+el WebAPK que ya estaba instalado, sin reinstalarlo. Al abrirse seguía con el
+shell de la primera candidata (`fe9e3a52…`) y un service worker en espera; no
+cambió nada hasta pulsar «Update and reload», que activó directamente el shell
+`e2ed580c…`. La segunda candidata nunca llegó a este teléfono. El
+emparejamiento guardado conectó sin volver a registrar el dispositivo.
+
+Con el teclado de Android abierto en vertical, el editor y Enviar quedaron
+enteros, sin recorte de ningún ancestro, y la comprobación de pulsación los
+identificó. En horizontal se midió primero sin teclado (354 px de altura útil)
+y después con el teclado abierto: **136 px de altura útil, editor entre 91,2 y
+135,2 px y Enviar de 44 × 44 px, ambos visibles y pulsables**. No hubo
+desplazamiento horizontal y el borrador sintético se conservó al girar. Es la
+corrección que la candidata anterior no superaba. Un primer intento con
+teclado dejó la altura en 354 px porque el teclado no llegó a abrirse; se
+conserva como medida sin teclado.
+
+Se forzó la parada de Chrome con `am force-stop` cuando la única pestaña era la
+PWA. Al relanzar el WebAPK y pulsar Connect, la misma conversación volvió sin
+volver a elegirla, con el mismo borrador sin enviar, el mismo shell y un
+documento nuevo. Esto no es una expulsión del proceso por Android.
+
+Se envió un único prompt sintético autorizado y se pasó a Inicio. El host
+respondió con el texto pedido. Android publicó una notificación genérica
+(«Grok», «There is activity on your computer.», visibilidad `PRIVATE` y
+versión pública «Contenidos ocultos») **3,5 s después de completar el paso a
+Inicio**, con los relojes del móvil y del host sincronizados. Sustituyó a la
+notificación de la primera prueba, que tenía la misma etiqueta y seguía en la
+bandeja. No llevaba texto de la conversación. Al pulsarla en la bandeja de
+Android, el mismo documento pasó a primer plano en la conversación, conectado
+y listo.
+
+Al terminar, el borrador estaba vacío, la rotación automática restaurada, el
+permiso de notificaciones conservado y no quedaba ningún reenvío de ADB. No se
+creó ni revocó ningún emparejamiento y no se tocaron Wi-Fi ni Tailscale. La
+conversación sintética se conserva para el propietario. El
+[recibo saneado](evaluation/deployed-s24-r3-2026-10-14.json) guarda medidas y
+hashes. Las capturas, el volcado de notificaciones, los nombres privados y los
+identificadores se quedan en local.
+
+Siguen pendientes en el S24: instalación desde cero, expulsión del proceso por
+Android, suspensión de 30 minutos y de 8 horas, cambio de Wi-Fi a datos móviles,
+notificación con la pantalla bloqueada, compartir desde otra aplicación,
+TalkBack y apertura sin red del shell r3.
+
+## Instalador de Windows con interfaz gráfica
+
+El mismo instalador NSIS sin firma (`d0220e5f…`) se ejecutó de forma
+interactiva con otra cuenta estándar nueva, en una segunda sesión de consola de
+la VM, mientras la sesión de `friend` seguía abierta. Mostró bienvenida,
+licencia, carpeta de instalación en `LocalAppData` y fin, y terminó con código
+0. No apareció UAC, lo esperado en modo de usuario. El ejecutable instalado
+coincide con el extraído en CI. El primer arranque gráfico mostró el resumen,
+Ajustes y la licencia AGPL, y la bandeja ofreció sus cuatro acciones. El
+registro de aplicaciones de Windows no anotó errores de Spanreed ni de
+WebView2. La desinstalación gráfica terminó con código 0, retiró programa,
+registro y acceso directo, y conservó los datos del usuario, como indica su
+opción predeterminada.
+
+La limpieza retiró la cuenta, el perfil, su directorio, la clave de
+ProfileList, los hives y sus permisos en el directorio de prueba, sin
+reiniciar. Durante la limpieza, Windows pasó `IsolationSession` de Manual a
+Auto y volvió a Manual 34 s después sin intervención; BITS había hecho lo
+mismo antes de empezar. Una comparación posterior de solo lectura encontró
+iguales los archivos y el registro de `friend`, el registro de máquina,
+Defender, la política de seguridad y los servicios, normalizados y sin
+normalizar. No se atribuyen esos cambios a Spanreed ni se demuestra su causa.
+La prueba la condujeron agentes de Codex mediante Syl hasta la desinstalación;
+la limpieza y la comparación final se terminaron después mediante el agente de
+QEMU. Recibo: [prueba interactiva](https://github.com/grok-insider/spanreed/blob/8a2c09e/docs/evaluation/windows-gui-e6d9cc8-2026-10-14.json).
+No acredita SmartScreen (el instalador copiado no tenía la marca de descarga),
+artefacto firmado, MSI, actualización con la aplicación abierta, reemplazo del
+actualizador CLI, pérdida de corriente, Windows físico ni herramientas de
+accesibilidad de Windows.
 
 ## Segunda candidata, histórica desde las 01:08 UTC
 

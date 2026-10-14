@@ -154,14 +154,19 @@ restringida siguen siendo históricos y no describen el resultado posterior.
 
 Los tres workflows de la candidata nativa r3 pasan. Su instalador NSIS exacto
 pasó 31 comprobaciones bajo un usuario estándar en la VM y la limpieza final
-conservó los datos y registros anteriores; la interfaz gráfica y distribución
-estable siguen sin cualificar. Firefox de laboratorio pasó 80 comprobaciones
+conservó los datos y registros anteriores. Una prueba interactiva posterior
+del mismo instalador cubrió sus páginas, el primer arranque gráfico, la bandeja
+y la desinstalación gráfica; SmartScreen, firma y distribución estable siguen
+sin cualificar. Firefox de laboratorio pasó 80 comprobaciones
 con dos escritores y 85 con varios hosts. Cada suplemento posterior de pruebas
 o documentación necesita sus propios checks y no redefine los bytes de r3.
 La candidata multidevice del 2026-10-14 ya está
 desplegada en Coolify: TLS/CDN, recuperación real del contenedor, actualización
 de shell N/N−1 y dos navegadores emparejados con station están comprobados.
-La prueba física de r3 en el S24 sigue pendiente. La prueba de 24 horas iniciada
+La prueba física de r3 en el S24 pasó teclado vertical y horizontal,
+recuperación tras forzar la parada de Chrome, notificación real en segundo
+plano y su apertura; siguen pendientes instalación desde cero, suspensión
+larga, cambio de red, pantalla bloqueada y compartir desde otra aplicación. La prueba de 24 horas iniciada
 el 14 de octubre a las 03:13:42 UTC no cuenta como aprobada hasta terminar y
 revisar sus invariantes, límites y limpieza. Las publicaciones siguen cerradas
 por el contraejemplo de escritura tardía tras el borrado en S3.

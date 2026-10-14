@@ -24,11 +24,20 @@ the existing shared leader/terminal were preserved.
 Firefox 157 passed 80 multiwriter and 85 multihost laboratory checks; Chromium
 passed a 107-check regression with the same final runner. The exact `e6d9cc8`
 unsigned Windows NSIS installer passed 31 standard-user lifecycle checks in
-the existing VM, with final cleanup and baseline preservation verified. These
-scoped results do not qualify retail Firefox, graphical installer interaction,
-stable signing or physical Windows hardware.
-The S24 push trial belongs to the first deployment; this candidate's physical
-device and elapsed-time gates remain open.
+the existing VM, with final cleanup and baseline preservation verified. A
+separate interactive run of the same installer as a new standard user covered
+the installer pages, first graphical start, Settings, rendered license, tray
+menu and graphical uninstall, with the temporary account removed and every
+baseline equal afterwards ([receipt](https://github.com/grok-insider/spanreed/blob/8a2c09e/docs/evaluation/windows-gui-e6d9cc8-2026-10-14.json)).
+These scoped results do not qualify retail Firefox, SmartScreen, stable
+signing or physical Windows hardware.
+On the physical S24, the installed WebAPK updated explicitly to the r3 shell
+and, against the activated r3 host, passed portrait and landscape keyboard
+layout, recovery after a Chrome force-stop, a real generic notification posted
+after backgrounding and notification click-through
+([receipt](evaluation/deployed-s24-r3-2026-10-14.json)). Fresh installation,
+OS eviction, long suspension, radio handoff, the locked screen and the share
+target remain open, as do the elapsed-time gates.
 
 The bounded [24-hour run](remote-soak-qualification.md) started on 2026-10-14 at
 03:13:42 UTC from clean QA commit `480f1be`; it is due on 2026-10-15 at the same
@@ -67,10 +76,10 @@ repositories.
 | --- | --- | --- |
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented; exact N/N−1 shell transitions preserve a live synthetic turn, queue and draft in two browsers; physical-device release qualification pending |
 | Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Final r3 shell passes 107 laboratory checks with independent hosts and deliberately matching session IDs; deployed trusted TLS/Tailscale passes with two browser stores. Real custom-domain TLS and two physical hosts remain pending |
-| Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
-| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption, r3 isolated lifecycle and station activation pass. Windows limited-user security/updater/process checks pass on their recorded revisions; r3 CI and the exact unsigned NSIS lifecycle pass. Graphical installer, real CLI replacement and stable distribution remain separate gates |
+| Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; the S24 passed an explicit r1→r3 update and a force-stop recovery, while an offline open of the r3 shell on the device remains pending |
+| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption, r3 isolated lifecycle and station activation pass. Windows limited-user security/updater/process checks pass on their recorded revisions; r3 CI, the exact unsigned NSIS lifecycle and its interactive installer/first start/uninstall pass in the VM. SmartScreen with a signed artifact, real CLI replacement, physical Windows and stable distribution remain separate gates |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
-| Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic provider/S24 delivery passed on the first deployment; final r3 delivery and notification click-through remain pending |
+| Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic delivery on the S24 passed on the first deployment and again on r3, posted after backgrounding, with click-through to the conversation; delivery to a killed or long-suspended app and the locked screen remain pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
 | Publication retention and budgets | Atomic admission, real byte accounting, terminal expiry/revocation, snapshots cannot recover deleted content | Application controls and PostgreSQL/key-process tests exist; real S3 counterexample proves a late PUT can resurrect an object after DELETE/HEAD. Physical deletion is not qualified; storage, restore and perimeter gates remain closed |
 | Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Exact QA artifact and original native/Rust/WASM notices verified; public N/N−1 source/notice retention and browser rollback passed; platform release installers pending |
@@ -128,7 +137,8 @@ Private push has a bounded durable outbox, coalescing, six attempts within a
 fixed fifteen-minute TTL, provider response handling, four workers and durable
 per-registration/global rates. Generic notices carry no conversation content.
 The service worker validates expiry and deduplicates durable notice IDs locally.
-Real provider delivery and suspension on the final S24 artifact remain required.
+Real provider delivery on the final S24 artifact passed with the app in the
+background; delivery after OS eviction and long suspension remains required.
 Speech playback selects only a browser-advertised local voice and fails closed
 without one; it remains experimental until device qualification.
 
@@ -390,8 +400,8 @@ and 53-check multi-browser receipt are described above. Linux updater recovery
 now includes durable phases and process interruption at seven checkpoints;
 the earlier lack of power-loss recovery describes the historical implementation.
 
-The latest S24 window was offered, but Android was still locked on attachment;
-physical r3 testing remains pending. Windows
+A first r3 S24 window found Android locked and stopped; a later window
+completed the physical r3 checks listed above. Windows
 strict ACL and suspended Job assignment passed 16 targeted security checks in
 the existing guest; updater checks passed 26 normal tests and one opt-in test
 under a limited user. A real-listener relay fixture passes four limited-user

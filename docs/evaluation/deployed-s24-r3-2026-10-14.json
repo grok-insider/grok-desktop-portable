@@ -1,0 +1,231 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-10-14T09:30:10.092Z",
+  "origin": "https://grok.fabrials.com",
+  "scope": "Physical Android qualification of the deployed third candidate PWA against the activated r3 native host over the owner's private Tailscale endpoint",
+  "result": "passed for the listed checks; cold installation, long suspension, radio handoff, locked screen and share target remain open",
+  "device": {
+    "model": "Samsung Galaxy S24 Ultra SM-S928B",
+    "android": "16",
+    "chrome": "154 (WebAPK user agent)",
+    "installedApp": "pre-existing Android WebAPK, no reinstallation"
+  },
+  "identities": {
+    "portableSourceCommit": "abe4f35895aacda102a09c3b50475379febf3b6c",
+    "shellSha256": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+    "observedJavascript": "index-BOTrB-6j.js",
+    "observedJavascriptSha256": "cc090e96be79a5ddaff8a3bd1bc7ecbc97b49dee059bf971d40613a3f141f7a1",
+    "javascriptBeforeExplicitUpdate": "index-DpDoWcjC.js",
+    "shellBeforeExplicitUpdate": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982",
+    "nativeSourceCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "nativeBinarySha256": "5cdd5c4d8aa6c9d04cc99d9772b0964a3d2fde67658818f91a9180bdc2ff7e47",
+    "nativeBinding": "The running host process was the activated r3 binary throughout; its executable hash was read from the live process after the run."
+  },
+  "passed": [
+    "The existing WebAPK started in standalone mode with the earlier first-candidate shell and a waiting service worker; nothing changed until the visible Update and reload action.",
+    "Update and reload activated the third-candidate shell directly from the first candidate; the second candidate was never installed on this device.",
+    "The saved pairing connected without enrollment; no pairing was created or revoked.",
+    "Portrait with the Android keyboard open: editor and Send fully visible, unclipped and hit-tested, with the synthetic draft saved.",
+    "Landscape without keyboard and with the keyboard open at a 136 CSS px visual viewport: editor and Send fully visible, unclipped by any ancestor and hit-tested at their centres, Send at 44x44 CSS px, no horizontal overflow; the draft survived rotation.",
+    "After Android force-stop of Chrome, relaunching the WebAPK and pressing Connect restored the same conversation route and the same unsent draft on a new document with the same shell.",
+    "One authorized synthetic prompt was sent from the phone, the app went to Home, and the host replied with the requested token.",
+    "A generic Grok notification was posted about 3.5 s after the Home action completed, with PRIVATE visibility and a hidden public version; it contained no conversation text.",
+    "Tapping the notification in the Android shade brought the existing app document to the foreground on the conversation, connected and ready."
+  ],
+  "explicitUpdate": {
+    "waitingWorkerBeforeAction": "installed",
+    "standalone": true,
+    "horizontalOverflow": false
+  },
+  "layout": {
+    "portraitWithKeyboard": {
+      "viewportCssPx": [
+        384,
+        491
+      ],
+      "visualHeightCssPx": 491.2,
+      "editorVerticalRangeCssPx": [
+        374.47,
+        434.47
+      ],
+      "sendVerticalRangeCssPx": [
+        434.47,
+        478.47
+      ],
+      "sendTargetCssPx": [
+        44,
+        44
+      ],
+      "editorFullyVisible": true,
+      "editorHitTest": true,
+      "editorClippingAncestors": 0,
+      "sendFullyVisible": true,
+      "sendHitTest": true,
+      "sendClippingAncestors": 0,
+      "horizontalOverflow": false,
+      "syntheticDraftPreserved": true,
+      "draftSaved": true,
+      "ready": true
+    },
+    "landscapeWithoutKeyboard": {
+      "viewportCssPx": [
+        750,
+        354
+      ],
+      "visualHeightCssPx": 354.13,
+      "editorVerticalRangeCssPx": [
+        305.47,
+        349.47
+      ],
+      "sendVerticalRangeCssPx": [
+        305.47,
+        349.47
+      ],
+      "sendTargetCssPx": [
+        44,
+        44
+      ],
+      "editorFullyVisible": true,
+      "editorHitTest": true,
+      "editorClippingAncestors": 0,
+      "sendFullyVisible": true,
+      "sendHitTest": true,
+      "sendClippingAncestors": 0,
+      "horizontalOverflow": false,
+      "syntheticDraftPreserved": true,
+      "draftSaved": true,
+      "ready": true
+    },
+    "landscapeWithKeyboard": {
+      "viewportCssPx": [
+        750,
+        136
+      ],
+      "visualHeightCssPx": 136.53,
+      "editorVerticalRangeCssPx": [
+        91.2,
+        135.2
+      ],
+      "sendVerticalRangeCssPx": [
+        91.2,
+        135.2
+      ],
+      "sendTargetCssPx": [
+        44,
+        44
+      ],
+      "editorFullyVisible": true,
+      "editorHitTest": true,
+      "editorClippingAncestors": 0,
+      "sendFullyVisible": true,
+      "sendHitTest": true,
+      "sendClippingAncestors": 0,
+      "horizontalOverflow": false,
+      "syntheticDraftPreserved": true,
+      "draftSaved": true,
+      "ready": true
+    }
+  },
+  "layoutHarnessNote": "A first landscape keyboard attempt left the visual viewport at 354 CSS px because the keyboard had not opened; it is retained as landscape without keyboard, and the retry with the keyboard open is the 136 CSS px measurement.",
+  "processDeath": {
+    "method": "Android am force-stop com.android.chrome",
+    "onlyOwnPwaPageOpen": true,
+    "chromeProcessAbsentAfter": true,
+    "osEvictionTest": false,
+    "newDocument": true,
+    "sameShell": true,
+    "explicitConnectRequired": true,
+    "sameDraftRestored": true,
+    "conversationRestoredWithoutReselection": true,
+    "readyAfterConnect": true
+  },
+  "realPush": {
+    "promptCount": 1,
+    "syntheticPrompt": "Prueba r3 de notificación. Responde únicamente R3_S24_OK_0915. No uses herramientas ni leas archivos.",
+    "response": "R3_S24_OK_0915",
+    "sendClickedAt": "2026-10-14T09:27:07.891Z",
+    "homeActionCompletedAt": "2026-10-14T09:27:08.180134+00:00",
+    "androidNotificationPostedAt": "2026-10-14T09:27:11.693Z",
+    "androidInterruptionAt": "2026-10-14T09:27:11.749Z",
+    "deviceAndHostClockOffsetSeconds": 0,
+    "postedAfterBackgrounding": true,
+    "replacedEarlierNotificationWithSameTag": true,
+    "earlierNotificationTimestamp": "2026-10-14T00:11:23.584Z",
+    "title": "Grok",
+    "body": "There is activity on your computer.",
+    "androidVisibility": "PRIVATE",
+    "androidPublicVersionBody": "Contenidos ocultos",
+    "androidImportance": "DEFAULT",
+    "documentVisibilityWhenObserved": "hidden",
+    "subscriptionLocation": "computer-specific push service-worker scope; the root shell registration had no subscription",
+    "privateConversationIncluded": false,
+    "clickThrough": {
+      "tappedGenericNotice": true,
+      "openedPath": "conversation route (identifier withheld)",
+      "sameDocumentAsBeforeTap": true,
+      "visible": true,
+      "ready": true
+    },
+    "limitations": [
+      "The locked screen was not exercised.",
+      "The app process was alive in the background, not killed, when the notification arrived.",
+      "Delivery latency is a single observation, not a distribution."
+    ]
+  },
+  "cleanup": {
+    "draftEmpty": true,
+    "draftOff": true,
+    "rotationRestored": "automatic",
+    "pairingsCreated": 0,
+    "pairingsRevoked": 0,
+    "notificationConsentPreserved": true,
+    "wifiChanged": false,
+    "tailscaleChanged": false,
+    "ownAdbForwardsRemaining": 0,
+    "syntheticConversationKeptForOwner": true
+  },
+  "notQualified": [
+    "Fresh WebAPK installation from the browser",
+    "Android eviction of the app process by the OS",
+    "Suspension of 30 minutes and 8 hours",
+    "Wi-Fi to mobile data and Tailscale reconnection",
+    "Locked-screen notification display",
+    "Share target from another app",
+    "TalkBack"
+  ],
+  "evidenceSha256": {
+    "after-process-death.json": "fd8b484db2cf0ef197dbca0adb34b5d881a6de236ce0e88e1e34931b61715003",
+    "after-process-death.png": "1f428128f256b7f81c8c8b3cf44a600816e6f22a530759e813f5fc00bf6666d8",
+    "after-update.json": "9d85dd1a3d704dcef0e7452b705ad4b52e561b98bd8b7230be7d8f8cfd9cb3b3",
+    "before-process-death.json": "ae6989c6085efa22f844f2620c1a214aec781fed46a094fea8e7c266043467be",
+    "before-process-death.png": "5d872466bea81ac94733eb4fd9efb8d26b68f88ae0bab0e2ef6cfcf9705d6099",
+    "device-before.json": "2011b177ecba6d0c7ab680bd3f672f0f7251c21348ac0a933582754e8ac9fb3b",
+    "explicit-update.json": "b08787b29dfea5d4f302efa8b2b1fc2ded04296242e218cca7b25b5d181d6eee",
+    "final-state.json": "c3d265339f35a5eb4177a2c35a1cdca4f47b6ade7e60f00dc1b0197f15ded303",
+    "landscape-ime-retry.json": "ee27dedbb26885350c82dd789c1f0fa83f6395452734ae475683d9130b0b2c2e",
+    "landscape-ime-retry.png": "d60c48ea4cd224eb4342ac28f0fbbb81e952b459aa8c4c3bfa808d575714df7e",
+    "landscape-ime.json": "61175780461de551df1b5411c2ee725abae55059dead043b5bc6b3da97431781",
+    "landscape-ime.png": "622d25074deb9b84ceaf2350d02eb25e60330ee172a9f8189b2018999e37c631",
+    "landscape-no-ime.json": "6fae9b53e0976670bf255b03e58a3133f01adeb6ae1577263d7a17caa76fd099",
+    "landscape-no-ime.png": "8173a9a3f0c69c00215c201664c76db464d0413a7dd78c4b490db44ba4e49380",
+    "notification-after.json": "78c80e222afee8e0ee548480142e53d248da2da496205575c1f5f62ee7392350",
+    "notification-android.txt": "cd7dd21d535471777d1492b19102d1c0f9dbf24170b7062ab35cc4f45c6de9de",
+    "notification-baseline.json": "7e3edf706515a89456d21ea7791b701170b62d69f7c0efe3398ad074d4110540",
+    "notification-click-target.json": "b9f45d98d89fd5e6f3a8c50a78c5832fd4067b1ccd1747a31e1c67debf004d8b",
+    "notification-opened.json": "bd4f2bf890050f7f689803639a31ddb3a517e858fed343b7f1ce1a93d340adfb",
+    "notification-opened.png": "70c00f235fd0b93a3a8a8129dd53ec6f3b84e1812b2cc55fe15cc3dd29bb8800",
+    "notification-send.json": "de87b2e7a80c9b380289c7f90984a1d9b8e761b5106b28641f143b4b586c2dd6",
+    "opened.png": "65c4ffa87de9d1f0d30a5451b67d3c1eb3d7d55e2f133e1dc589dfd3888c8a2f",
+    "portrait-before.json": "c4a0962a641c758d674518b1c92d846eecc0d7cb8514d799a0f46b207e0da2cf",
+    "portrait-before.png": "6511f65d2f9c6a94df45a0e6b153cb6784e80f91f3f2a3e931d36c09e4e1b711",
+    "portrait-ime.json": "3090bd88961c6ff695a0424df13e42eb139c35430bb4302767e9609013252e12",
+    "portrait-ime.png": "ab2f3c3ad206ae7cd5a878899fd2cbbe7afbb0ffc1f057655bf4e938d8b75369",
+    "portrait-keyboard.json": "b78309cdfe67b7842cfd09b1e9b94ac58972e4805c1ee0201e31b1f3d1a1fc42",
+    "portrait-keyboard.png": "6511f65d2f9c6a94df45a0e6b153cb6784e80f91f3f2a3e931d36c09e4e1b711",
+    "process-death.json": "4c9d445dbe24bc9c95fd1c255abe03a52d92a7ca445472adbc478e767a659f1c",
+    "push-before.json": "71fe87022818385690e292f5591477fde94ce8542e57fc76a52015bc957aa8ab",
+    "updated.png": "f9d356fac894f2be93be01a5e1b17665874f0f8381fca17cbbe3e9c1a259d3d1",
+    "updated2.png": "c056537acca46efc17bacdedc4998159dab8eb3b3e3d97154b5e5d36ddd7795e"
+  },
+  "privacy": "Raw captures, the Android notification dump, private host names, the pairing and push identifiers, the conversation identifier and the device address stay local; only their hashes are recorded."
+}
