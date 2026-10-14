@@ -25,11 +25,14 @@ let syl,browser,chrome,seq=0;
 const ownedPairings=[];
 const pages=[];
 const spawnFailures=[];
-const cli='/home/friend/.local/state/nix/profiles/spanreed-remote-qa/bin/spanreed-qa';
+const unit=process.env.REMOTE_QA_UNIT??'spanreed-remote-qa.service';
+const cli=process.env.REMOTE_QA_CLI??'/home/friend/.local/state/nix/profiles/spanreed-remote-qa/bin/spanreed-qa';
+const selectedNative=process.env.REMOTE_QA_NATIVE_BINARY??'/home/friend/.local/state/nix/profiles/spanreed-remote-qa/bin/spanreed';
+assert.match(unit,/^[a-z0-9-]+\.service$/,'REMOTE_QA_UNIT must name a user service');
 const initialDevices=[];
 const cleanEnv={...process.env};
 for(const name of Object.keys(cleanEnv)) if(/KEY|TOKEN|SECRET|PASSWORD|AUTH|CREDENTIAL/i.test(name)) delete cleanEnv[name];
-const mainPid=()=>Number(execFileSync('systemctl',['--user','show','spanreed-remote-qa.service','--property=MainPID','--value'],{encoding:'utf8',timeout:5000}).trim());
+const mainPid=()=>Number(execFileSync('systemctl',['--user','show',unit,'--property=MainPID','--value'],{encoding:'utf8',timeout:5000}).trim());
 const procIdentity=async pid=>{
   assert.ok(pid>1,'QA service must be running');
   const status=await readFile(`/proc/${pid}/stat`,'utf8');
@@ -90,7 +93,8 @@ const rpc=(method,params)=>new Promise((resolveResult,reject)=>{
 const persist=async()=>writeFile(join(output,'report.json'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
 try{
   report.runnerSha256=hash(await readFile(new URL(import.meta.url)));
-  report.nativeSha256=hash(await readFile('/home/friend/.local/state/nix/profiles/spanreed-remote-qa/bin/spanreed'));
+  report.unit=unit;
+  report.nativeSha256=hash(await readFile(selectedNative));
   check('selected_native_matches_expected_hash',report.nativeSha256===expectedNative);
   report.serviceBefore=await procIdentity(mainPid());
   check('running_service_matches_selected_native',report.serviceBefore.sha256===expectedNative);

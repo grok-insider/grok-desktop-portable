@@ -263,9 +263,40 @@ independent browsers to station through trusted Tailscale TLS and reconnected
 one without blocking the other. See the [dated receipt](qualification-evidence-2026-10-14.md)
 for identities, station installation, evidence paths and outstanding gates.
 
-## Current deployment: r3, 2026-10-14
+## Current deployment: r4c, 2026-10-14
 
 The current QA image is
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:23ed39dabcb6a549031c3193f158aeb135a5ecb0895d37b9ab14edac77c8f1b6`,
+deployed at 21:14 UTC by changing only the image digest in the service Compose
+and using `restart`. Portable `6870159256e77ddcd62ebbf216339d956d7a4379`,
+libraries `bd01164cf98dc416c52482d5c9f5a2f5d9acfae2` and Spanreed
+`4219cba26344ea3cbd87c56fed9a4d3cc01bccec` identify its corresponding source;
+its shell is `5bf49c9f5c116b8f8c715850ba38a9579d7db44f787ca521909961a4bd38693a`.
+The wrapper retains the sources and notices of r3 (`e2ed580c…`) and the three
+earlier shells. Its rollback image
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:ad0bfddd5e857b2512cac5c006a0dbf2ee2876a25cb7d061e7a344192a7c4551`
+serves r3 and retains the r4c sources as well. Both digests and tags are in
+puck-2's `/data/registry/protect.txt`.
+
+Coolify actually rolled back to r3 and restored r4c; each image became healthy
+within about ten seconds. The origin passed 224 HTTP checks and the CDN 226 for
+r4c (before the rollback and again after restoring), and 253 and 255 for the
+rollback image. The running container keeps UID 101, a read-only root, 128 MiB,
+0.5 CPU, 64 PIDs, no capabilities, `no-new-privileges` and no host ports. The
+real update from r3 to r4c in Chrome 155 passed 18 checks. Live pairing against
+station passed 24 checks twice: with the r3 shell before the image change and
+with the r4c shell after it. Station now runs Spanreed `4219cba` from its NixOS
+configuration rather than the QA unit.
+
+Evidence: [r4c deployment receipt](evaluation/qualification-r4c-deployment-2026-10-14.json).
+Local build, wrappers and operational receipts live under
+`~/.local/share/fabrials-remote-release/2026-10-14/r4c-candidate/`. The frozen
+source checkouts are `.worktrees/remote-portable-final-6870159` and
+`.worktrees/remote-spanreed-final-4219cba`.
+
+## Earlier deployment: r3, 2026-10-14
+
+The r3 QA image was
 `10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8`.
 Portable `abe4f35895aacda102a09c3b50475379febf3b6c`, libraries
 `ee3060d023c5f5f34196e1ef7f439b65be9d0bb8` and Spanreed source

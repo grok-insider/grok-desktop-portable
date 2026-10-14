@@ -6,11 +6,12 @@ evidencia histórica de sus propias revisiones. Las horas están en UTC y la fec
 del documento corresponde a Europe/Paris. Los PRs siguen en borrador y las
 publicaciones públicas siguen cerradas.
 
-## Cuarta candidata (r4c): local, sin desplegar
+## Cuarta candidata (r4c): desplegada
 
-Preparada la noche del 14 de octubre. No se ha desplegado: grok.fabrials.com
-sigue sirviendo r3 hasta tener el recibo del S24 tras la noche, porque un
-cambio de shell alteraría esa prueba.
+Preparada y desplegada la noche del 14 de octubre por decisión del dueño
+(«last version siempre», «do all now»): station y grok.fabrials.com ejecutan
+siempre la última versión cualificada. Esa decisión cortó la prueba nocturna
+del S24 sobre r3 (ver abajo).
 
 | Componente | Revisión o SHA-256 |
 | --- | --- |
@@ -52,14 +53,40 @@ Comprobado en local contra el artefacto exacto, con TLS de laboratorio:
   UTC del 15 de octubre ([recibo de inicio](evaluation/soak-r4c-started-2026-10-14.json)).
   Es progreso, no resultado.
 
-Pendiente para la mañana y para el despliegue: el recibo del S24 sobre r3;
-construir y publicar las imágenes en el registro; desplegar r4c en
-grok.fabrials.com con la recuperación a r3 preparada; la actualización real
-desde r3 y la recuperación; el emparejamiento real con el host de la estación;
-una pasada en el S24 sobre r4c; y la revisión de diseño a 768 px, al 200 % de
-texto, en colores forzados y en RTL. La estación sigue con el binario nativo
-r3: una PWA r4c contra un host r3 no recibe los recuentos de omisión y no
-muestra el aviso.
+Despliegue (recibo: [qualification-r4c-deployment](evaluation/qualification-r4c-deployment-2026-10-14.json)):
+
+- CI en verde antes de desplegar: Spanreed `4219cba` con todos sus trabajos,
+  incluidos NSIS y cruzados de Windows y la build de Nix; Portable `10bc674`.
+- Station a las 21:13:06 UTC: la configuración de NixOS fija Spanreed en
+  `4219cba` (solo cambian `flake.nix` y `flake.lock`; nada del resto del
+  trabajo sin commit de ese repositorio cambió de contenido), generación 209,
+  `spanreed-remote.service` activo y la unidad QA retirada (su perfil se
+  conserva para volver). Unos 23 s sin host. Los cinco ficheros de identidad
+  quedaron idénticos byte a byte, con salud local y por Tailscale y `doctor`
+  correcto. El binario es una build de Nix, no el binario de la prueba larga.
+  La primera build agotó la memoria de la estación (OOM del daemon de Nix con
+  un juego abierto); la segunda, con dos trabajos, terminó.
+- Emparejamiento real: 24 comprobaciones con el shell r3 aún desplegado contra
+  el host r4c, y otras 24 con el shell r4c. El protocolo no cambió entre r3 y r4c.
+- Imágenes construidas en puck-2 y protegidas en el registro. Coolify con el
+  digest nuevo y `restart`: el origen pasó 224 comprobaciones HTTP y el CDN 226.
+- Actualización real de r3 a r4c en Chrome 155: 18 comprobaciones.
+- Recuperación real a r3 y vuelta a r4c en Coolify: 253 y 255 con r3, y otra
+  vez 224 y 226 con r4c.
+
+Sigue pendiente: el resultado de la prueba de 24 h; una pasada en el S24 sobre
+r4c (el WebAPK conserva r3 hasta que acepte la actualización); y la revisión de
+diseño a 768 px, al 200 % de texto, en colores forzados y en RTL.
+
+### S24 tras la noche: interrumpida
+
+La línea base se tomó a las 19:06:22 UTC sobre r3. La prueba se cortó a las
+20:59 UTC, tras 6.763 s (1 h 53 min), para desplegar r4c. Hasta ese momento la
+continuidad del host se mantuvo y Chrome conservaba el mismo proceso. La
+pantalla siguió encendida y desbloqueada todo el tiempo y el móvil cargaba, así
+que la muestra no dice nada sobre el reposo ni sobre Doze. No hubo lanzamiento
+ni envío posterior. Siguen en el móvil el borrador testigo y la opción de
+borradores activada: se limpiarán en la próxima pasada sobre r4c.
 
 ## Tercera candidata: PWA desplegada y nativo activado
 

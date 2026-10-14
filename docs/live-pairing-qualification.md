@@ -20,7 +20,11 @@ node scripts/qa/qualify-live-pairing.mjs /tmp/<directorio-nuevo>
 ```
 
 El directorio debe ser nuevo y se crea con permisos 0700. La unidad QA debe
-estar activa y Tailscale debe servir su origen HTTPS privado habitual. El
+estar activa y Tailscale debe servir su origen HTTPS privado habitual. Para
+probar otra unidad, como `spanreed-remote.service` cuando station ejecuta la
+versión de su configuración de NixOS, se indican `REMOTE_QA_UNIT`, el ejecutable
+que crea la vinculación (`REMOTE_QA_CLI`) y el binario cuyo hash se compara
+(`REMOTE_QA_NATIVE_BINARY`); por omisión son los de la unidad QA. El
 ejecutor crea dos vinculaciones de prueba, comprueba que ambas conservan sus
 controles, recarga una sin volver a vincularla y revoca cada una desde la
 interfaz. La otra debe seguir siendo operativa tras la primera revocación.
