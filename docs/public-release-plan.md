@@ -12,12 +12,15 @@ its exact sources, deployed TLS/CDN checks, N/N−1 browser update and station
 verification are recorded in [the current receipt](qualification-evidence-2026-10-14.md).
 This is not a public-launch qualification.
 
-The second 2026-10-14 qualification deployment uses Portable `00393e13`, libraries
-`64874102` and Spanreed `7e2a7816`. Its 905 PWA tests, three 96-check image/layout
-laboratory runs, deployed HTTP checks, 18-check browser update and 19-check
-two-browser revocation trial are bound to exact artifact hashes in the current
-receipt. The S24 push trial belongs to the earlier deployment; this candidate's
-physical-device and elapsed-time gates remain open.
+The third 2026-10-14 qualification deployment uses Portable `abe4f35`, libraries
+`ee3060d` and corresponding-source Spanreed `e6d9cc8`. Its 905 PWA tests,
+107-check multi-host laboratory run, 243 origin/245 CDN checks, real hosting
+rollback/restoration, two 18-check browser update trials and 22-check official
+terminal trial are bound to exact artifact hashes in the current receipt.
+Station still runs `7e2a7816`: the new shell passed 24 checks against that previous
+host. Installing the new native requires all three exact-commit CI workflows.
+The S24 push trial belongs to the first deployment; this candidate's physical
+device and elapsed-time gates remain open.
 
 Follow-up preparation uses `https://grok.fabrials.com` as an explicitly selected
 qualification origin, with a separate hosting configuration and native pairing
@@ -48,13 +51,13 @@ repositories.
 | Work | Acceptance gate | Current state |
 | --- | --- | --- |
 | Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented; exact N/N−1 shell transitions preserve a live synthetic turn, queue and draft in two browsers; physical-device release qualification pending |
-| Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Implemented; two independent browsers paired and reconnected against deployed trusted TLS/Tailscale; custom TLS and multi-host release qualification pending |
+| Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Final r3 shell passes 107 laboratory checks with independent hosts and deliberately matching session IDs; deployed trusted TLS/Tailscale passes with two browser stores. Real custom-domain TLS and two physical hosts remain pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
-| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Transactional Linux updater passes 31 tests including process interruption; Windows Job/ACL implementation remains gated until real guest qualification; installed-service qualification pending |
+| Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption and r3 isolated lifecycle pass. Windows limited-user security/updater/process checks pass on their recorded revisions; final distribution and exact-commit CI gates remain open |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
-| Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Implemented and synthetic encryption checked; real provider/S24 delivery pending |
+| Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic provider/S24 delivery passed on the first deployment; final r3 delivery and notification click-through remain pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
-| Publication retention and budgets | Atomic admission, real byte accounting, terminal expiry/revocation, snapshots cannot recover deleted content | Implemented with real PostgreSQL/S3/key-process tests; infrastructure/restore/perimeter gates remain closed |
+| Publication retention and budgets | Atomic admission, real byte accounting, terminal expiry/revocation, snapshots cannot recover deleted content | Application controls and PostgreSQL/key-process tests exist; real S3 counterexample proves a late PUT can resurrect an object after DELETE/HEAD. Physical deletion is not qualified; storage, restore and perimeter gates remain closed |
 | Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Exact QA artifact and original native/Rust/WASM notices verified; public N/N−1 source/notice retention and browser rollback passed; platform release installers pending |
 | Product qualification | Exact candidate on Linux/Windows/S24, browser engines, accessibility, network failures, 24-hour soak | Pending |
 
@@ -86,8 +89,8 @@ CLI versions. Unobserved external terminal turns cannot be remotely cancelled.
 Direct `!` shell mode remains unavailable in shared conversations; the UI now
 says so and preserves the draft. Grok's permission-mediated tools remain usable.
 
-The subsequent [interactive-terminal qualification](terminal-continuity-qualification.md)
-passed 22 checks with native `f3ebb334` and the unchanged deployed shell. An
+The final [interactive-terminal qualification](evaluation/terminal-continuity-r3-2026-10-14.json)
+passed 22 checks with native `e6d9cc8` and the exact r3 shell. An
 official Grok 1.0.52 TUI and a real browser exchanged five synthetic turns over
 one shared leader. A pending permission survived browser reload, terminal
 approval executed one effect, and browser denial of the identical command's
@@ -330,8 +333,9 @@ above and the current integration status below describe subsequent work.
   proofs and unsafe execution of supplied worker JavaScript during verification;
   the verifier now parses literal JSON metadata. This gate does not qualify a
   dirty development checkout, provide a dependency-license audit or prove
-  reproducible native binaries. Hosting must retain sources for versions still
-  in use, including N/N-1; that arrangement remains unqualified.
+  reproducible native binaries. Hosting now retains sources and notices for
+  four distributed shells, including N/N-1, verified through real rollback and
+  restoration; future retention operations remain an operational obligation.
 - Linux self-update passed 23 directed tests, two CLI integration checks and
   strict all-targets Clippy. It takes the host's instance lock, validates the
   staged executable and installed version under deadlines, and restores the
@@ -347,10 +351,10 @@ above and the current integration status below describe subsequent work.
   no missing native license declaration. A tested notice generator includes
   complete license texts for 113 installed PWA dependency versions, including
   fonts, Tailwind CSS and Vite runtime helpers; identical notices appear in the
-  shell, external artifact and embedded PWA. This is not completed redistribution
-  qualification: native/Rust-WASM attribution, MPL, Unicode and CDLA notices,
-  the other platform/feature sets and their source requirements still need
-  review. See Spanreed's
+  shell, external artifact and embedded PWA. Later native/Rust-WASM original
+  notices, including MPL, Unicode and CDLA material, are packaged and tied to
+  the r3 source artifact; platform builds have their own inventories. This
+  does not substitute for final installers on each supported platform. See Spanreed's
   `docs/evaluation/release-license-inventory-2026-10-13.json` for scope and hashes.
 
 ## Current integration status, 2026-10-14
@@ -371,19 +375,23 @@ and 53-check multi-browser receipt are described above. Linux updater recovery
 now includes durable phases and process interruption at seven checkpoints;
 the earlier lack of power-loss recovery describes the historical implementation.
 
-The S24 candidate trial still needs a current available device window. Windows
+The latest S24 window was offered, but Android was still locked on attachment;
+physical r3 testing remains pending. Windows
 strict ACL and suspended Job assignment passed 16 targeted security checks in
 the existing guest; updater checks passed 26 normal tests and one opt-in test
-under a limited user. Complete installer/upgrade qualification and green
-cross-platform CI remain required. Linux station now runs the exact QA native
-candidate in its own service, retaining identity and pairings. Real TLS/Tailscale,
-two independent browser connections, N/N−1 source retention, browser update and
-rollback passed for the deployed candidate. The subsequent 71-check laboratory
+under a limited user. A real-listener relay fixture passes four limited-user
+checks and process lifetime passes one check. The historical Windows NSIS
+candidate passed 25 install/upgrade/repair/uninstall checks; final-artifact
+qualification and green exact-commit CI remain required. Linux station runs
+`7e2a7816` in its own QA service, retaining identity and pairings, while the r3
+native waits for CI. The new shell works against this previous host. Real
+TLS/Tailscale, two independent browser connections, N/N−1 source retention,
+browser update and rollback passed for the deployed r3 PWA. The earlier 71-check laboratory
 trial exercised exact N→N−1→N shells with an active synthetic turn, queued
 successor and saved draft, without replay or loss of pairing; its receipt is
 `evaluation/active-shell-upgrade-2026-10-14.json`. It is not a second CDN rollout
 or a hardware trial. Prior device and relay receipts cannot
-substitute for this candidate. Real push, device/platform distribution and the
+substitute for this candidate. Final-device push, platform distribution and the
 infrastructure and elapsed-time gates below remain release work.
 
 ## Final qualification

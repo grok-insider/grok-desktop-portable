@@ -1,12 +1,72 @@
 # Candidata multidevice desplegada, 2026-10-14
 
-Este documento conserva los despliegues del día. La candidata vigente es la
-segunda, descrita a continuación; las secciones posteriores conservan la
+Este documento conserva los despliegues del día. La PWA vigente es la tercera,
+descrita a continuación; las secciones posteriores conservan la
 evidencia histórica de sus propias revisiones. Las horas están en UTC y la fecha
 del documento corresponde a Europe/Paris. Los PRs siguen en borrador y las
 publicaciones públicas siguen cerradas.
 
-## Segunda candidata, vigente desde las 01:08 UTC
+## Tercera candidata: PWA desplegada, actualización nativa pendiente
+
+| Componente | Revisión o SHA-256 |
+| --- | --- |
+| Portable del shell | `abe4f35895aacda102a09c3b50475379febf3b6c` |
+| Librerías canónicas | `ee3060d023c5f5f34196e1ef7f439b65be9d0bb8` |
+| Spanreed de la candidata y archivo de fuentes | `e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a` |
+| Archivo de fuentes, 4.502.853 bytes | `d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc` |
+| Shell | `e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e` |
+| Binario GNU candidato | `5cdd5c4d8aa6c9d04cc99d9772b0964a3d2fde67658818f91a9180bdc2ff7e47` |
+| Imagen desplegada | `sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8` |
+| Imagen de recuperación | `sha256:0ba1de4556e8071daf77101ac66e91ef66b11c6f5f088e1da93cde0651e8f249` |
+
+La PWA incorpora tarjetas de equipos legibles a 390 px: identidad y endpoint
+disponen de 261–276 px en vez de 31,73 px, y las acciones miden al menos 44×44 px.
+Pasaron las 905 pruebas y los tipos. El laboratorio con los bytes finales pasó
+107 comprobaciones entre dos hosts independientes, incluso con el mismo ID de
+conversación sintético: rechazos de clave e instalación cruzadas, borradores e
+historial separados, cambio de equipo tras un fallo de conexión, cancelación
+de reintentos y revocación de uno sin afectar al otro. Es TLS de laboratorio y
+dos procesos locales; no dos máquinas físicas con dominio propio.
+
+El origen HTTPS pasó 243 comprobaciones y el CDN 245. Se activó realmente la
+imagen de recuperación r2 conservando las fuentes de las cuatro versiones:
+245 comprobaciones. Después se restauró r3: otras 245. El contenedor conserva
+UID/GID 101, raíz de solo lectura, 128 MiB sin swap adicional, 0,5 CPU, 64 tareas,
+sin capacidades ni puertos de host y con tmpfs de 16 MiB. Ambas imágenes están
+protegidas frente a la retención del registro.
+
+Dos ejecuciones de Chrome 155 en Syl Sway oculto pasaron 18 comprobaciones cada
+una de actualización explícita, fuentes/avisos y recuperación sin red. Un control
+negativo posterior con Chrome inexistente falló antes de navegar y retiró su
+perfil y compositor. El recibo distingue los hashes del ejecutor antes y después
+del refuerzo de limpieza; no atribuye una ejecución funcional al hash posterior.
+
+La PWA r3 contra station todavía en `7e2a7816` pasó 24 comprobaciones de
+vinculación simultánea, recarga y revocación independiente. Se verificaron los
+bytes del proceso activo, las vinculaciones anteriores y la salida del grupo
+Chrome. No se enviaron prompts. Este resultado cualifica la compatibilidad con
+el host anterior; no afirma que el nativo r3 esté instalado.
+
+El nativo r3 pasó por separado 22 comprobaciones con la TUI oficial Grok 1.0.52
+y el shell final: turnos en ambas direcciones, recarga sin duplicados, permiso
+pendiente conservado, aprobación desde el terminal con un único efecto y
+denegación desde la PWA sin repetirlo. Se usaron perfil y proveedor sintéticos
+aislados, sin inferencia de pago. Su ciclo de vida local pasó siete comprobaciones
+y el doctor catorce tanto sobre el binario como sobre el paquete Nix. La activación
+en station espera los tres workflows del commit exacto `e6d9cc8`; el suplemento
+del doctor solo corrige expectativas del arnés y no cambia ese binario.
+
+Recibos: [despliegue r3](evaluation/qualification-r3-deployment-2026-10-14.json),
+[terminal r3](evaluation/terminal-continuity-r3-2026-10-14.json) y
+[multihost](remote-multihost-qualification.md). Los originales están en
+`.worktrees/remote-release-candidate-20261014-r3/`. El S24 todavía no cualifica
+esta versión: al intentar la nueva ventana autorizada, Android seguía bloqueado
+y se detuvieron las acciones. El soak de 24 horas y la cohorte de siete días
+no cuentan como completados. Las publicaciones siguen cerradas: el laboratorio
+del almacenamiento reprodujo un PUT tardío que devuelve un objeto después de
+DELETE 204 y HEAD 404; no se promete borrado físico sobre esa evidencia.
+
+## Segunda candidata, histórica desde las 01:08 UTC
 
 | Componente | Revisión o SHA-256 |
 | --- | --- |

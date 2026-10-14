@@ -11,12 +11,12 @@ por los requisitos de borrado, restauración y capacidad del
 
 | Repositorio | Rama del trabajo | Destino de PR | Dependencia |
 | --- | --- | --- | --- |
-| fabrials-libs | feat/grok-remote | master | Núcleo de transporte, identidad, contenido y permisos |
-| grok-desktop-portable | feat/grok-remote | dev | SHA revisado de las librerías para Noise |
-| spanreed | feat/grok-remote | dev | Subtree canónico y PWA construida desde commits exactos |
-| fabrials-web | feat/grok-remote | master | Despliegue de autenticación separado; publicaciones cerradas |
-| fabrials-admin | feat/remote-browser-family | master | Introspección de la familia de navegador en Web |
-| ai-relay | feat/remote-browser-family | master | Introspección del panel; API nativa separada |
+| [fabrials-libs #1](https://github.com/grok-insider/fabrials-libs/pull/1) | feat/grok-remote | master | Núcleo de transporte, identidad, contenido y permisos |
+| [grok-desktop-portable #7](https://github.com/grok-insider/grok-desktop-portable/pull/7) | feat/grok-remote | dev | SHA revisado de las librerías para Noise |
+| [spanreed #56](https://github.com/grok-insider/spanreed/pull/56) | feat/grok-remote | dev | Subtree canónico y PWA construida desde commits exactos |
+| [fabrials-web #7](https://github.com/grok-insider/fabrials-web/pull/7) | feat/grok-remote | master | Despliegue de autenticación separado; publicaciones cerradas |
+| [fabrials-admin #1](https://github.com/grok-insider/fabrials-admin/pull/1) | feat/remote-browser-family | master | Introspección de la familia de navegador en Web |
+| [ai-relay #29](https://github.com/grok-insider/ai-relay/pull/29) | feat/remote-browser-family | master | Introspección del panel; API nativa separada |
 
 No fusionar directamente Spanreed en `master`: esa rama publica una release.
 No activar auto-merge. El merge de Web puede activar su despliegue y modifica
@@ -45,7 +45,7 @@ artefactos y no validan automáticamente el origen nuevo.
    Construir y verificar el artefacto con `--for-deploy`; su shell, fuentes,
    instaladores y las dos configuraciones de hosting deben corresponder.
 
-El embed del commit Spanreed `8b12b86` corresponde al origen QA y a fuentes
+El embed del commit Spanreed `e6d9cc8` corresponde al origen QA y a fuentes
 limpias verificadas; la candidata desplegada y sus hashes están en el
 [recibo del 2026-10-14](qualification-evidence-2026-10-14.md). Cada revisión posterior
 de librerías o Portable exige regenerar su identidad, crear un nuevo commit del
@@ -57,7 +57,8 @@ de fuentes sin volver a desplegar la PWA cuando sus 47 archivos siguen siendo
 idénticos. En ese caso, conservar el archivo de fuentes y los metadatos
 inmutables del shell ya publicado: no sustituir `/sources/<shell-id>.json`
 por los del binario nuevo. La identidad del paquete nativo y la del shell son
-evidencias distintas. Esta es la estrategia del cierre WebSocket `f3ebb334`.
+evidencias distintas. Esta fue la estrategia del cierre WebSocket `f3ebb334`;
+la candidata r3 posterior reconstruye también la PWA con Portable `abe4f35`.
 
 Comandos de construcción, desde el worktree de Spanreed, con los SHA y las
 rutas previamente revisados:
@@ -113,12 +114,15 @@ y crear el enlace con el mismo endpoint y origen mediante `private-pair`.
 `HOST-PRIVADO` debe ser un dominio HTTPS real del host, por ejemplo el nombre
 Tailscale con certificado válido. No publicar el puerto ACP de Grok.
 
-Mantener este host de pruebas en primer plano y detenerlo con `private-stop`
+Para un host de laboratorio nuevo, mantenerlo en primer plano y detenerlo con `private-stop`
 usando el mismo directorio de estado. No instalar un servicio de usuario para
 esta candidata: los nombres de servicio son únicos por usuario y podrían
 reemplazar o detener el host habitual. `service print`, `service install` y
 `service uninstall` rechazan los overrides explícitos de estado, incluidos
-`GROK_BRIDGE_STATE_DIR` y `GROK_LIGHT_STATE_DIR`.
+`GROK_BRIDGE_STATE_DIR` y `GROK_LIGHT_STATE_DIR`. Station ya tiene una unidad QA
+independiente, `spanreed-remote-qa.service`, cuyo perfil Nix y procedimiento de
+actualización se documentan en Spanreed `docs/remote.md`. Conservar sus nombres,
+estado y procesos compartidos; no reemplazarla mediante el instalador normal.
 
 El origen se persiste junto a la identidad: un estado de producción no se
 convierte en estado de pruebas al añadir el flag. Los estados antiguos mantienen
@@ -142,7 +146,7 @@ no habilita las publicaciones ni amplía su consentimiento a este dominio.
 ## Estado de la preparación y evidencia
 
 Los bloqueos iniciales de permisos SSH/GPG y `EPERM` de sockets y builds se
-superaron cuando cambió el entorno. Se crearon commits firmados, cuatro PRs en
+superaron cuando cambió el entorno. Se crearon commits firmados, seis PRs en
 borrador, una build cifrada, un archivo real de fuentes y una candidata verificada
 con navegador. Las identidades, hashes y límites están en el
 [recibo fechado](qualification-evidence-2026-10-13.md). Los recibos de la fase

@@ -167,7 +167,7 @@ finally{
     }
   }
   if(chrome?.pid) await waitFor(async()=>!(await groupMembers(chrome.pid)).length,5000).then(()=>{report.chromeProcessGroupEmpty=true;}).catch(()=>{report.cleanupFailed=true;});
-  if(syl){await rpc('tools/call',{name:'gui_close',arguments:{}}).catch(()=>{report.cleanupFailed=true;});await waitExit(syl,'syl').catch(()=>{report.cleanupFailed=true;});}
+  if(syl){await rpc('tools/call',{name:'gui_close',arguments:{}}).then(result=>{assert.ok(!result.isError,'Syl compositor close must succeed');}).catch(()=>{report.cleanupFailed=true;});await waitExit(syl,'syl').catch(()=>{report.cleanupFailed=true;});}
   try{
     const remaining=devices();
     assert.ok(initialDevices.every(id=>remaining.includes(id)) && ownedPairings.every(id=>!remaining.includes(id)));

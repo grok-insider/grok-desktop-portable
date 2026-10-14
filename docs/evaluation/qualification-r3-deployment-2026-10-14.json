@@ -157,5 +157,20 @@
       "cleanupFailed": false,
       "reportSha256": "92560531d1b540cc1efdd1adf48fcbe19a2dbc0e83f3d297d86aa7b4f347e9b0"
     }
+  },
+  "livePairingPreviousNative": {
+    "result": "passed",
+    "runnerSha256": "f010e1af8c38d29918636f1c767334228b02578136555314bda97011daf3d33d",
+    "nativeSha256": "90d3f5078a3f392220f59d80d09ae96ad3f8bf4b33b28ab6f5f3d1ccbf4c6bf3",
+    "shellId": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+    "browser": "155.0.8059.39",
+    "finishedAt": "2026-10-14T02:49:21.125Z",
+    "chromeProcessGroupEmpty": true,
+    "testPairingsRemoved": true,
+    "unattributedNewPairings": 0,
+    "checks": 24,
+    "reportSha256": "a1c321b02abc5d15ef72a3429eb1f604ffd85229660bc26304c15195cb100b94",
+    "cleanupFailed": false,
+    "scope": "New r3 PWA with previous station native 7e2a7816; no prompts or inference"
   }
 }
