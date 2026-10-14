@@ -75,9 +75,9 @@ export function WorkShell({
   }, [activeTabId, surface, tabs.length]);
 
   return (
-    <div className="work-shell flex h-dvh min-h-dvh flex-col bg-background p-2 max-[680px]:h-auto max-[680px]:p-0">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-raised max-[680px]:rounded-none max-[680px]:border-x-0">
-        <header className="work-header flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
+    <div className="work-shell flex h-dvh min-h-dvh flex-col bg-background max-[680px]:h-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+        <header className="work-header flex h-12 shrink-0 items-center gap-1 border-b border-border px-2">
           {/*
             Chrome, not the document heading. Each surface owns its own `h1`,
             so making this one too would leave every page with two and no
@@ -91,8 +91,8 @@ export function WorkShell({
             className={cn(
               "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body font-medium transition-colors",
               homeActive
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                ? "bg-accent text-foreground shadow-[inset_0_-2px_0_var(--brand-ink)]"
+                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
             )}
           >
             <Home size={14} className="shrink-0" aria-hidden="true" />
@@ -120,8 +120,8 @@ export function WorkShell({
                       className={cn(
                         "group flex h-8 max-w-[14rem] shrink-0 items-center gap-0.5 rounded-md pl-2 pr-0.5",
                         active
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                          ? "bg-accent text-foreground shadow-[inset_0_-2px_0_var(--brand-ink)]"
+                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
                       <button

@@ -32,7 +32,7 @@ export function PromptQueue({
           className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-1.5"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 rounded-full bg-info-soft px-1.5 py-0.5 font-mono text-label font-semibold text-info">
+            <span className="shrink-0 rounded-[var(--fui-radius-xs)] bg-info-soft px-1.5 py-0.5 font-mono text-label font-semibold text-info">
               {entry.state === "originRevoked" ? "Held" : "Waiting"}
             </span>
             <span className="truncate text-body-sm text-muted-foreground">

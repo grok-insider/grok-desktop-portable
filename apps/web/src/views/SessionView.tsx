@@ -614,7 +614,7 @@ export function SessionView({
             >
             {/* Turns breathe; a tool call sits close to the turn that ran it,
                 which is what the smaller gap on the tool row buys back. */}
-            <div className="mx-auto flex w-[min(760px,100%)] flex-col gap-4">
+            <div className="flex w-full max-w-[48rem] flex-col gap-4">
               {/* The transcript is the page, so its heading is announced but not
                   drawn: a visible title would only repeat the topbar. */}
               <h1 className="sr-only">

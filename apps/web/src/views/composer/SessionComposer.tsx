@@ -412,7 +412,7 @@ export function SessionComposer({
   return (
     <div className="session-composer shrink-0 px-3 pb-3 pt-1">
       {imageComposer && <ImageAttachments composer={imageComposer} />}
-      <div className="relative mx-auto w-[min(760px,100%)]">
+      <div className="relative w-full max-w-[48rem]">
         {menuOpen ? (
           <MentionMenu
             id={listboxId}
@@ -969,7 +969,7 @@ function McpControl({ tools }: { tools: ToolProjection[] }) {
           role="listbox"
           aria-label="MCP integrations"
         >
-          <p className="px-1 font-mono text-label font-semibold uppercase tracking-[0.06em] text-subtle-foreground">
+          <p className="px-1 text-body-sm font-medium text-muted-foreground">
             MCP integrations
           </p>
           <ul className="mt-1 max-h-48 overflow-y-auto">
@@ -983,7 +983,7 @@ function McpControl({ tools }: { tools: ToolProjection[] }) {
               >
                 <span
                   className={cn(
-                    "size-1.5 shrink-0 rounded-full",
+                    "size-1.5 shrink-0 rounded-[1px]",
                     mcp.enabled ? "bg-success" : "bg-destructive",
                   )}
                   aria-hidden="true"

@@ -355,7 +355,7 @@ describe("shared conversation integration", () => {
     });
     await openWork(host);
     await screen.findByText("Working");
-    expect(screen.getByRole("button", {name: "Model"})).toBeDisabled();
+    expect(await screen.findByRole("button", {name: "Model"})).toBeDisabled();
     running = false;
     act(() => {
       host.emit({kind: "sessionStatus", sessionId: "s-2", state: "idle"}, 10);

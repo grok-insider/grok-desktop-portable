@@ -71,7 +71,7 @@ export function WorkflowStrip({
     <div className="flex flex-col gap-2" aria-label="Session hierarchy">
       {backgroundTasks.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-secondary/20 px-3 py-2">
-          <div className="mb-1 text-label font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1 text-body-sm font-medium text-muted-foreground">
             Tasks ({backgroundTasks.length})
           </div>
           <ul className="flex flex-col gap-0.5">
@@ -135,7 +135,7 @@ export function WorkflowStrip({
             className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-2"
           >
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="text-label font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="text-body-sm font-medium text-muted-foreground">
                 Workflow
               </span>
               <span className="text-body font-medium text-foreground">
@@ -159,7 +159,7 @@ export function WorkflowStrip({
 
       {members.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-secondary/20 px-3 py-2">
-          <div className="mb-1 text-label font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1 text-body-sm font-medium text-muted-foreground">
             Nested agents ({members.length})
           </div>
           <ul className="flex flex-col gap-0.5">

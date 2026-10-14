@@ -4,7 +4,12 @@ import { ApplicationLayout } from "../src/components/ApplicationLayout";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import type { LightClient } from "../src/services/client";
 import type { Operation } from "../src/services/protocol";
-import "@fontsource-variable/ibm-plex-sans/index.css";
+import "../src/styles/layers.css";
+import "@fabrials/ui/tokens.css";
+import "../src/styles/fonts.css";
+import "@fabrials/ui/styles.css";
+import "@fabrials/ai-ui/styles.css";
+import "sonner/dist/styles.css";
 import "../src/styles.css";
 
 const key = new Uint8Array(65);key[0]=4;

@@ -74,7 +74,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 12px;
-  width: min(760px, 100%);
-  margin-inline: auto;
+  width: min(48rem, 100%);
   padding: 4px 12px;
 }

@@ -49,7 +49,7 @@ export function MentionMenu({
         "border border-border bg-popover shadow-overlay",
       )}
     >
-      <p className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 font-mono text-label font-semibold uppercase tracking-[0.06em] text-subtle-foreground">
+      <p className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-body-sm font-medium text-muted-foreground">
         {kind === "context" ? "Workspace files" : "Commands"}
         {loading ? <span className="normal-case">· loading</span> : null}
       </p>

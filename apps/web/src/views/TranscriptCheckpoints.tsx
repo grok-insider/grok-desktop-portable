@@ -53,7 +53,7 @@ export function TranscriptCheckpoints({
             aria-label={label}
             aria-current={active ? "true" : undefined}
             className={cn(
-              "pointer-events-auto h-1 w-2.5 shrink-0 rounded-full border-0 p-0",
+              "pointer-events-auto h-1 w-2.5 shrink-0 rounded-[1px] border-0 p-0",
               "transition-[background-color,width] duration-150 ease-fluid",
               "hover:w-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
               active ? "w-3 bg-foreground" : "bg-muted-foreground/40 hover:bg-muted-foreground",

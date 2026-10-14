@@ -10,8 +10,12 @@ import { readGrant, writeGrant, deleteGrant } from "../src/services/remoteDevice
 import { forgetDraftScope, managedDraftScope } from "../src/services/drafts";
 import { enqueueSharedContent, readShareInbox } from "../src/services/shareInboxStore.js";
 import type { ControlTransferRequest } from "../src/services/remoteControls";
-import "@fontsource-variable/ibm-plex-sans/index.css";
-import "@fontsource/ibm-plex-mono/400.css";
+import "../src/styles/layers.css";
+import "@fabrials/ui/tokens.css";
+import "../src/styles/fonts.css";
+import "@fabrials/ui/styles.css";
+import "@fabrials/ai-ui/styles.css";
+import "sonner/dist/styles.css";
 import "../src/styles.css";
 
 history.pushState = () => {};

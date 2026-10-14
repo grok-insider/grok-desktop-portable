@@ -362,7 +362,7 @@ function ContextTab({
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
       <ToolsChrome tools={configTools} />
       <section className="border-b border-border pb-4">
-        <p className="text-label font-semibold uppercase tracking-[0.06em] text-subtle-foreground">
+        <p className="text-body-sm font-medium text-muted-foreground">
           Session
         </p>
         <p className="mt-2 text-title-sm font-semibold text-foreground">
@@ -391,7 +391,7 @@ function ContextTab({
             </span>
           </div>
           <div
-            className="mt-2 grid h-1.5 grid-cols-10 gap-px overflow-hidden rounded-full"
+            className="mt-2 grid h-1.5 grid-cols-10 gap-px overflow-hidden rounded-[var(--fui-radius-xs)]"
             role="img"
             aria-label={`${context.usagePercent}% of context used`}
           >

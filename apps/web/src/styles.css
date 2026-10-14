@@ -341,11 +341,11 @@
 
 
 .remote-home {
-  width: min(100%, 760px);
-  margin-inline: auto;
-  padding: max(2rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  width: min(100%, calc(48rem + 2 * var(--fui-page-padding)));
+  padding: max(var(--fui-space-8), env(safe-area-inset-top)) max(var(--fui-page-padding), env(safe-area-inset-right)) max(var(--fui-space-8), env(safe-area-inset-bottom)) max(var(--fui-page-padding), env(safe-area-inset-left));
   display: grid;
-  gap: 1.5rem;
+  align-content: start;
+  gap: var(--fui-space-6);
 }
 
 .remote-host-bar {
