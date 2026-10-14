@@ -410,8 +410,9 @@ candidate passed 25 install/upgrade/repair/uninstall checks; final-artifact
 NSIS qualification subsequently passed 31 checks on exact `e6d9cc8`, including
 candidate installation in a new profile. Cleanup removed all temporary
 resources after a VM reboot; the original transient service-baseline guard
-failure is retained separately from the successful later comparison. Interactive
-installation, first graphical start and stable signing remain unqualified.
+failure is retained separately from the successful later comparison. A later
+interactive run covered installation, first graphical start and graphical
+uninstall in the VM; SmartScreen and stable signing remain unqualified.
 All three r3 native workflows passed, including
 the five Cargo invocations under a dedicated non-administrator Windows account.
 The PR's synthetic merge tree was verified identical to the candidate tree.
