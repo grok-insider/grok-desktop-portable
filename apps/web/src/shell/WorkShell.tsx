@@ -91,8 +91,8 @@ export function WorkShell({
             className={cn(
               "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body font-medium transition-colors",
               homeActive
-                ? "bg-accent text-foreground shadow-[inset_0_-2px_0_var(--brand-ink)]"
-                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                ? "border-b-2 border-brand-ink bg-accent text-foreground"
+                : "border-b-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
             )}
           >
             <Home size={14} className="shrink-0" aria-hidden="true" />
@@ -120,8 +120,8 @@ export function WorkShell({
                       className={cn(
                         "group flex h-8 max-w-[14rem] shrink-0 items-center gap-0.5 rounded-md pl-2 pr-0.5",
                         active
-                          ? "bg-accent text-foreground shadow-[inset_0_-2px_0_var(--brand-ink)]"
-                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                          ? "border-b-2 border-brand-ink bg-accent text-foreground"
+                          : "border-b-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
                       <button

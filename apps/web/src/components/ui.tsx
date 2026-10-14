@@ -181,7 +181,7 @@ export function EmptyState({
 
 export function Disclosure({ children }: { children: ReactNode }) {
   return (
-    <Alert variant="warning" layout="inline">
+    <Alert variant="warning" layout="inline" role="note">
       <AlertDescription>{children}</AlertDescription>
     </Alert>
   );
