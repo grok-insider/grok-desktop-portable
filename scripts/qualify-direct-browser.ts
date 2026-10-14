@@ -8,6 +8,7 @@ import {resolve, join} from "node:path";
 import {buildOrigin, deploymentOrigin, deploymentConfigPath, origins} from "./deployment-origin.mjs";
 import {verifyArtifact} from "./remote-artifact.mjs";
 import {qualifyDirectMultiHost} from "./qa/direct-multihost";
+import {qualifyDirectSoak} from "./qa/direct-soak";
 
 const [directoryArgument] = process.argv.slice(2);
 assert.ok(directoryArgument, "Usage: bun scripts/qualify-direct-browser.ts <private-directory-with-cert.pem-and-key.pem>");
@@ -22,7 +23,8 @@ const origin = deploymentOrigin(process.env.REMOTE_QA_ORIGIN ?? buildOrigin(awai
 assert.equal(buildOrigin(await readFile(join(dist, "index.html"), "utf8")), origin, "Browser qualification must use the built shell's exact origin");
 const hostname = new URL(origin).hostname;
 const cropDist = process.env.REMOTE_QA_CROP_DIST ? resolve(process.env.REMOTE_QA_CROP_DIST) : undefined;
-const multiwriter = process.env.REMOTE_QA_MULTIWRITER === "1";
+const soak = process.env.REMOTE_QA_SOAK === "1";
+const multiwriter = process.env.REMOTE_QA_MULTIWRITER === "1" || soak;
 const multihost = process.env.REMOTE_QA_MULTIHOST === "1";
 assert.ok(!multihost || !multiwriter, "Multi-host qualification uses separate hosts without the multiwriter fixture");
 const layoutImages = process.env.REMOTE_QA_LAYOUT_IMAGES === "1";
@@ -79,9 +81,17 @@ try {
   report.artifactSha256 = createHash("sha256").update(await readFile(join(dist, "index.html"))).update(await readFile(join(dist, "sw.js"))).digest("hex");
   const nativeBinary = process.env.DIRECT_QA_NATIVE_BINARY ?? "/tmp/fabrials-remote-integration/target/debug/examples/direct_browser_fixture";
   report.nativeFixtureSha256 = createHash("sha256").update(await readFile(nativeBinary)).digest("hex");
+  if (soak) {
+    assert.ok(process.env.DIRECT_QA_FIXTURE_MANIFEST,"Soak requires a recorded fixture source and binary seal");
+    const bytes=await readFile(process.env.DIRECT_QA_FIXTURE_MANIFEST!);
+    const seal=JSON.parse(bytes.toString());
+    assert.equal(seal.binarySha256,report.nativeFixtureSha256);
+    assert.equal(seal.fakeAgentSha256,createHash("sha256").update(await readFile(join(resolve(nativeBinary,".."),"fake_multiwriter_agent"))).digest("hex"));
+    report.fixtureSeal={...seal,sealSha256:createHash("sha256").update(bytes).digest("hex")};
+  }
   const state = join(directory, "native");
   await mkdir(state, {mode: 0o700});
-  start("native", nativeBinary, [], {...cleanEnv, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", DIRECT_BROWSER_QA_IMAGES: layoutImages ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
+  start("native", nativeBinary, [], {...cleanEnv, DIRECT_BROWSER_QA_DIRECTORY: state, DIRECT_BROWSER_QA_WEB_ORIGIN: origin, DIRECT_BROWSER_QA_ACP: multiwriter ? "1" : "0", DIRECT_BROWSER_QA_DURATION_SECS: soak ? "90000" : undefined, DIRECT_BROWSER_QA_IMAGES: layoutImages ? "1" : "0", GROK_HOME: join(state, "synthetic-grok")});
   await waitFor(async () => {try {await readFile(join(state, "ready.json")); return true;} catch {return false;}});
   const native = JSON.parse(await readFile(join(state, "ready.json"), "utf8"));
   nativePort = native.port;
@@ -143,7 +153,7 @@ try {
     close(socket) {socket.data.upstream?.close();},
   }});
   const sylLog = openSync(join(directory, "syl.log"), "wx", 0o600);
-  syl = spawn("syl", ["mcp"], {env: {...cleanEnv, SYL_MCP_PROFILE: "visual", SYL_NESTED_RES: "2560x1440"}, detached: true, stdio: ["pipe", "pipe", sylLog]});
+  syl = spawn("syl", ["mcp"], {env: {...cleanEnv, SYL_MCP_PROFILE: "visual", SYL_NESTED_RES: "2560x1440", ...(soak ? {DBUS_SESSION_BUS_ADDRESS:"unix:path=/dev/null"} : {})}, detached: true, stdio: ["pipe", "pipe", sylLog]});
   closeSync(sylLog);
   syl.on("error", () => spawnFailures.push("syl"));
   createInterface({input: syl.stdout!}).on("line", line => {const value = JSON.parse(line); const entry = pending.get(value.id); if (entry) {pending.delete(value.id); if (value.error) entry.reject(new Error(value.error.message)); else entry.resolve(value.result);}});
@@ -153,7 +163,7 @@ try {
   assert.ok(display, "real hidden Syl compositor, never its stub backend");
   const profile = join(directory, "chrome-profile");
   await mkdir(profile, {mode: 0o700});
-  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, ${[...nativeHosts.keys()].map(host => `MAP ${host} 127.0.0.1:${server.port}`).join(", ")}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...cleanEnv, WAYLAND_DISPLAY: display});
+  start("chrome", process.env.REMOTE_QA_CHROME!, [`--user-data-dir=${profile}`,"--remote-debugging-address=127.0.0.1","--remote-debugging-port=0","--ozone-platform=wayland","--password-store=basic","--no-first-run","--no-default-browser-check","--disable-background-networking","--disable-component-update","--disable-sync","--no-proxy-server","--ignore-certificate-errors",`--host-resolver-rules=MAP ${new URL(origins.production).hostname} 127.0.0.1:${server.port}, MAP ${new URL(origins.qualification).hostname} 127.0.0.1:${server.port}, ${[...nativeHosts.keys()].map(host => `MAP ${host} 127.0.0.1:${server.port}`).join(", ")}, MAP remote.fabrials.com 127.0.0.1:${server.port}`,"--start-fullscreen","--window-size=2560,1440","about:blank"], {...cleanEnv, WAYLAND_DISPLAY: display, ...(soak ? {DBUS_SESSION_BUS_ADDRESS:"unix:path=/dev/null"} : {})});
   let cdpPort = 0;
   await waitFor(async () => {try {cdpPort = Number((await readFile(join(profile,"DevToolsActivePort"),"utf8")).split("\n")[0]); return Boolean(cdpPort);} catch {return false;}});
   const {chromium} = await import(process.env.REMOTE_QA_PLAYWRIGHT ?? "/tmp/xt-work/qa/node_modules/playwright-core/index.mjs");
@@ -409,6 +419,7 @@ try {
       check("both_transcripts_agree_on_exactly_once_fifo_order",true);
       await page.screenshot({path:join(directory,"multiwriter-desktop.png")});
       await other.screenshot({path:join(directory,"multiwriter-mobile.png")});
+      if (soak) await qualifyDirectSoak({page,other,directory,state,native,report,processes:[...processes,...(syl ? [{name:"syl",child:syl}] : [])],execution,ledger,waitFor,send,waitQueue,closeSockets(){for(const socket of upstreams) socket.close();}});
       await writeFile(join(state,"disable-models"),sessionId,{mode:0o600});
       for (const target of both) {
         await waitFor(async () => await target.getByRole("button",{name:"Reasoning effort",exact:true}).count() === 0);
@@ -420,7 +431,7 @@ try {
       report.multiwriter.queueReceipts={completed:2,removed:1};
       report.multiwriter.expectedConflicts={configuration:1,clearQueue:1};
     } catch(error) {
-      report.multiwriter.browserFailure = await Promise.all(both.map(async (target,index) => ({device:index + 1,modelDisabled:await target.getByRole("button",{name:"Model",exact:true}).isDisabled().catch(() => null),workingBadges:await target.getByText("Working",{exact:true}).count()})));
+      report.multiwriter.browserFailure = await Promise.all(both.map(async (target,index) => ({device:index + 1,modelDisabled:await target.getByRole("button",{name:"Model",exact:true}).isDisabled().catch(() => null),workingBadges:await target.getByText("Working",{exact:true}).count().catch(()=>null)})));
       await other.screenshot({path:join(directory,"multiwriter-second-failure.png")}).catch(() => {});
       await writeFile(join(directory,"multiwriter-second-failure.txt"),await other.locator("body").innerText().catch(() => "unavailable"),{mode:0o600});
       throw error;

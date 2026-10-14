@@ -1,10 +1,28 @@
 # Direct multi-host qualification — 2026-10-14
 
-The local shell with the corrected computer cards passed **100 checks** in Chrome
-155.0.8059.39, in its own Syl hidden Sway compositor at 2560×1440. The daily
-browser and the user's desktop were not used. This is laboratory evidence;
-trusted custom-domain TLS and a final packaged candidate still need separate
-qualification.
+The exact **r3 artifact passed 107/107 checks** in Chrome 155.0.8059.39,
+including its real corresponding-source download. It ran in its own Syl hidden
+Sway compositor at 2560×1440; the daily browser and desktop were not used.
+The earlier local-shell run passed 100 checks. Trusted TLS and deployed routing
+are covered separately by the [r3 deployment receipt](evaluation/qualification-r3-deployment-2026-10-14.json).
+
+## Exact r3 identity
+
+The exact run is recorded in [direct-multihost-r3-browser-2026-10-14.json](evaluation/direct-multihost-r3-browser-2026-10-14.json),
+with its full local receipt at
+`/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-r3-exact/report.json`.
+It verifies Portable `abe4f35895aacda102a09c3b50475379febf3b6c`, native source
+`e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a`, and the matching source archive.
+
+| Identity | SHA-256 |
+| --- | --- |
+| Deployment manifest | `184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363` |
+| Index plus service worker | `1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423` |
+| Corresponding-source archive | `d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc` |
+
+There were zero uncaught browser errors; both native instances, Chrome and Syl
+closed with empty recorded process groups. The runner and fixture hashes in
+this receipt describe this historical run, before the later soak harness.
 
 ## Isolation exercised
 
@@ -43,7 +61,8 @@ Local artifacts, including screenshots and full reports:
 
 - `/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-qualified`: historical 95 checks against the r2 deployment artifact.
 - `/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-layout-before`: stronger geometry checks reject r2 as expected.
-- `/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-layout-qualified`: final local shell, 100 checks and zero browser errors.
+- `/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-layout-qualified`: corrected local shell, 100 checks and zero browser errors.
+- `/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-r3-exact`: exact r3, 107 checks, real source archive, zero browser errors.
 
 The exact native fixture SHA-256 is `1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903`,
 from canonical libs commit `ee3060d` (fixture source SHA-256
@@ -78,11 +97,11 @@ here it was run successfully through `corepack pnpm --filter
 
 ## Limits
 
-The local shell run uses synthetic successful source metadata; it does not
-qualify downloading the final corresponding-source archive. The historical r2
-run did verify that archive, but that proof cannot be transferred to the new
-shell. The fixture proxy uses a laboratory certificate and Chrome's test-only
+The older local-shell run uses synthetic successful source metadata. The
+separate exact-r3 run verifies the real final corresponding-source archive; it
+does not inherit that proof from r2. The fixture proxy uses a laboratory certificate and Chrome's test-only
 certificate bypass: no trusted TLS, actual hosting/CDN routing, Tailscale,
 physical Android/Apple behavior, push delivery or GPU performance claim follows.
-The two hosts are separate local processes, not two physical machines. This
-change has not been deployed and does not open publication gates.
+The two hosts are separate local processes, not two physical machines. The r3
+deployment has its own receipt above. This laboratory result does not open
+publication gates.
