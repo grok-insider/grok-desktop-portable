@@ -157,7 +157,7 @@ export async function qualifyDirectSoak(options: SoakOptions) {
     check("queue_fully_drained",(await execution()).queue.length===0 && (await execution()).activeTurn===null);
     check("no_browser_errors",report.errors.length===0);
     check("cycle_deadline",performance.now()-cycleStart<=limits.cycleSeconds*1000);
-    const checkpoint={cycle:index,at:new Date().toISOString(),elapsedSeconds:(performance.now()-started)/1000,cycleSeconds:(performance.now()-cycleStart)/1000,completedReceipts:initialCompleted+index*3,resources:await resources()};
+    const checkpoint={cycle:index,at:new Date().toISOString(),elapsedSeconds:(performance.now()-started)/1000,cycleSeconds:(performance.now()-cycleStart)/1000,completedReceipts:initialCompleted+index*3,transcriptWindow:{visible:windows[0].messages,omitted:windows[0].omitted,expected:expectedMessages},resources:await resources()};
     alive();data.cycles=index;data.checkpoints.push(checkpoint);
     await appendFile(join(directory,"soak-checkpoints.jsonl"),JSON.stringify(checkpoint)+"\n",{mode:0o600});await save();
   };

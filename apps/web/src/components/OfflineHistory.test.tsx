@@ -38,3 +38,19 @@ it("updates an open viewer immediately when another tab revokes storage", async 
   expect(screen.queryByText("private copy")).toBeNull();
   expect(screen.getByRole("button", {name: "Save history on this device"})).toBeInTheDocument();
 });
+
+it("says how many earlier messages a saved copy does not hold", async () => {
+  const store = new OfflineHistoryStore("a");
+  await store.enable();
+  const {epoch} = await store.load();
+  await store.save("window", {...EMPTY_PROJECTION, history: {omittedMessages: 400, omittedTools: 0, truncated: false}, transcript: [{id: "u", role: "user", text: "Newest question", seq: 1}]}, epoch);
+  await store.save("complete", {...EMPTY_PROJECTION, transcript: [{id: "u", role: "user", text: "Whole conversation", seq: 1}]}, epoch);
+  render(<OfflineHistory scope="a" />);
+  await userEvent.click(screen.getByRole("button", {name: "Offline history"}));
+  await userEvent.click(await screen.findByRole("button", {name: "Newest question"}));
+  const notice = screen.getByText("400 earlier messages are not shown in this saved copy. Your computer keeps a limited window of this conversation for reconnecting devices.");
+  expect(notice).toHaveAttribute("data-omitted-messages", "400");
+  await userEvent.click(screen.getByRole("button", {name: "All saved conversations"}));
+  await userEvent.click(await screen.findByRole("button", {name: "Whole conversation"}));
+  expect(document.querySelector("[data-omitted-messages]")).toBeNull();
+});

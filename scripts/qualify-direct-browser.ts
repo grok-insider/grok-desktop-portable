@@ -551,6 +551,11 @@ try {
   await input().waitFor();
   await page.locator('[data-draft-status="saved"]').waitFor();
   check("direct_pairing_and_draft_survive_reload", await input().inputValue() === "DIRECT_DRAFT_SYNTHETIC_CANARY");
+  await page.locator("article[data-turn-id]").first().waitFor();
+  const liveNotice = page.locator("[data-omitted-messages]");
+  const liveOmitted = await liveNotice.count() ? Number(await liveNotice.first().getAttribute("data-omitted-messages")) : 0;
+  const newestSoakMarker = (await page.getByRole("article", {name:"Your message",exact:true}).allTextContents()).map(text => text.trim()).filter(text => /^SOAK_\d+_[AB]$/.test(text)).at(-1);
+  assert.ok(!liveOmitted || newestSoakMarker, "A truncated live window must hold a soak marker");
   check("private_drafts_and_history_never_enter_static_shell_cache", await page.evaluate(async () => {
     for (const name of await caches.keys()) for (const request of await (await caches.open(name)).keys()) {
       const response = await (await caches.open(name)).match(request);
@@ -569,8 +574,11 @@ try {
   const nativeFramesBeforeHistory = report.transport.length;
   await page.getByRole("button", {name:"Offline history",exact:true}).click();
   await page.getByRole("list", {name:"Saved conversations",exact:true}).getByRole("button").first().click();
-  await page.getByRole("dialog", {name:"Offline history",exact:true}).locator("article").getByText("Synthetic direct connection QA. No Grok process is running.", {exact:true}).waitFor();
+  const offlineDialog = page.getByRole("dialog", {name:"Offline history",exact:true});
+  await offlineDialog.locator("article").getByText(liveOmitted ? newestSoakMarker! : "Synthetic direct connection QA. No Grok process is running.", {exact:true}).waitFor();
   check("consented_history_readable_without_cloud_or_private_host", report.transport.length === nativeFramesBeforeHistory);
+  const offlineNotice = offlineDialog.locator("[data-omitted-messages]");
+  check("offline_history_reports_the_same_omitted_messages", liveOmitted ? await offlineNotice.count() === 1 && Number(await offlineNotice.getAttribute("data-omitted-messages")) === liveOmitted : await offlineNotice.count() === 0);
   await page.screenshot({path:join(directory,"offline-history.png")});
   await page.getByRole("button", {name:"Close offline history",exact:true}).click();
   denyHostNetwork = false;

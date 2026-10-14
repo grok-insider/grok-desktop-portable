@@ -316,6 +316,11 @@ the snapshot no longer carries, and `historyTruncated` marks text that was cut
 or not loaded. All three are absent when the history is complete, so older
 browsers see the same shape. The SPA shows one notice at the top of the
 transcript and does not merge locally held rows into a snapshot.
+Consented offline history saves the same three values with its copy and shows
+the same notice when that copy is read. A later save replaces the earlier copy,
+so a copy saved after truncation can hold fewer messages than one saved before.
+Copies written by older shells lack the values and show no notice; older shells
+ignore them.
 
 **Qualified CLI minimum:** product integrity (light ADR 0005) assumes Grok Build
 **≥ 0.2.115**. `grok-light doctor` and the `cli_matrix` module share that floor.

@@ -1,19 +1,25 @@
 import {DRAFT_CHANGED, DRAFT_DATABASE, DRAFT_TTL_MS, DraftStore, offlineHistoryScope, type DraftChange} from "./drafts";
-import type {Projection} from "./sessionProjection";
+import type {HistoryOmission, Projection} from "./sessionProjection";
 
 export const HISTORY_CHANGED = "grok-offline-history-changed";
 export interface OfflineMessage {id: string; role: "user" | "agent"; text: string; seq: number; unavailableImages: number}
 export interface OfflineTool {id: string; name: string; detail: string; seq: number; finished: boolean; failed: boolean}
-export interface OfflineConversation {version: 1; sessionId: string; savedAt: number; observationEpoch?: number; observedThrough?: number; messages: OfflineMessage[]; tools: OfflineTool[]}
+export interface OfflineConversation {version: 1; sessionId: string; savedAt: number; observationEpoch?: number; observedThrough?: number; messages: OfflineMessage[]; tools: OfflineTool[]; omittedMessages?: number; omittedTools?: number; historyTruncated?: boolean}
 export interface HistorySnapshot {enabled: boolean; epoch: string; conversations: OfflineConversation[]; excluded: string[]}
 
 export function offlineContent(sessionId: string, projection: Projection): Omit<OfflineConversation, "savedAt"> {
-  return {version: 1, sessionId, ...(projection.observedThrough === undefined ? {} : {observedThrough: projection.observedThrough, observationEpoch: projection.observationEpoch ?? 0}), messages: projection.transcript.map(entry => ({id: entry.id, role: entry.role, text: entry.text, seq: entry.seq, unavailableImages: (entry.images?.length ?? 0) + (entry.liveImages?.length ?? 0) + (entry.unavailableImages ?? 0)})), tools: projection.tools.map(tool => ({id: tool.id, name: tool.name, detail: tool.detail ?? "", seq: tool.seq, finished: tool.finished, failed: tool.failed}))};
+  return {version: 1, sessionId, ...(projection.observedThrough === undefined ? {} : {observedThrough: projection.observedThrough, observationEpoch: projection.observationEpoch ?? 0}), messages: projection.transcript.map(entry => ({id: entry.id, role: entry.role, text: entry.text, seq: entry.seq, unavailableImages: (entry.images?.length ?? 0) + (entry.liveImages?.length ?? 0) + (entry.unavailableImages ?? 0)})), tools: projection.tools.map(tool => ({id: tool.id, name: tool.name, detail: tool.detail ?? "", seq: tool.seq, finished: tool.finished, failed: tool.failed})), ...(projection.history ? {omittedMessages: projection.history.omittedMessages, omittedTools: projection.history.omittedTools, historyTruncated: projection.history.truncated} : {})};
+}
+
+export function offlineOmission(value: Pick<OfflineConversation, "omittedMessages" | "omittedTools" | "historyTruncated">): HistoryOmission | undefined {
+  const omission = {omittedMessages: value.omittedMessages ?? 0, omittedTools: value.omittedTools ?? 0, truncated: value.historyTruncated === true};
+  return omission.omittedMessages || omission.omittedTools || omission.truncated ? omission : undefined;
 }
 
 export function offlineSignature(value: Omit<OfflineConversation, "savedAt">): string {
   const rows = [...value.messages.map(row => ({kind: "message", ...row})), ...value.tools.map(row => ({kind: "tool", ...row}))];
-  return JSON.stringify(rows.sort((a, b) => a.seq - b.seq).map(({id: _, seq: __, ...row}) => row));
+  const omission = offlineOmission(value);
+  return JSON.stringify([rows.sort((a, b) => a.seq - b.seq).map(({id: _, seq: __, ...row}) => row), omission ? [omission.omittedMessages, omission.omittedTools, omission.truncated] : null]);
 }
 
 function parseConversation(text: string, sessionId: string, now: number): OfflineConversation | undefined {
@@ -21,6 +27,7 @@ function parseConversation(text: string, sessionId: string, now: number): Offlin
     const value: OfflineConversation = JSON.parse(text);
     if (value.observationEpoch !== undefined && (!Number.isSafeInteger(value.observationEpoch) || value.observationEpoch < 0)) return;
     if (value.observedThrough !== undefined && (!Number.isSafeInteger(value.observedThrough) || value.observedThrough < 0)) return;
+    if ([value.omittedMessages, value.omittedTools].some(count => count !== undefined && (!Number.isSafeInteger(count) || count < 0)) || (value.historyTruncated !== undefined && typeof value.historyTruncated !== "boolean")) return;
     if (value.version !== 1 || value.sessionId !== sessionId || !Number.isFinite(value.savedAt) || value.savedAt > now || now - value.savedAt >= DRAFT_TTL_MS || !Array.isArray(value.messages) || !Array.isArray(value.tools) || value.messages.length + value.tools.length > 10000) return;
     if (!value.messages.every(row => typeof row.id === "string" && (row.role === "user" || row.role === "agent") && typeof row.text === "string" && Number.isFinite(row.seq) && Number.isSafeInteger(row.unavailableImages) && row.unavailableImages >= 0 && row.unavailableImages <= 10000)) return;
     if (!value.tools.every(row => typeof row.id === "string" && typeof row.name === "string" && typeof row.detail === "string" && Number.isFinite(row.seq) && typeof row.finished === "boolean" && typeof row.failed === "boolean")) return;

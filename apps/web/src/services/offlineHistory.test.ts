@@ -1,5 +1,5 @@
 import {expect, it} from "vitest";
-import {OfflineHistoryStore} from "./offlineHistory";
+import {OfflineHistoryStore, offlineContent, offlineSignature} from "./offlineHistory";
 import {EMPTY_PROJECTION, project} from "./sessionProjection";
 
 const value = (text: string, observedThrough?: number) => ({...EMPTY_PROJECTION, observedThrough, transcript: [{id: "m", role: "user" as const, seq: 1, text}]});
@@ -58,4 +58,26 @@ it("accepts a restarted host's lower sequence and fences late observations from 
   now = 3000;
   await store.save("s", {...projections.s, observationEpoch: 3}, epoch);
   expect((await store.load()).conversations[0].savedAt).toBe(2000);
+});
+
+it("keeps what the host left out with the saved copy and rejects malformed counts", async () => {
+  const store = new OfflineHistoryStore("omission");
+  await store.enable();
+  const {epoch} = await store.load();
+  await store.save("window", {...value("newest", 40), history: {omittedMessages: 400, omittedTools: 2, truncated: false}}, epoch);
+  await store.save("complete", value("all of it", 41), epoch);
+  const copies = Object.fromEntries((await store.load()).conversations.map(row => [row.sessionId, row]));
+  expect(copies.window).toMatchObject({omittedMessages: 400, omittedTools: 2, historyTruncated: false});
+  expect(copies.complete).not.toHaveProperty("omittedMessages");
+  expect(copies.complete).not.toHaveProperty("historyTruncated");
+  for (const [id, field] of [["negative", {omittedMessages: -1}], ["fraction", {omittedTools: 1.5}], ["text", {omittedMessages: "3"}], ["flag", {historyTruncated: "yes"}]] as const) {
+    await store.drafts.write(id, JSON.stringify({version: 1, sessionId: id, savedAt: Date.now(), messages: [{id: "m", role: "user", text: id, seq: 1, unavailableImages: 0}], tools: [], ...field}), epoch);
+  }
+  expect((await store.load()).conversations.map(row => row.sessionId).sort()).toEqual(["complete", "window"]);
+});
+
+it("treats a different omission as changed content", () => {
+  const rows = value("same rows");
+  expect(offlineSignature(offlineContent("s", {...rows, history: {omittedMessages: 3, omittedTools: 0, truncated: false}}))).not.toBe(offlineSignature(offlineContent("s", {...rows, history: {omittedMessages: 4, omittedTools: 0, truncated: false}})));
+  expect(offlineSignature(offlineContent("s", {...rows, history: {omittedMessages: 0, omittedTools: 0, truncated: true}}))).not.toBe(offlineSignature(offlineContent("s", rows)));
 });

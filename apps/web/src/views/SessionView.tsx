@@ -46,6 +46,7 @@ import type {
 } from "../services/protocol";
 import type { SessionDiagnosis } from "../services/outcomes";
 import type { HistoryOmission } from "../services/sessionProjection";
+import { HistoryOmissionNotice } from "../components/HistoryOmissionNotice";
 import { WorkflowStrip } from "./WorkflowStrip";
 
 /**
@@ -622,17 +623,7 @@ export function SessionView({
                   ? "Work session"
                   : `Work session in ${workspaceName}`}
               </h1>
-              {history ? (
-                <p
-                  className="rounded-md bg-muted px-3 py-2 text-body-sm text-muted-foreground"
-                  data-omitted-messages={history.omittedMessages}
-                  data-history-truncated={history.truncated ? "true" : undefined}
-                >
-                  {history.omittedMessages > 0
-                    ? `${history.omittedMessages === 1 ? "1 earlier message is" : `${history.omittedMessages} earlier messages are`} not shown here. Your computer keeps a limited window of this conversation for reconnecting devices.`
-                    : "Part of this conversation's earlier history is not shown here."}
-                </p>
-              ) : null}
+              {history ? <HistoryOmissionNotice history={history} where="here" /> : null}
               {hostMessage === undefined ? null : (
                 <p
                   role="alert"

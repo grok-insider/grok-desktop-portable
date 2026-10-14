@@ -163,6 +163,23 @@ must equal the messages produced by every completed turn, no `SOAK_n_A/B`
 marker may appear twice, `permission` rows may not exceed the turns that sent
 them, and both devices must show the same window and omission count. A run
 against a host that drops history without reporting it fails this accounting.
+Each checkpoint records the first device's window (`visible`, `omitted`,
+`expected`), so a report shows that the accounting ran while truncated.
+
+**First r4 pilot (2026-10-14, `soak-pilot-r4-fast-cycles`): failed after the
+soak.** Artifact from Portable `4dd6aa4`, libs `bd01164` and Spanreed `bcc11c3`,
+140 one-second cycles, `--runtime-base bd01164`. The soak loop passed all 140
+cycles and 3,914 checks, past cycle 87 where r3 failed, with no browser
+errors, an empty cgroup and empty scratch. The later offline-history step then
+timed out waiting for the fixture's first message. That message had left the
+host's window, and the offline copy saved only the visible window, without the
+omission counts or a notice: the same silent truncation in another view, and
+each save replaced a fuller earlier copy. The checkpoints of that run did not
+yet record the window counts. The next candidate stores the counts with the
+offline copy and shows the same notice there. After the soak, the harness
+compares the offline view with the live window: the newest `SOAK_n_A/B` marker
+must be readable offline and the offline notice must report the live omitted
+count (no notice when nothing is omitted).
 
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
