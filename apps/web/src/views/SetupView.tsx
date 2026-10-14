@@ -110,12 +110,12 @@ export function SetupView({
           ];
 
   return (
-    <main className="setup-view relative mx-auto flex min-h-dvh max-w-[720px] flex-col justify-center gap-6 px-6 py-12">
+    <main className="setup-view relative flex min-h-dvh w-full max-w-[calc(48rem+2*var(--fui-page-padding))] flex-col gap-6 px-(--fui-page-padding) py-12">
       <div className="absolute right-6 top-6">
         <ThemeToggle />
       </div>
       <header className="flex flex-col gap-2">
-        <h1 className="text-title-lg font-semibold text-foreground">Grok Desktop Portable</h1>
+        <h1 className="font-display text-title-lg font-semibold text-foreground">Grok Desktop Portable</h1>
         <p className="text-body-lg text-muted-foreground">
           A local interface for the Grok Build CLI you already installed and
           authenticated.

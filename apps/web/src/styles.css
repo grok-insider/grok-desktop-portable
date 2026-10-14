@@ -162,36 +162,36 @@
   position: relative;
   min-height: 100dvh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1.25rem calc(3.5rem + max(1rem, env(safe-area-inset-bottom)));
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: max(var(--fui-space-12), env(safe-area-inset-top)) max(var(--fui-page-padding), env(safe-area-inset-right)) calc(3.5rem + max(1rem, env(safe-area-inset-bottom))) max(var(--fui-page-padding), env(safe-area-inset-left));
   background: var(--background);
   color: var(--foreground);
 }
 
 .landing-card {
-  width: min(32rem, 100%);
+  width: min(36rem, 100%);
   background: var(--card);
   color: var(--card-foreground);
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--fui-radius-xl);
   box-shadow: var(--fui-shadow-sm);
-  padding: 1.75rem 1.5rem 1.5rem;
+  padding: var(--fui-space-6);
 }
 
 .landing-kicker {
-  margin: 0 0 0.5rem;
-  font-size: 0.75rem;
+  margin: 0 0 var(--fui-space-3);
+  font-family: var(--fui-font-display);
+  font-size: var(--fui-text-md);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted-foreground);
+  color: var(--foreground);
 }
 
 .landing h1 {
-  margin: 0 0 0.75rem;
-  font-size: 1.5rem;
-  line-height: 1.25;
+  margin: 0 0 var(--fui-space-3);
+  font-family: var(--fui-font-display);
+  font-size: var(--fui-text-title);
+  line-height: var(--fui-leading-title);
   font-weight: 600;
 }
 
@@ -211,10 +211,10 @@
 .landing-install {
   margin: 0 0 1rem;
   padding: 0.75rem 0.875rem;
-  border-radius: 0.5rem;
+  border-radius: var(--fui-radius-md);
   background: var(--muted);
   border: 1px solid var(--border);
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--fui-font-mono);
   font-size: 0.8125rem;
   line-height: 1.45;
   overflow-x: auto;
@@ -230,7 +230,7 @@
 }
 
 .landing-steps code {
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--fui-font-mono);
   font-size: 0.8125rem;
   color: var(--foreground);
 }
@@ -251,7 +251,8 @@
 .landing-retry {
   appearance: none;
   border: none;
-  border-radius: 0.5rem;
+  min-height: var(--fui-control-height);
+  border-radius: var(--fui-radius-md);
   background: var(--primary);
   color: var(--primary-foreground);
   font: inherit;
@@ -281,7 +282,7 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.65rem;
-  border-radius: 999px;
+  border-radius: var(--fui-radius-xs);
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--muted-foreground);
@@ -295,7 +296,7 @@
 .landing-presence-dot {
   width: 0.4rem;
   height: 0.4rem;
-  border-radius: 999px;
+  border-radius: 1px;
   background: var(--success);
   flex-shrink: 0;
 }
@@ -321,12 +322,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--fui-radius-md);
   color: var(--muted-foreground);
   text-decoration: none;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color var(--fui-duration) var(--fui-ease), background-color var(--fui-duration) var(--fui-ease);
 }
 
 .landing-social-link:hover {

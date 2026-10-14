@@ -34,7 +34,7 @@ if (!redirecting) createRoot(container).render(
     <CSPProvider disableStyleElements>
     <ThemeProvider>
       <ApplicationLayout>
-        {entry === "blocked" ? <main className="p-6"><h1 className="text-title-sm">This build belongs to another website</h1><p className="mt-3 text-body">Open <a className="underline" href={APPLICATION_ORIGIN}>{APPLICATION_ORIGIN}</a> to continue. Pairing links must be created for that website.</p></main> : entry === "remote" ? <RemoteRoot publicationCallback={publicationCallback} /> : <App />}
+        {entry === "blocked" ? <main className="max-w-[48rem] p-(--fui-page-padding)"><h1 className="font-display text-title-lg font-semibold">This build belongs to another website</h1><p className="mt-3 text-muted-foreground">Open <a className="text-brand-ink underline underline-offset-2" href={APPLICATION_ORIGIN}>{APPLICATION_ORIGIN}</a> to continue. Pairing links must be created for that website.</p></main> : entry === "remote" ? <RemoteRoot publicationCallback={publicationCallback} /> : <App />}
       </ApplicationLayout>
       <HostToaster />
     </ThemeProvider>

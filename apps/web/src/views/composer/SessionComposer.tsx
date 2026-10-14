@@ -473,7 +473,7 @@ export function SessionComposer({
             aria-label="Prompt composer"
             data-composer-chrome="card"
             className={cn(
-              "flex min-h-24 min-w-0 flex-1 flex-col rounded-xl bg-card shadow-composer",
+              "flex min-h-24 min-w-0 flex-1 flex-col rounded-xl border border-border bg-card shadow-composer",
               "transition-[box-shadow] duration-150 ease-fluid",
             )}
           >
