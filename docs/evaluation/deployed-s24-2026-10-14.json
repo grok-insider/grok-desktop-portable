@@ -1,0 +1,222 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-10-14T00:18:44.617910+00:00",
+  "origin": "https://grok.fabrials.com",
+  "scope": "Physical Android qualification of the deployed public PWA and an already paired private Tailscale host; separate temporary CSS experiments",
+  "result": "partial: deployed landscape composer clipping remains unresolved by this run",
+  "device": {
+    "model": "Samsung Galaxy S24 Ultra SM-S928B",
+    "android": "16",
+    "chrome": "154.0.8037.126",
+    "reportedScreenPixels": [
+      720,
+      1560
+    ],
+    "installedApp": "pre-existing Android WebAPK"
+  },
+  "identities": {
+    "portableSourceCommit": "5bdcf17b493a25feb7101fba33fbde8a8a145713",
+    "shellSha256": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982",
+    "observedJavascript": "index-DpDoWcjC.js",
+    "javascriptBeforeExplicitUpdate": "index-jrE2fKnr.js",
+    "nativeSourceCommit": "ce2692d2c7f7ca7db4d15f25c213a2a050baabba",
+    "nativeBinarySha256": "e4fa51029b1d601f577808ec8e9dee2f8588542804d75e61081d0e8d467aca07",
+    "nativeBinding": "The deployment remained at the previously recorded native identity throughout this run; later native changes are outside its evidence."
+  },
+  "passed": [
+    "Existing WebAPK launched in standalone mode on the public origin.",
+    "The visible Update and reload action activated the identified new shell.",
+    "The pre-existing host pairing connected and reconnected without enrollment or revocation.",
+    "Portrait keyboard input kept the editor and Send button inside the visible area and preserved an unsent synthetic draft.",
+    "Rotation preserved the synthetic draft without horizontal overflow.",
+    "A document-scoped CDP offline reload loaded the current standalone shell while an uncached network fetch failed.",
+    "Current and previous shell caches each held 47 same-origin entries, with no API or session paths.",
+    "The normal Android notification dialog was accepted through Syl and the app showed Configured for this computer.",
+    "One authorized synthetic prompt returned QA OK and produced an actual generic Android notification.",
+    "The background document was observed disconnected; foregrounding restored Ready on the same target and session at the observation made after a one-second wait."
+  ],
+  "portraitKeyboard": {
+    "viewportWidthCssPx": 384,
+    "visualHeightCssPx": 491.2,
+    "editorBottomCssPx": 437.2,
+    "sendBottomCssPx": 481.2,
+    "draftSent": false
+  },
+  "offlineLimits": {
+    "method": "CDP network emulation confined to the Android page; Wi-Fi and Tailscale stayed enabled",
+    "draftPreserved": true,
+    "existingWebSocketInterruptionEstablished": false,
+    "offlineTranscriptRendered": false,
+    "realRadioHandoff": false
+  },
+  "realPush": {
+    "promptCount": 1,
+    "syntheticPrompt": "Prueba de notificación. Responde únicamente QA OK. No uses herramientas ni leas archivos.",
+    "response": "QA OK",
+    "permissionMethod": "Native Android dialog via Syl; no browser permission override",
+    "title": "Grok",
+    "body": "There is activity on your computer.",
+    "androidVisibility": "PRIVATE",
+    "androidPublicVersionBody": "Contenidos ocultos",
+    "androidRecordCreatedAt": "2026-10-14T00:11:23.621Z",
+    "notificationSubscription": "Present in the computer-specific service-worker registration; the root shell registration intentionally had no subscription",
+    "privateConversationIncluded": false,
+    "limitations": [
+      "The record and service-worker notification were observed; the locked screen was not exercised.",
+      "A Syl screenshot occurred between Send and Home, so arrival before versus after backgrounding is not established.",
+      "Notification click-through was not tested."
+    ]
+  },
+  "deployedLayoutFailure": {
+    "viewportCssPx": [
+      750,
+      354
+    ],
+    "editorVerticalRangeCssPx": [
+      342.4,
+      406.4
+    ],
+    "sendBottomCssPx": 450.4,
+    "rollbackBannerVisible": true,
+    "finding": "Editor and Send were clipped below the visible session container."
+  },
+  "temporaryLayoutExperiments": {
+    "deployed": false,
+    "method": "Local DOM class changes and CSSOM rules on the identified Android target; all removed before cleanup",
+    "attempts": [
+      {
+        "change": "Allow the main flex region and transcript to shrink",
+        "result": "Insufficient: the composer remained clipped."
+      },
+      {
+        "change": "Use a horizontal composer with a 64px textarea",
+        "result": "Insufficient: approximately 13px of textarea and 3px of Send remained clipped."
+      },
+      {
+        "change": "Limit the compact textarea to 44px",
+        "result": "Editor and Send were visible without the keyboard, but the transcript had nearly no available height."
+      },
+      {
+        "change": "Open the landscape keyboard with the compact 44px composer",
+        "result": "Still clipped: the 136px visual viewport was mostly consumed by the host bar and update actions. DOM rectangles alone incorrectly suggested visibility."
+      },
+      {
+        "change": "Also hide host bar and update actions while the composer has focus at visual height at most 300px; remove work-shell padding",
+        "result": "Editor and Send fully visible and hit-testable, with session header still visible."
+      }
+    ],
+    "finalExperiment": {
+      "viewportCssPx": [
+        750,
+        136
+      ],
+      "editorAndSendVerticalRangeCssPx": [
+        87.47,
+        131.47
+      ],
+      "ancestorClipVerticalRangeCssPx": [
+        48.53,
+        135.47
+      ],
+      "sendTargetCssPx": [
+        44,
+        44
+      ],
+      "fullAncestorIntersectionPassed": true,
+      "centerHitTestPassed": true,
+      "sessionHeaderVisible": true,
+      "draftWasSyntheticAndNotSent": true,
+      "selectorDifference": "The deployed build lacks the future session-composer class; the experiment selected the existing data-composer-chrome=card element.",
+      "notEstablished": [
+        "Final implementation equivalence",
+        "Deployment of the correction",
+        "Long conversation usability in the compact state",
+        "Queued messages, pending images or validation notices in the compact state"
+      ]
+    }
+  },
+  "cleanup": {
+    "temporaryCssRulesRemoved": true,
+    "originalStylesheetRuleCount": 221,
+    "temporaryClassesRemoved": true,
+    "draftEmpty": true,
+    "rotationRestored": "automatic",
+    "wifiChanged": false,
+    "tailscaleChanged": false,
+    "pairingsCreated": 0,
+    "pairingsRevoked": 0,
+    "notificationConsentPreserved": true,
+    "syntheticSessionPreservedForOwner": true,
+    "ownAdbForwardRemoved": true,
+    "ownSylSessionClosedWithoutStoppingApp": true,
+    "finalState": "Connected and Ready in portrait at 384x750 CSS pixels."
+  },
+  "notQualified": [
+    "Fresh PWA installation",
+    "Android process eviction or long suspension",
+    "Physical Wi-Fi/mobile network handoff",
+    "Pending mobile approval across adapter loss",
+    "Physical iOS",
+    "Later native lifecycle build",
+    "Production deployment of the landscape correction"
+  ],
+  "evidence": {
+    "rawArtifactsCommitted": false,
+    "localReceiptSha256": "615a9575764749ae97e1b5e057ee4afee0e585223acfea1e29b67de612b94c77",
+    "selectedLocalArtifactHashes": {
+      "offline-shell.json": {
+        "bytes": 2087,
+        "sha256": "04e4cb6a08cbf3cc4192a15b6a208c94febcb1614e0f4921e44bfa10e9ce7bf1"
+      },
+      "offline-reconnect.json": {
+        "bytes": 290,
+        "sha256": "13255fc0137b68c55814908cc92b5c55d3038bbee277b4e7aa83668325ee5bdc"
+      },
+      "resume.json": {
+        "bytes": 640,
+        "sha256": "498aacc92f87695795f654012128ed821192b7f64e0b764517422c90d63bc62a"
+      },
+      "push-android.txt": {
+        "bytes": 6681,
+        "sha256": "106bb2c0bbc61c24b25d3439bdb4cd2e42c1bd31cb56b8f9d25278fa144754c4"
+      },
+      "push-registrations.json": {
+        "bytes": 436,
+        "sha256": "f75003816122d6d4896f6b49b5a157225d00065039d6b11c07416706dc70701f"
+      },
+      "rotation.json": {
+        "bytes": 641,
+        "sha256": "86a0399d420f34b922b310d3c54ff3d9930db39cb08607f6a8ff6befa678bd5d"
+      },
+      "keyboard-draft.png": {
+        "bytes": 100362,
+        "sha256": "ae8c771849c9aa72ba99915093b9e8906e7ecba2b0792829523538ab56a86e6a"
+      },
+      "landscape-draft.png": {
+        "bytes": 65116,
+        "sha256": "df2dc025b7a303a13bdd53e57489bd5b3af04de91e948b0012330e94222b3b97"
+      },
+      "landscape-keyboard.png": {
+        "bytes": 85377,
+        "sha256": "d6dc163cfa0609a81e8b5086bd085216500d3a0d40354ab273d3cb3cc7250bbb"
+      },
+      "landscape-final-layout.json": {
+        "bytes": 1147,
+        "sha256": "e7a40a09f6f96f661da7920362959c4afc85ec3631ad3047e6ada2367321a41a"
+      },
+      "landscape-final-layout.png": {
+        "bytes": 90463,
+        "sha256": "1606dcc7eea5a7a4332440bd52604316c8de3d075e879931c6c36eda15de27f3"
+      },
+      "final-state.json": {
+        "bytes": 241,
+        "sha256": "b1fd7f6182989e4deaabe82a0f68a51a35a800cc01e23a4c30cae384d1d35d1b"
+      },
+      "final-ready.png": {
+        "bytes": 104166,
+        "sha256": "1dad3fe0843a10b44f31d9f96eaedae376996f3ad55610fb89c3354a4d992b8b"
+      }
+    },
+    "redaction": "Private host addresses, device transport, session identifiers, computer identifiers and push subscription endpoints are omitted. Raw phone screenshots and service records stay local."
+  }
+}

@@ -101,11 +101,80 @@ conserva los 5.069.785 bytes originales, comprobados separadamente. Se cerraron
 la aplicación, el lanzador y el compositor de esa prueba. No es una prueba de
 instalación `.deb`, de NSIS ni de un paquete Nix general.
 
-Siguen pendientes la cualificación física del S24 de esta candidata, push real,
-suspensión y cambios de red, instalación/recuperación completas de Windows,
+Siguen pendientes la instalación PWA desde cero, la corrección desplegada del
+editor horizontal del S24, la expulsión del proceso o suspensión larga de Android,
+los cambios físicos de red, instalación/recuperación completas de Windows,
 el soak de 24 horas, la
 infraestructura de borrado/restauración de publicaciones y la cohorte de tiempo
 real. No se ha iniciado ni simulado como transcurrida la cohorte de siete días.
+
+## S24 físico: versión desplegada y experimento de interfaz
+
+El Samsung Galaxy S24 Ultra SM-S928B, Android 16 y Chrome 154.0.8037.126 ejecutó
+el WebAPK que ya estaba instalado. La acción visible «Update and reload» pasó
+de `index-jrE2fKnr.js` a `index-DpDoWcjC.js`, correspondiente al shell
+`fe9e3a52…` de la tabla. El host permaneció en `ce2692d` durante toda la prueba.
+No es una instalación nueva ni una cualificación del binario posterior con el
+arreglo de ciclo de vida ACP.
+
+El emparejamiento guardado conectó sin volver a registrar el teléfono. En
+vertical, el teclado dejó 491,2 px de altura visible: el editor terminaba a
+437,2 px y Enviar a 481,2 px. Se mantuvo el borrador sintético sin enviar, también
+al girar, y no hubo desbordamiento horizontal. La apertura sin red cargó el shell
+actual en modo independiente mientras fallaba una petición de red sin caché;
+no mostró una conversación privada. Los dos shells conservados tenían 47
+entradas cada uno, todas del mismo origen y ninguna de API o sesión. La red se
+desactivó solo mediante CDP en esa página: Wi-Fi y Tailscale siguieron activos.
+La prueba del borrador no demuestra que esa emulación cortase el WebSocket que
+ya estaba abierto.
+
+Se aceptó el diálogo normal de Android mediante Syl, sin sobrescribir permisos
+desde DevTools: «Configured for this computer» y permiso `granted`. Un único
+prompt sintético autorizado pidió responder «QA OK» sin herramientas ni
+archivos; esa fue la respuesta. Android registró una notificación real de la
+PWA con título «Grok» y texto «There is activity on your computer.», visibilidad
+`PRIVATE` y versión pública «Contenidos ocultos». No llevaba conversación ni
+detalles de aprobación. Se comprobó su registro, no la pantalla bloqueada ni
+la apertura al pulsarla. Hubo una captura entre Enviar e Inicio de Android, por
+lo que no se atribuye la entrega a un momento anterior o posterior exacto al
+paso a segundo plano.
+
+Durante el segundo plano se observó «Disconnected / Reconnecting». Al volver
+al mismo WebAPK y al mismo target, la misma sesión estaba en Ready en la
+observación realizada tras esperar un segundo. Esto comprueba esa recuperación
+corta; no mide una latencia garantizada ni cubre expulsión del proceso,
+suspensión larga o cambio de Wi-Fi a datos móviles.
+
+La candidata desplegada **falló en horizontal**: a 750 × 354 px, el editor
+ocupaba de 342,4 a 406,4 px y Enviar terminaba a 450,4 px, recortados por el
+contenedor. El aviso de recuperación del shell seguía visible. Se probaron
+cambios temporales de clases y reglas CSSOM en el teléfono, sin modificar el
+despliegue. Permitir encoger el contenido y poner el editor en horizontal no
+bastó; limitarlo a 44 px lo hizo accesible sin teclado, pero dejó casi sin
+altura la conversación. Con el teclado abierto, la zona visible bajó a 136 px
+y volvió el recorte. Comprobar solo el rectángulo DOM habría dado un falso
+positivo: también se verificaron los contenedores que recortan y qué elemento
+recibía la pulsación en ese punto.
+
+El último experimento mantuvo el editor compacto, ocultó la cabecera del
+ordenador y el aviso de actualización mientras el editor tenía foco y la
+altura era como máximo 300 px, y retiró el margen interior del shell. Editor y
+Enviar quedaron enteros entre 87,47 y 131,47 px, dentro del recorte disponible
+de 48,53 a 135,47 px; el botón conservó 44 × 44 px. La comprobación con
+`elementFromPoint` identificó el editor y el botón en sus respectivos centros.
+No se pulsó Enviar durante ese experimento. La cabecera de sesión seguía
+visible. **Este resultado
+pertenece al experimento físico, no al código definitivo ni a un despliegue
+corregido.** No se probaron en él una cola con mensajes, imágenes pendientes ni
+avisos de validación.
+
+Se retiraron todas las reglas y clases temporales, se vació el borrador y se
+restauró la rotación automática. La PWA quedó conectada en vertical y se
+conservó la autorización de notificaciones. No se creó ni revocó ningún
+emparejamiento. Se cerraron la sesión propia de Syl y su forward ADB sin parar
+la app. El [recibo saneado](evaluation/deployed-s24-2026-10-14.json) conserva
+identidades, medidas y hashes de evidencia local; las capturas y registros
+brutos, las direcciones privadas y los identificadores de sesión no se suben.
 
 ## Cambio de shell con trabajo activo
 
