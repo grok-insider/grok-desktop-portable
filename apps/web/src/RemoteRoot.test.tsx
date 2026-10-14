@@ -4,7 +4,7 @@ import {afterEach, expect, it, vi} from "vitest";
 import { RemoteRoot } from "./RemoteRoot";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { createDirectTransport } from "./services/directTransport";
-import { saveDirectProfile, type DirectProfile } from "./services/directProfiles";
+import { listDirectProfiles, saveDirectProfile, type DirectProfile } from "./services/directProfiles";
 
 vi.mock("./App", () => ({App: () => <div>Connected conversation</div>}));
 vi.mock("./services/directTransport", () => ({createDirectTransport: vi.fn()}));
@@ -80,4 +80,32 @@ it("deletes saved history when the pinned host reports a revoked pairing during 
   await userEvent.click(await screen.findByRole("button", {name: "Connect"}));
   expect(await screen.findByRole("status")).toHaveTextContent("was revoked");
   expect((await store.load())).toMatchObject({enabled: false, conversations: []});
+});
+
+it("preserves the saved computer and private history when the host refuses revocation", async () => {
+  const {OfflineHistoryStore} = await import("./services/offlineHistory");
+  const {directDraftScope} = await import("./services/directProfiles");
+  const {EMPTY_PROJECTION} = await import("./services/sessionProjection");
+  await saveDirectProfile(profile);
+  const store = new OfflineHistoryStore(directDraftScope(profile));
+  await store.enable();
+  await store.save("s", {...EMPTY_PROJECTION, transcript: [{id: "m", role: "user", text: "private saved copy", seq: 1}]}, (await store.load()).epoch);
+  const forgetPairing = vi.fn();
+  const request = vi.fn(async (path: string, init?: RequestInit) => {
+    if (path === "/session") return Response.json(profile.pair);
+    const command = JSON.parse(String(init?.body));
+    if (command.operation.kind === "getRemoteCapabilities") return Response.json({result: {outcome: "remoteCapabilities", projects: false, controlTransfer: false, devicePanel: false, multiWriter: true, multiWriterProtocolVersion: 4}});
+    return Response.json({error: "client_upgrade_required"}, {status: 409});
+  });
+  vi.mocked(createDirectTransport).mockResolvedValue({profile, transport: {request, openEvents: vi.fn(), forgetPairing}});
+  render(<ThemeProvider><RemoteRoot /></ThemeProvider>);
+  await userEvent.click(await screen.findByRole("button", {name: "Connect"}));
+  await userEvent.click(await screen.findByRole("button", {name: "Forget this browser"}));
+  expect(await screen.findByRole("status")).toHaveTextContent("did not confirm revocation");
+  expect(screen.getByText("Connected conversation")).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Forget this browser"})).toBeEnabled();
+  expect(forgetPairing).not.toHaveBeenCalled();
+  expect(await listDirectProfiles()).toEqual([profile]);
+  expect((await store.load()).conversations).toHaveLength(1);
+  expect(request.mock.calls.filter(([path]) => path === "/command").map(([, init]) => JSON.parse(String(init?.body)).operation.kind)).toEqual(["getRemoteCapabilities", "forgetBrowserPairing"]);
 });

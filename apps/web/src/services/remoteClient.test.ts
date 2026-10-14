@@ -7,7 +7,8 @@ function harness() {
   const cursors: number[] = [];
   const connection = {send: vi.fn(), close: vi.fn()};
   const request = vi.fn(async (path: string, init?: RequestInit) => {
-    const body = path === "/session" ? {sessionId: "browser", sessionToken: "secret", csrfToken: "csrf", protocolVersion: PROTOCOL_VERSION} : {result: {outcome: "ok"}};
+    const operation = init?.body ? JSON.parse(String(init.body)).operation.kind : undefined;
+    const body = path === "/session" ? {sessionId: "browser", sessionToken: "secret", csrfToken: "csrf", protocolVersion: PROTOCOL_VERSION} : {result: operation === "getRemoteCapabilities" ? {outcome: "remoteCapabilities", projects: false, controlTransfer: false, devicePanel: false} : {outcome: "ok"}};
     return new Response(JSON.stringify(body));
   });
   const transport: HostTransport = {request, openEvents: (next, cursor) => {handlers = next; cursors.push(cursor); return connection;}};
@@ -158,6 +159,95 @@ it("revokes only this browser's pairing, never the host's other devices", async 
   const envelope = JSON.parse(String(host.request.mock.calls.at(-1)?.[1]?.body));
   expect(envelope.operation).toEqual({kind: "forgetBrowserPairing"});
   expect(envelope.idempotencyKey).toEqual(expect.any(String));
+});
+
+describe("remote revocation negotiation", () => {
+  it.each([true, false])("waits for capabilities before revoking when multi-writer is %s and no events have arrived", async multiWriter => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    await client.resume();
+    let resolveCapabilities!: (response: Response) => void;
+    host.request.mockImplementationOnce(() => new Promise(resolve => {resolveCapabilities = resolve;}));
+    const revocation = client.revokePairing();
+    const commands = () => host.request.mock.calls.filter(([path]) => path === "/command").map(([, init]) => JSON.parse(String(init?.body)));
+    expect(commands().map(command => command.operation.kind)).toEqual(["getRemoteCapabilities"]);
+    resolveCapabilities(Response.json({result: {outcome: "remoteCapabilities", projects: false, controlTransfer: false, devicePanel: false, ...(multiWriter ? {multiWriter: true, multiWriterProtocolVersion: 4} : {})}}));
+    expect((await revocation).ok).toBe(true);
+    expect(commands().map(command => command.operation.kind)).toEqual(["getRemoteCapabilities", "forgetBrowserPairing"]);
+    expect(commands()[1].protocolVersion).toBe(multiWriter ? 4 : 2);
+    expect(commands()[1].operation).toEqual({kind: "forgetBrowserPairing"});
+    expect(client.paired).toBe(true);
+  });
+
+  it("restores remote authority before an early forget instead of assuming an uninitialized client was revoked", async () => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    expect((await client.revokePairing()).ok).toBe(true);
+    expect(host.request.mock.calls.map(([path, init]) => path === "/session" ? path : JSON.parse(String(init?.body)).operation.kind)).toEqual(["/session", "getRemoteCapabilities", "forgetBrowserPairing"]);
+  });
+
+  it.each([
+    {body: {error: "revoked"}, status: 403, failure: {kind: "not_paired"}},
+    {body: {error: "client_upgrade_required"}, status: 409, failure: {kind: "refused", code: "client_upgrade_required"}},
+    {body: {result: {outcome: "remoteCapabilities", multiWriter: true}}, status: 200, failure: {kind: "unreachable"}},
+  ])("does not revoke after invalid or refused negotiation: $status $failure.kind", async ({body, status, failure}) => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    await client.resume();
+    host.request.mockImplementationOnce(async () => Response.json(body, {status}));
+    expect(await client.revokePairing()).toEqual({ok: false, failure});
+    expect(host.request.mock.calls.filter(([path]) => path === "/command")).toHaveLength(1);
+    expect(JSON.parse(String(host.request.mock.calls.at(-1)?.[1]?.body)).operation.kind).toBe("getRemoteCapabilities");
+    expect(client.paired).toBe(true);
+  });
+
+  it("preserves an uninitialized remote pairing when restoring its authority is unreachable", async () => {
+    const host = harness();
+    host.request.mockRejectedValueOnce(new Error("offline"));
+    const client = new LightClient({transport: host.transport});
+    expect(await client.revokePairing()).toEqual({ok: false, failure: {kind: "unreachable"}});
+    expect(host.request).toHaveBeenCalledOnce();
+    expect(host.request.mock.calls[0][0]).toBe("/session");
+  });
+
+  it.each(["lost", "refused"])("never repeats revocation when its result is %s", async outcome => {
+    const host = harness();
+    const client = new LightClient({transport: host.transport});
+    await client.resume();
+    const original = host.request.getMockImplementation()!;
+    host.request.mockImplementation(async (path, init) => {
+      if (path === "/command" && JSON.parse(String(init?.body)).operation.kind === "forgetBrowserPairing") {
+        if (outcome === "lost") throw new Error("connection_lost_check_command_status");
+        return Response.json({error: "client_upgrade_required"}, {status: 409});
+      }
+      return original(path, init);
+    });
+    expect(await client.revokePairing()).toEqual({ok: false, failure: outcome === "lost" ? {kind: "unreachable"} : {kind: "refused", code: "client_upgrade_required"}});
+    const commands = host.request.mock.calls.filter(([path]) => path === "/command").map(([, init]) => JSON.parse(String(init?.body)).operation.kind);
+    expect(commands).toEqual(["getRemoteCapabilities", "forgetBrowserPairing"]);
+    expect(client.paired).toBe(true);
+  });
+
+  it("keeps an unpaired loopback client local", async () => {
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    const client = new LightClient({bridgeBaseUrl: "http://127.0.0.1:20001"});
+    expect(await client.revokePairing()).toEqual({ok: false, failure: {kind: "not_paired"}});
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("preserves revocation for older paired loopback hosts without remote capability negotiation", async () => {
+    const request = vi.fn(async (url: string) => url.endsWith("/session")
+      ? Response.json({sessionId: "browser", sessionToken: "secret", csrfToken: "csrf", protocolVersion: 2})
+      : Response.json({result: {outcome: "acknowledged"}}, {status: 202}));
+    vi.stubGlobal("fetch", request);
+    const client = new LightClient({bridgeBaseUrl: "http://127.0.0.1:20001"});
+    await client.resume();
+    expect((await client.revokePairing()).ok).toBe(true);
+    expect(request).toHaveBeenCalledTimes(2);
+    const options = (request.mock.calls[1] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(String(options.body))).toMatchObject({protocolVersion: 2, operation: {kind: "forgetBrowserPairing"}});
+  });
 });
 
 

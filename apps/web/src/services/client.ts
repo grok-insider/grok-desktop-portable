@@ -185,6 +185,15 @@ export class LightClient {
   }
 
   async revokePairing(): Promise<ClientResult<unknown>> {
+    if (this.#transport) {
+      if (!this.#browserSessionId) {
+        const restored = await this.resume();
+        if (!restored.ok) return restored;
+      }
+      const capabilities = await this.send({kind: "getRemoteCapabilities"});
+      if (!capabilities.ok) return capabilities;
+      if (!asRemoteCapabilities(capabilities.value)) return unreachable();
+    }
     if (!this.#browserSessionId) return {ok: false, failure: {kind: "not_paired"}};
     return this.send({kind: "forgetBrowserPairing"}, {idempotencyKey: crypto.randomUUID()});
   }
