@@ -232,7 +232,7 @@ for any already distributed build. Future updates must retain and test both sour
 versions before claiming rollback readiness. Do not run Compose or replace the
 managed container manually.
 
-## Current deployment, 2026-10-14
+## Earlier deployment, 2026-10-14
 
 The current image is
 `10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:70146ff9cadbb8fb30738008838c9932a8163d3aae377546e769c7f4051bdd44`.
@@ -262,3 +262,38 @@ active turns or drafts during update. A separate 13-check trial paired two
 independent browsers to station through trusted Tailscale TLS and reconnected
 one without blocking the other. See the [dated receipt](qualification-evidence-2026-10-14.md)
 for identities, station installation, evidence paths and outstanding gates.
+
+## Current deployment: r3, 2026-10-14
+
+The current QA image is
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8`.
+Portable `abe4f35895aacda102a09c3b50475379febf3b6c`, libraries
+`ee3060d023c5f5f34196e1ef7f439b65be9d0bb8` and Spanreed source
+`e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a` identify its corresponding source.
+Its shell is `e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e`.
+The artifact was packaged from the exact committed native embedded files; the
+full source verifier passed. The SHA-256 of its source archive is
+`d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc`.
+
+The wrapper retains source and license resources for all four shells served
+at this origin. Its rollback image
+`10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:0ba1de4556e8071daf77101ac66e91ef66b11c6f5f088e1da93cde0651e8f249`
+serves the previous `ff22898f…` shell and retains the same four source versions.
+Both image tags are protected from registry retention. Coolify actually rolled
+back and restored r3; each image became healthy. The origin passed 243 HTTP
+checks; the CDN passed 245 after deployment, rollback and restoration. The
+running candidate's UID, read-only root, memory/CPU/process caps, no-new-privileges,
+capability removal and lack of host port bindings were checked independently.
+
+The exact artifact passed 107 multi-host checks, including the corrected mobile
+computer cards, crossed identity rejection and isolation of drafts/history.
+The actual HTTPS update and offline browser rollback passed 18 checks. A second
+18-check run used the reusable [deployment update runner](deployed-update-qualification.md)
+during server restoration; its Chrome group exited and its profile was removed.
+Neither run used private conversations or physical devices.
+
+Evidence: [r3 deployment receipt](evaluation/qualification-r3-deployment-2026-10-14.json).
+Local build, source verifiers and operational receipts live under
+`.worktrees/remote-release-candidate-20261014-r3/`. This static deployment does
+not assert that station has installed its native source revision, qualify a
+Windows installer or open publications. Those need their separate receipts.

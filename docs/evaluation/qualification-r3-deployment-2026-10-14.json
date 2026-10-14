@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "scope": "Exact r3 static QA deployment, source retention and real browser update/rollback",
+  "sources": {
+    "at": "2026-10-14T02:33:00.069Z",
+    "sources": {
+      "portable": {
+        "commit": "abe4f35895aacda102a09c3b50475379febf3b6c",
+        "dirty": false,
+        "sha256": "5c1881ec032463ad625198ec468134777cc51437bea13c8953b43ab086a9b305"
+      },
+      "libs": {
+        "commit": "ee3060d023c5f5f34196e1ef7f439b65be9d0bb8",
+        "dirty": false,
+        "sha256": "ca2f3527e8cd050f62e31520bfe8bd2791d7dd3ca843e1182f771b1adc291041"
+      }
+    },
+    "toolchain": {
+      "node": "v22.23.3",
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01) (built from a source tarball)",
+      "pnpm": "10.33.2"
+    },
+    "spanreedCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "deploymentSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+    "bundleSha256": "30452ed2282ea3223d4a0094cb06ec2785acb3da28840f015c50edf307c46145",
+    "buildPath": "Exact committed native assets/remote-web; generated once by remote-assets.py before packaging"
+  },
+  "sourceArchive": {
+    "path": "/sources/d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc.tar.gz",
+    "sha256": "d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc",
+    "bytes": 4502853
+  },
+  "shellId": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+  "previousShellId": "ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac",
+  "webTests": {
+    "passed": 905,
+    "files": 89,
+    "ciRun": 38501095450
+  },
+  "images": {
+    "coolify": {
+      "at": "2026-10-14T02:34:06.438250+00:00",
+      "tag": "10.0.0.2:5000/grokinsider/grok-remote-qa:qa-abe4f35-r3",
+      "digest": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+      "imageId": "sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+      "adapterSha256": "ec073503ad22c5d3a0f573f03387676e9bbe624487302cd4138c67f6a617f00c"
+    },
+    "coolify-rollback": {
+      "at": "2026-10-14T02:34:19.745417+00:00",
+      "tag": "10.0.0.2:5000/grokinsider/grok-remote-qa:qa-rollback-abe4f35-r3",
+      "digest": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:0ba1de4556e8071daf77101ac66e91ef66b11c6f5f088e1da93cde0651e8f249",
+      "imageId": "sha256:0ba1de4556e8071daf77101ac66e91ef66b11c6f5f088e1da93cde0651e8f249",
+      "adapterSha256": "60229957f989e07cf399ff86ef039bf471f5c8fe23c615f85c65ee0c17a2fb38"
+    }
+  },
+  "runtime": {
+    "at": "2026-10-14T02:35:18.742679+00:00",
+    "image": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+    "runningImageId": "sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+    "user": "101:101",
+    "healthy": "healthy",
+    "oomKilled": false,
+    "hostConfig": {
+      "ReadonlyRootfs": true,
+      "Memory": 134217728,
+      "MemorySwap": 134217728,
+      "NanoCpus": 500000000,
+      "PidsLimit": 64,
+      "CapDrop": [
+        "ALL"
+      ],
+      "SecurityOpt": [
+        "no-new-privileges:true"
+      ],
+      "Tmpfs": {
+        "/tmp": "rw,noexec,nosuid,nodev,size=16m,mode=1777"
+      },
+      "PortBindings": {}
+    }
+  },
+  "registryTagsProtected": true,
+  "retainedSourceVersions": 4,
+  "http": {
+    "deployed-origin": {
+      "sha256": "09087db627e64faab9e9c8ef6053616ed015701b5ebc1cddcb1560aef88a69cf",
+      "passed": 243,
+      "failed": 0
+    },
+    "deployed-cdn": {
+      "sha256": "31a1ae054b0335c70a6d7db3ec076d9660f5594c88ff73e23b2b5ea733d1e76f",
+      "passed": 245,
+      "failed": 0
+    },
+    "rollback-cdn": {
+      "sha256": "618f0ecc76e94178568bf5661c5b981aec03321c09b2b1d715b6644f37f81d84",
+      "passed": 245,
+      "failed": 0
+    },
+    "restored-cdn": {
+      "sha256": "8143e580a502b9b94a887b3021034e3ec212eae8c38036be0156b9bb5fcf33d1",
+      "passed": 245,
+      "failed": 0
+    }
+  },
+  "browser": {
+    "browser-update": {
+      "result": "passed",
+      "runnerSha256": "7ef0bec19989686daa3cc4deae649d6747ba224e2eb5b0254ffa93ea2a6ab3a7",
+      "browser": "155.0.8059.39",
+      "chromeProcessGroupEmpty": true,
+      "profileRemoved": true,
+      "cleanupFailed": null,
+      "finishedAt": "2026-10-14T02:35:41.572Z",
+      "checks": 18,
+      "reportSha256": "e377d364b52855918786acba928d9ec62e1f29239361567798770ae2040492e1"
+    },
+    "browser-restoration": {
+      "result": "passed",
+      "runnerSha256": "30e6061f769f76b206b99ba12afb34cee681acfed376b9cf576e89107894019b",
+      "browser": "155.0.8059.39",
+      "chromeProcessGroupEmpty": true,
+      "profileRemoved": true,
+      "cleanupFailed": null,
+      "finishedAt": "2026-10-14T02:37:42.562Z",
+      "checks": 18,
+      "reportSha256": "2d17c5f9231fcd225368b69b5c70a65a47c6d6edb0bb6a88fe23fc4d2f413339"
+    }
+  },
+  "notQualified": [
+    "Current native installation and lifecycle belong to separate receipts",
+    "Physical S24, push, sleep and network handoff",
+    "Active conversations across this deployed update",
+    "24-hour soak and seven-day release cohort",
+    "Publications and their storage deletion barrier"
+  ],
+  "multiHost": {
+    "result": "passed",
+    "checks": 107,
+    "reportSha256": "da2bd41ed84ca08a961aa3b49012a73943fdbbd3fcde379b59a755ffcf74dc3d"
+  },
+  "runnerCleanupHardening": {
+    "currentRunnerSha256": "53e38ec2f8bc6d1d5b91fc3f13d52f5e18b96fcd332e5e7c3cea296e9b4e80d8",
+    "changesAfterSuccessfulRestoration": [
+      "Handle spawn errors",
+      "Do not delete profile until the Chrome group is empty",
+      "Reject Syl isError close replies"
+    ],
+    "negativeControl": {
+      "fault": "Nonexistent Chrome binary",
+      "expected": "failed before browser work; cleanup completes",
+      "result": "failed",
+      "checks": 0,
+      "spawnFailures": [
+        "chrome"
+      ],
+      "profileRemoved": true,
+      "cleanupFailed": false,
+      "reportSha256": "92560531d1b540cc1efdd1adf48fcbe19a2dbc0e83f3d297d86aa7b4f347e9b0"
+    }
+  }
+}
