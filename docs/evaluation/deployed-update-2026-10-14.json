@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-13T22:54:46.998Z",
+  "origin": "https://grok.fabrials.com",
+  "scope": "Deployed shell update and browser rollback with trusted TLS in hidden Syl Sway",
+  "checks": [
+    "initial_trusted_https",
+    "baseline_source_identity",
+    "baseline_controlled",
+    "baseline_stable_after_reload",
+    "update_requires_explicit_action",
+    "new_shell_has_distinct_identity",
+    "baseline_source_metadata_available",
+    "baseline_metadata_bound_to_shell",
+    "baseline_archive_public_bytes",
+    "baseline_license_public_bytes",
+    "baseline_notices_public_bytes",
+    "candidate_source_metadata_available",
+    "candidate_metadata_bound_to_shell",
+    "candidate_archive_public_bytes",
+    "candidate_license_public_bytes",
+    "candidate_notices_public_bytes",
+    "updated_shell_opens_offline",
+    "explicit_offline_rollback_restores_prior_shell"
+  ],
+  "notQualified": [
+    "Private pairing, drafts and active turns across this upgrade",
+    "Android installation and suspension",
+    "Inference and push",
+    "Hardware GPU performance"
+  ],
+  "phases": [
+    {
+      "name": "baseline",
+      "at": "2026-10-13T22:54:50.339Z",
+      "shellId": "a3612b47d5994d284e5d9729dd2918dfdbea69cc1d262e0ef789a4f22c57fe6f"
+    },
+    {
+      "name": "updated-and-rolled-back",
+      "at": "2026-10-13T23:12:54.108Z",
+      "shellId": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982",
+      "restoredShellId": "a3612b47d5994d284e5d9729dd2918dfdbea69cc1d262e0ef789a4f22c57fe6f"
+    }
+  ],
+  "runnerSha256": "6e076bcc8d6e622fbd5ef340d1a0ef1717ab26b221aa6765bd31706311ef5052",
+  "browser": "155.0.8059.39",
+  "tls": {
+    "issuer": "WE1",
+    "protocol": "TLS 1.3",
+    "subjectName": "fabrials.com",
+    "validFrom": 1791864324,
+    "validTo": 1799643788
+  },
+  "baseline": {
+    "shellId": "a3612b47d5994d284e5d9729dd2918dfdbea69cc1d262e0ef789a4f22c57fe6f",
+    "htmlSha256": "d9767571ec700e37edbcc35d7bbc0439a3ce1c69f83b0474ea4fc7566c13c09e",
+    "sourceArchive": {
+      "path": "/sources/1e8c53d5085a33ecbe36c2f2f0fb336bfc814b211b19da7d03aca9400642bac2.tar.gz",
+      "sha256": "1e8c53d5085a33ecbe36c2f2f0fb336bfc814b211b19da7d03aca9400642bac2",
+      "bytes": 4260099
+    }
+  },
+  "candidate": {
+    "shellId": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982",
+    "sourceArchive": {
+      "path": "/sources/8ce266700085c207c6d40a2dfa9e972e868b84a10f5981aaa904868cd69a083b.tar.gz",
+      "sha256": "8ce266700085c207c6d40a2dfa9e972e868b84a10f5981aaa904868cd69a083b",
+      "bytes": 4415286
+    }
+  },
+  "result": "passed",
+  "finishedAt": "2026-10-13T23:12:54.142Z"
+}

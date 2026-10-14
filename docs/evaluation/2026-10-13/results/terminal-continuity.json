@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "terminal-continuity",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "7dd62c71d7b10a0e8faed463c833b450f21603ebd468ca5f4f71ed95829f862e",
+  "decision": "keep",
+  "reasons": [
+    "required_acceptance_passed"
+  ],
+  "failed": [],
+  "missing": []
+}

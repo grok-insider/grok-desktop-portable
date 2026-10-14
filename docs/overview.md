@@ -11,32 +11,26 @@ only. This repository holds the SPA and the installers; the host is the crate
 `fabrials-agent-host` in `grok-insider/fabrials-libs`.
 
 ```text
-https://desktop.grok.me     Work SPA / landing (public)
-        │  fetch + WebSocket → loopback
+https://desktop.grok.me       Installable PWA / local computer profiles
+        │ WSS + pinned Noise over a private network
         ▼
-  spanreed agent            closed light.local.v1 API
-        │  ACP stdio
+  spanreed agent             User's computer; closed application protocol
+        │ ACP stdio / shared terminal leader
         ▼
-  grok                      user's CLI + GROK_HOME + config
+  grok                       User's CLI + GROK_HOME + configuration
 ```
 
-- **No host / no pairing** → site shows **landing** (install Spanreed, start the host).
-- **Host + pairing** → **Work UI** against the local CLI.
-- The native binary is Spanreed (its GitHub Releases, fetched by the install
-  scripts). This repo's releases carry notes only.
-- The cloud never runs the CLI and never holds OAuth/API secrets.
+The current architecture is [ADR 0020](adr/0020-direct-private-pwa.md). Pairing,
+private use and the installed shell do not require a Fabrials account. Public
+conversation hosting is a separate explicit opt-in with its own authorization
+and deletion policy. `#pair=` retains the explicit legacy loopback launch;
+loopback embedding remains the fallback.
 
-Architecture decision: [ADR light 0016](adr/0016-hosted-ui-local-bridge.md).
-Portable is a sibling of Grok Desktop (Electron), not a Desktop surface
-([ADR light 0001](adr/0001-work-only-sibling-product.md)).
-
-| Document | Purpose |
-|----------|---------|
-| [protocol.md](protocol.md) | `light.local.v1` |
-| [threat-model.md](threat-model.md) | Trust boundaries, accepted risks, non-claims |
-| [ui.md](ui.md) | Landing vs Work; probe states |
-| [adr/](adr/) | Architecture decisions (0016 = hosted UI) |
-| [hosted-demo.md](hosted-demo.md) | Stub preview host only (not production) |
+The native binary is Spanreed. This repository supplies the SPA, installers and
+release notes. The cloud never runs the user's CLI or holds its provider secrets.
+The [release plan](public-release-plan.md) identifies mandatory qualification;
+the [direct implementation](direct-pwa-implementation.md) records local evidence
+and remaining gaps. ADR 0019 and its managed-relay evaluation are historical.
 
 ## Naming
 
@@ -44,7 +38,7 @@ Portable is a sibling of Grok Desktop (Electron), not a Desktop surface
 |-------|------|------|
 | Product | Grok Desktop Portable | Marketing / repo name |
 | Local host | `spanreed agent` | Spanreed CLI; `grok-bridge` remains an alias name |
-| Production UI | `https://desktop.grok.me` | Hosted Work SPA + landing (ADR 0016) |
+| Production UI | `https://desktop.grok.me` | Installable direct PWA (ADR 0020) |
 | App package | `@grok-desktop-portable/web` | Built for site deploy; also embeddable for fallback |
 | App path | `apps/web` | SPA source |
 | Host crate | `fabrials-agent-host` (`grok-insider/fabrials-libs`) | Loopback API + ACP composition root |
@@ -96,7 +90,8 @@ Light may **not** state, and must not imply:
   secrets the agent read;
 - that the origin hostname can never reach a resolver on an unsupported client;
 - that visiting an ordinary HTTP URL can start a stopped native process;
-- that any sync, backup, or remote execution exists.
+- that private execution works without reaching the user's host and configured providers;
+- that automatic backups or a managed relay are available, or that offline copies are current.
 
 The honest one-line description is in the
 [threat model](threat-model.md#1-what-light-is): Light gives a local browser tab
@@ -107,15 +102,14 @@ with the same authority that CLI already has.
 
 - Grok Build CLI (**≥ 0.2.115**), installed and authenticated by the user.
   Portable does **not** install `grok`; that is a separate product/installer.
-- A conforming browser: Chromium, or Firefox 84 or later. WebKit, including
-  Safari, is unsupported — see
-  [ADR light 0008](adr/0008-supported-browser-engines.md). Edge is fine on Windows.
+- A qualified current Chromium or Firefox browser. Apple clients require explicit
+  experimental opt-in until the physical-device gates pass (ADR 0020).
 - Spanreed for Linux x86_64, macOS (arm64, x86_64) or native Windows x64,
   installed via `install.sh` / `install.ps1` from the site.
 - Start the host with `spanreed agent serve` (or the Spanreed tray).
 
-Light is not an offline product: Grok Build needs its configured services to
-authenticate and produce responses.
+The installed shell, opted-in drafts and separately opted-in read-only transcript copies can open offline. Transcript copies contain messages and tool summaries, with explicit missing-image indicators. Grok Build still
+needs its configured services to authenticate and produce responses.
 
 ## Implementation status
 

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "authentication",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "2c8237c1f6dccaeb484ada41af83c4393cf8a3865eac9e5dc5b076a0a3e66c09",
+  "decision": "keep",
+  "reasons": [
+    "required_acceptance_passed"
+  ],
+  "failed": [],
+  "missing": []
+}

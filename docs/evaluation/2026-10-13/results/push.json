@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "experiment": "push",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "65f2e61c9d00cc85fe36c86e471576989e563ff8290a6032b18731cc8a009734",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "foreground",
+    "suspended",
+    "closed"
+  ]
+}

@@ -1,0 +1,381 @@
+{
+  "schema": 1,
+  "scope": "Exact r3 static QA deployment, source retention and real browser update/rollback",
+  "sources": {
+    "at": "2026-10-14T02:33:00.069Z",
+    "sources": {
+      "portable": {
+        "commit": "abe4f35895aacda102a09c3b50475379febf3b6c",
+        "dirty": false,
+        "sha256": "5c1881ec032463ad625198ec468134777cc51437bea13c8953b43ab086a9b305"
+      },
+      "libs": {
+        "commit": "ee3060d023c5f5f34196e1ef7f439b65be9d0bb8",
+        "dirty": false,
+        "sha256": "ca2f3527e8cd050f62e31520bfe8bd2791d7dd3ca843e1182f771b1adc291041"
+      }
+    },
+    "toolchain": {
+      "node": "v22.23.3",
+      "rustc": "rustc 1.98.1 (48a229cea 2026-09-01) (built from a source tarball)",
+      "pnpm": "10.33.2"
+    },
+    "spanreedCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "deploymentSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+    "bundleSha256": "30452ed2282ea3223d4a0094cb06ec2785acb3da28840f015c50edf307c46145",
+    "buildPath": "Exact committed native assets/remote-web; generated once by remote-assets.py before packaging"
+  },
+  "sourceArchive": {
+    "path": "/sources/d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc.tar.gz",
+    "sha256": "d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc",
+    "bytes": 4502853
+  },
+  "shellId": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+  "previousShellId": "ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac",
+  "webTests": {
+    "passed": 905,
+    "files": 89,
+    "ciRun": 38501095450
+  },
+  "images": {
+    "coolify": {
+      "at": "2026-10-14T02:34:06.438250+00:00",
+      "tag": "10.0.0.2:5000/grokinsider/grok-remote-qa:qa-abe4f35-r3",
+      "digest": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+      "imageId": "sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+      "adapterSha256": "ec073503ad22c5d3a0f573f03387676e9bbe624487302cd4138c67f6a617f00c"
+    },
+    "coolify-rollback": {
+      "at": "2026-10-14T02:34:19.745417+00:00",
+      "tag": "10.0.0.2:5000/grokinsider/grok-remote-qa:qa-rollback-abe4f35-r3",
+      "digest": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:0ba1de4556e8071daf77101ac66e91ef66b11c6f5f088e1da93cde0651e8f249",
+      "imageId": "sha256:0ba1de4556e8071daf77101ac66e91ef66b11c6f5f088e1da93cde0651e8f249",
+      "adapterSha256": "60229957f989e07cf399ff86ef039bf471f5c8fe23c615f85c65ee0c17a2fb38"
+    }
+  },
+  "runtime": {
+    "at": "2026-10-14T02:35:18.742679+00:00",
+    "image": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+    "runningImageId": "sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+    "user": "101:101",
+    "healthy": "healthy",
+    "oomKilled": false,
+    "hostConfig": {
+      "ReadonlyRootfs": true,
+      "Memory": 134217728,
+      "MemorySwap": 134217728,
+      "NanoCpus": 500000000,
+      "PidsLimit": 64,
+      "CapDrop": [
+        "ALL"
+      ],
+      "SecurityOpt": [
+        "no-new-privileges:true"
+      ],
+      "Tmpfs": {
+        "/tmp": "rw,noexec,nosuid,nodev,size=16m,mode=1777"
+      },
+      "PortBindings": {}
+    }
+  },
+  "registryTagsProtected": true,
+  "retainedSourceVersions": 4,
+  "http": {
+    "deployed-origin": {
+      "sha256": "09087db627e64faab9e9c8ef6053616ed015701b5ebc1cddcb1560aef88a69cf",
+      "passed": 243,
+      "failed": 0
+    },
+    "deployed-cdn": {
+      "sha256": "31a1ae054b0335c70a6d7db3ec076d9660f5594c88ff73e23b2b5ea733d1e76f",
+      "passed": 245,
+      "failed": 0
+    },
+    "rollback-cdn": {
+      "sha256": "618f0ecc76e94178568bf5661c5b981aec03321c09b2b1d715b6644f37f81d84",
+      "passed": 245,
+      "failed": 0
+    },
+    "restored-cdn": {
+      "sha256": "8143e580a502b9b94a887b3021034e3ec212eae8c38036be0156b9bb5fcf33d1",
+      "passed": 245,
+      "failed": 0
+    }
+  },
+  "browser": {
+    "browser-update": {
+      "result": "passed",
+      "runnerSha256": "7ef0bec19989686daa3cc4deae649d6747ba224e2eb5b0254ffa93ea2a6ab3a7",
+      "browser": "155.0.8059.39",
+      "chromeProcessGroupEmpty": true,
+      "profileRemoved": true,
+      "cleanupFailed": null,
+      "finishedAt": "2026-10-14T02:35:41.572Z",
+      "checks": 18,
+      "reportSha256": "e377d364b52855918786acba928d9ec62e1f29239361567798770ae2040492e1"
+    },
+    "browser-restoration": {
+      "result": "passed",
+      "runnerSha256": "30e6061f769f76b206b99ba12afb34cee681acfed376b9cf576e89107894019b",
+      "browser": "155.0.8059.39",
+      "chromeProcessGroupEmpty": true,
+      "profileRemoved": true,
+      "cleanupFailed": null,
+      "finishedAt": "2026-10-14T02:37:42.562Z",
+      "checks": 18,
+      "reportSha256": "2d17c5f9231fcd225368b69b5c70a65a47c6d6edb0bb6a88fe23fc4d2f413339"
+    }
+  },
+  "notQualified": [
+    "Stable native release, public installers and current physical-device lifecycle remain separate gates",
+    "Physical S24, push, sleep and network handoff",
+    "Active conversations across this deployed update",
+    "24-hour soak and seven-day release cohort",
+    "Publications and their storage deletion barrier"
+  ],
+  "multiHost": {
+    "result": "passed",
+    "checks": 107,
+    "reportSha256": "da2bd41ed84ca08a961aa3b49012a73943fdbbd3fcde379b59a755ffcf74dc3d"
+  },
+  "runnerCleanupHardening": {
+    "currentRunnerSha256": "53e38ec2f8bc6d1d5b91fc3f13d52f5e18b96fcd332e5e7c3cea296e9b4e80d8",
+    "changesAfterSuccessfulRestoration": [
+      "Handle spawn errors",
+      "Do not delete profile until the Chrome group is empty",
+      "Reject Syl isError close replies"
+    ],
+    "negativeControl": {
+      "fault": "Nonexistent Chrome binary",
+      "expected": "failed before browser work; cleanup completes",
+      "result": "failed",
+      "checks": 0,
+      "spawnFailures": [
+        "chrome"
+      ],
+      "profileRemoved": true,
+      "cleanupFailed": false,
+      "reportSha256": "92560531d1b540cc1efdd1adf48fcbe19a2dbc0e83f3d297d86aa7b4f347e9b0"
+    }
+  },
+  "livePairingPreviousNative": {
+    "result": "passed",
+    "runnerSha256": "f010e1af8c38d29918636f1c767334228b02578136555314bda97011daf3d33d",
+    "nativeSha256": "90d3f5078a3f392220f59d80d09ae96ad3f8bf4b33b28ab6f5f3d1ccbf4c6bf3",
+    "shellId": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+    "browser": "155.0.8059.39",
+    "finishedAt": "2026-10-14T02:49:21.125Z",
+    "chromeProcessGroupEmpty": true,
+    "testPairingsRemoved": true,
+    "unattributedNewPairings": 0,
+    "checks": 24,
+    "reportSha256": "a1c321b02abc5d15ef72a3429eb1f604ffd85229660bc26304c15195cb100b94",
+    "cleanupFailed": false,
+    "scope": "New r3 PWA with previous station native 7e2a7816; no prompts or inference"
+  },
+  "livePairingFinalNative": {
+    "result": "passed",
+    "runnerSha256": "b03529825f90e032e2295b2a14b661a434ddc3675a9bc8bdac732ebfe53c0d5b",
+    "nativeSha256": "5cdd5c4d8aa6c9d04cc99d9772b0964a3d2fde67658818f91a9180bdc2ff7e47",
+    "shellId": "e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e",
+    "browser": "155.0.8059.39",
+    "finishedAt": "2026-10-14T03:12:23.573Z",
+    "chromeProcessGroupEmpty": true,
+    "testPairingsRemoved": true,
+    "unattributedNewPairings": 0,
+    "checks": 24,
+    "reportSha256": "6ce143f57e4597b4e43f2198d87e6d78f455c607d240a17f4d4465de624c6452",
+    "cleanupFailed": false,
+    "scope": "Final r3 PWA with final native e6d9cc8 installed on station; no prompts or inference"
+  },
+  "stationActivation": {
+    "result": "passed",
+    "candidateSource": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "binarySha256": "5cdd5c4d8aa6c9d04cc99d9772b0964a3d2fde67658818f91a9180bdc2ff7e47",
+    "stationActivated": true,
+    "fiveIdentitiesByteIdentical": true,
+    "preservedProcessesUnchanged": true,
+    "ordinaryServiceAndCliUnchanged": true,
+    "tailscaleServeUnchanged": true,
+    "publicSourceMetadataMatchesNative": true,
+    "inferencePerformed": false,
+    "finishedAt": "2026-10-14T03:11:52.725615+00:00",
+    "doctor": {
+      "grok-program": "passed",
+      "grok-home": "passed",
+      "state-directory": "passed",
+      "host-identity": "passed",
+      "private-origin": "passed",
+      "leader-socket": "unverified",
+      "terminal-continuity": "unverified",
+      "service-environment": "unverified",
+      "browser-route": "unverified",
+      "host-control": "passed"
+    },
+    "reportSha256": "20f753897332cb0f6353e19a5dcf3557da400943fcd6a0db979d3aef3dc74b60"
+  },
+  "nativeCi": {
+    "schema": 1,
+    "checkedAt": "2026-10-14T03:11:33.654945+00:00",
+    "sourceCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "result": "passed",
+    "runs": [
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "headSha": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+        "jobs": [
+          {
+            "databaseId": 115649984042,
+            "name": "fmt + clippy + test",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649984289,
+            "name": "fabrials-libs drift",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649984304,
+            "name": "cross (macos-latest)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649984380,
+            "name": "cross (windows-latest)",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "status": "completed",
+        "url": "https://github.com/grok-insider/spanreed/actions/runs/38501614130",
+        "runId": 38501614130
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "headSha": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+        "jobs": [
+          {
+            "databaseId": 115649921332,
+            "name": "desktop (ubuntu-24.04, deb)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115649921537,
+            "name": "desktop (windows-latest, nsis)",
+            "status": "completed",
+            "conclusion": "success"
+          },
+          {
+            "databaseId": 115655478996,
+            "name": "signed-macos",
+            "status": "completed",
+            "conclusion": "skipped"
+          }
+        ],
+        "status": "completed",
+        "url": "https://github.com/grok-insider/spanreed/actions/runs/38501614113",
+        "runId": 38501614113
+      },
+      {
+        "conclusion": "success",
+        "event": "pull_request",
+        "headSha": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+        "jobs": [
+          {
+            "databaseId": 115649966630,
+            "name": "nix build (x86_64-linux)",
+            "status": "completed",
+            "conclusion": "success"
+          }
+        ],
+        "status": "completed",
+        "url": "https://github.com/grok-insider/spanreed/actions/runs/38501614104",
+        "runId": 38501614104
+      }
+    ],
+    "windowsTestSource": {
+      "reportedCommit": "ba997e9c8931bb1984e5556687a0e2f778d3a1fa",
+      "sourceHeadCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+      "executedTree": "b5b83cfd28cd64a193a0737d40776752f14076eb",
+      "sourceHeadTree": "b5b83cfd28cd64a193a0737d40776752f14076eb",
+      "treesEqual": true,
+      "explanation": "GitHub pull_request checked out its synthetic merge revision; Git trees independently queried through the GitHub Git API are identical.",
+      "logSha256": "b11022cf8593721785fdf762df99d75c41c0f1dce371feaa76bcc4e7ca5d8fc5",
+      "limitedUserResult": "passed",
+      "administratorRoleActive": false,
+      "cargoCommandsPassed": 5
+    },
+    "reportSha256": "4072579fab2132e44e42243eb20132bf62153dac3ef234f87e35cc81ee74c418"
+  },
+  "browserEngineSupplement": {
+    "receipt": "direct-firefox-browser-2026-10-14.json",
+    "receiptSha256": "d913d51bc00178c18d90ff1e950603dc10579d1b73f5283da49e873725d14193",
+    "qaCommit": "cc1190503f6c9d6ea9b874756a06e8f0d1c7640f",
+    "runs": [
+      {
+        "engine": "firefox",
+        "browser": "157.0",
+        "startedAt": "2026-10-14T03:27:28.048Z",
+        "finishedAt": "2026-10-14T03:27:46.643Z",
+        "result": "passed",
+        "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+        "checks": 80,
+        "originalReportSha256": "5b23de4cb719abe75828b68f13215ecfc79fabdeda0a9ad23d3b440ed25c805b"
+      },
+      {
+        "engine": "firefox",
+        "browser": "157.0",
+        "startedAt": "2026-10-14T03:27:28.048Z",
+        "finishedAt": "2026-10-14T03:27:46.849Z",
+        "result": "passed",
+        "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+        "checks": 85,
+        "originalReportSha256": "b43bb9e27e74f6cb46f2e5ee40ec9f13ea51e39e5bf7c900f92ee508dc522ded"
+      },
+      {
+        "engine": "chromium",
+        "browser": "155.0.8059.39",
+        "startedAt": "2026-10-14T03:27:53.346Z",
+        "finishedAt": "2026-10-14T03:28:10.560Z",
+        "result": "passed",
+        "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+        "checks": 107,
+        "originalReportSha256": "9cd2b077164becd5b753cc09632e989d2aed13c4af5ffa49ab7c30d3ee4a5691"
+      }
+    ],
+    "scope": "Exact r3 direct-mode laboratory qualification on Firefox157 and shared-runner Chromium regression; no production or retail-browser release attestation",
+    "limitations": "Patched Playwright Firefox on Linux, headless laboratory TLS; seven CDP touch checks and sixteen short-viewport assertions omitted. No retail Firefox, Android Firefox, trusted production TLS, real notifications or GPU qualification."
+  },
+  "windowsNsisSupplement": {
+    "receipt": "https://github.com/grok-insider/spanreed/blob/6fd1a55c986cb5fc9372f0ceee94326b05072b0b/docs/evaluation/windows-nsis-e6d9cc8-2026-10-14.json",
+    "receiptSha256": "6cc30356e3cf96ea0475bf4dd0e142c4759918c87065870efa6005ee082eb176",
+    "sourceCommit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a",
+    "workflowRun": 38504260236,
+    "installerSha256": "d0220e5fb1ab462b94649d78e3dd7e31de7d78557eaf4a7d4b2eea0ef2af71bd",
+    "extractedBinarySha256": "70def19b0f4048d5ac0664e2218080f6984ad1e73126a438fdb9780e2f1aef45",
+    "startedAt": "2026-10-14T03:25:41.0772456Z",
+    "finishedAt": "2026-10-14T03:25:57.9312728Z",
+    "lifecycleResult": "passed",
+    "lifecycleChecks": 31,
+    "lifecycleReportSha256": "c5b445957f916bcddb4508dda8734734ba2740078452a25461043c8182cd77e9",
+    "cleanupResult": "resources_removed_and_final_read_only_baselines_passed",
+    "cleanupReportSha256": "67c1c4549ceaaad5332d8329ae5e49eab10bfb3e802e08a98f0bd6b9d984b9ab",
+    "standardUser": true,
+    "originalCleanupGuardExitCode": 1,
+    "finalReadOnlyBaselinePassed": true,
+    "notQualified": [
+      "Interactive installer UI, UAC and SmartScreen",
+      "First graphical application start",
+      "Machine-wide MSI installation",
+      "CLI self-update replacement and rollback",
+      "Active application upgrade",
+      "Power loss and physical Windows hardware"
+    ]
+  }
+}

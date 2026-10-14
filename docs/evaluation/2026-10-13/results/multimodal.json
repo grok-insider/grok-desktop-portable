@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "experiment": "multimodal",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "0768d8296f6c4176ee989b15ff4c5e221c5887acc74aab03505452489806b55c",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "typed-acp",
+    "known-image-content",
+    "corrupt-file",
+    "mime-mismatch",
+    "unsupported-capability"
+  ]
+}

@@ -6,7 +6,9 @@
 
 import type { BridgeProbeState } from "../services/bridgeProbe";
 import type { PresenceStats } from "../services/presence";
+import { isPrivateDocumentOrigin } from "../services/client";
 import { LandingPresence } from "./LandingPresence";
+import { TerminalSessionHelp } from "../components/TerminalSessionHelp";
 
 const INSTALL_SNIPPET = `curl -fsSL https://desktop.grok.me/install.sh | sh
 spanreed agent doctor
@@ -75,6 +77,7 @@ export function LandingView({
   /** Anonymous aggregate counts from the public presence service (optional). */
   presence?: PresenceStats | null;
 }) {
+  const privateOrigin = isPrivateDocumentOrigin();
   let title = "Grok Desktop Portable";
   let body =
     "Drive your local Grok Build CLI from the browser. This site is only the UI — install and authentication stay on your machine.";
@@ -143,11 +146,47 @@ export function LandingView({
       break;
   }
 
+  if (privateOrigin) {
+    snippet = `spanreed remote private-serve ${location.origin}\nspanreed agent open`;
+    steps = [
+      "Connect this device and your computer to the same Tailscale network.",
+      "Start Spanreed on your computer with the command above.",
+      "Open the HTTPS pairing link on this device.",
+    ];
+    switch (probe.kind) {
+      case "checking":
+        title = "Connecting to your computer…";
+        body = "Checking whether Spanreed is reachable over your private network.";
+        break;
+      case "bridge_missing":
+      case "blocked_lna":
+        title = "Your computer is unavailable";
+        body = "Check that your computer is on and both devices are connected to Tailscale. Start Spanreed on your computer, then retry.";
+        break;
+      case "needs_pairing":
+        title = "Pair this device";
+        body = "Spanreed is connected. Run spanreed agent open on your computer, then open its HTTPS link on this device.";
+        snippet = OPEN_SNIPPET;
+        steps = [
+          "Run spanreed agent open in a terminal on your computer.",
+          "Open the HTTPS link on this device to connect your Grok sessions.",
+        ];
+        break;
+      case "error":
+        title = "Connection error";
+        break;
+      case "ready":
+        steps = [];
+        break;
+    }
+  }
+
   const showCommands =
     probe.kind === "bridge_missing" ||
     probe.kind === "needs_pairing" ||
     probe.kind === "checking" ||
-    probe.kind === "error";
+    probe.kind === "error" ||
+    (privateOrigin && probe.kind === "blocked_lna");
 
   return (
     <main
@@ -158,12 +197,12 @@ export function LandingView({
     >
       <LandingPresence stats={presence} />
       <div className="landing-card">
-        <p className="landing-kicker">Grok Desktop Portable</p>
+        <p className="landing-kicker">{privateOrigin ? "Grok Remote" : "Grok Desktop Portable"}</p>
         <h1>{title}</h1>
         <p className="landing-body">{body}</p>
         {showCommands ? (
           <>
-            <p className="landing-steps-label">On this machine</p>
+            <p className="landing-steps-label">{privateOrigin ? "On your computer" : "On this machine"}</p>
             <pre className="landing-install" data-testid="landing-install">
               {snippet}
             </pre>
@@ -176,7 +215,7 @@ export function LandingView({
             ) : null}
           </>
         ) : null}
-        {probe.kind === "blocked_lna" ? (
+        {probe.kind === "blocked_lna" && !privateOrigin ? (
           <p className="landing-hint">
             In Chromium, look for a site permission for local network / loopback
             access for desktop.grok.me, allow it, then retry.
@@ -187,9 +226,11 @@ export function LandingView({
             Retry
           </button>
         </div>
+        {privateOrigin ? <TerminalSessionHelp className="landing-hint" /> : null}
         <p className="landing-trust">
-          Portable runs the agent with your own authority and your own Grok
-          configuration. It is a control surface, not a sandbox.
+          {privateOrigin
+            ? "Grok runs on your computer with your existing configuration and permissions."
+            : "Portable runs the agent with your own authority and your own Grok configuration. It is a control surface, not a sandbox."}
         </p>
       </div>
       <nav className="landing-social" aria-label="Social links">

@@ -33,7 +33,7 @@ export function IntegrationList({ integrations }: { integrations: Integration[] 
             <li key={entry.name}>
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-label",
+                  "inline-flex items-center gap-1.5 rounded-[var(--fui-radius-xs)] border px-1.5 py-0.5 text-label",
                   entry.enabled
                     ? "border-border bg-card text-muted-foreground"
                     : "border-dashed border-border text-subtle-foreground",

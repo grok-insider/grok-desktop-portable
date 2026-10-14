@@ -1,0 +1,79 @@
+.remote-tools-trigger {
+  position: relative;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.remote-tools-attention {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  padding-inline: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.remote-tools-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--warning-soft);
+  color: var(--foreground);
+}
+
+.remote-tools-notice > button {
+  min-height: 44px;
+}
+
+.remote-tools-content > section[aria-label] {
+  margin: 0;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.remote-tools-content > section[aria-label]:first-of-type {
+  padding-top: 0;
+}
+
+.remote-tools-content > section[aria-label]:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.remote-tools-panel-notice {
+  margin-bottom: 16px;
+  color: var(--warning);
+}
+
+.remote-tools-appearance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.remote-tools-appearance button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.session-draft-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  width: min(48rem, 100%);
+  padding: 4px 12px;
+}

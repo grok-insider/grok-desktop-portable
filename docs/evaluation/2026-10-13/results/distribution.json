@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "experiment": "distribution",
+  "round": 2,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "85aad35a33639733dbaeda124fa01a49b0d751ea7f268f77d27c5fe0d685a153",
+  "decision": "inconclusive",
+  "reasons": [
+    "acceptance_incomplete"
+  ],
+  "failed": [],
+  "missing": [
+    "vendor-integrity",
+    "clean-release",
+    "install",
+    "update",
+    "rollback"
+  ]
+}

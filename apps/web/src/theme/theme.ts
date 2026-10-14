@@ -74,12 +74,15 @@ export function cycleThemePreference(current: ThemePreference): ThemePreference 
   return "system";
 }
 
+export const THEME_COLOR: Record<ResolvedTheme, string> = { light: "#eceeeb", dark: "#161a21" };
+
 export function applyResolvedTheme(
   resolved: ResolvedTheme,
   root: HTMLElement = document.documentElement,
 ): void {
   root.classList.toggle("dark", resolved === "dark");
   root.style.colorScheme = resolved;
+  root.ownerDocument.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[resolved]);
 }
 
 export function preferenceLabel(preference: ThemePreference): string {

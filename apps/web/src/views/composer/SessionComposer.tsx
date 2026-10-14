@@ -37,7 +37,7 @@ import {
   type ReactNode,
 } from "react";
 import { IconButton, cn } from "../../components/ui";
-import { formatAttachments } from "../../services/attachments";
+import { formatAttachments, isTextishFile } from "../../services/attachments";
 import {
   applyDraftForBash,
   bashBody,
@@ -59,6 +59,10 @@ import { effortsForModel } from "../../services/models";
 import type { SessionPhase } from "../SessionView";
 import { MentionMenu } from "./MentionMenu";
 import { PromptQueue } from "./PromptQueue";
+import { Dictation } from "../../components/Dictation";
+import { ImageAttachments } from "../../components/ImageAttachments";
+import type { ImageComposer } from "../../services/useImageComposer";
+import { remoteExperimentEnabled } from "../../services/experiments";
 
 const PROMPT_PLACEHOLDER = "Ask anything, / for commands, @ for context…";
 const SHELL_PLACEHOLDER = "Enter shell command… git status";
@@ -68,9 +72,15 @@ const INPUT_MAX_PX = 180;
 
 export function SessionComposer({
   connected,
+  configurationDisabled = false,
+  interruptDisabled = false,
+  shellEnabled = true,
+  submissionDisabled = false,
   phase,
   draft,
   onDraftChange,
+  draftFits,
+  imageComposer,
   queued,
   onRemoveQueued,
   configTools = [],
@@ -88,9 +98,15 @@ export function SessionComposer({
   onContextQuery,
 }: {
   connected: boolean;
+  configurationDisabled?: boolean;
+  interruptDisabled?: boolean;
+  shellEnabled?: boolean;
+  submissionDisabled?: boolean;
   phase: SessionPhase;
   draft: string;
   onDraftChange: (text: string) => void;
+  draftFits?: (text: string) => boolean;
+  imageComposer?: ImageComposer;
   queued: { entryId: string; text: string }[];
   onRemoveQueued: (entryId: string) => void;
   /** Host-projected configuration entries; only MCP names are rendered. */
@@ -111,11 +127,18 @@ export function SessionComposer({
   /** Ask the host to refresh the `@` candidates for what has been typed. */
   onContextQuery?: (query: string) => void;
 }) {
-  const bash = isBashMode(draft);
+  const bash = shellEnabled && isBashMode(draft);
+  const blockedShell = !shellEnabled && isBashMode(draft.trimStart());
   const efforts = effortsForModel(models, modelId);
-  const canSend = connected && (bash ? bashCommandReady(draft) : draft.trim().length > 0);
+  const tooLarge = draftFits ? !draftFits(draft) : false;
+  const canSend = connected && !submissionDisabled && !blockedShell && !tooLarge && !imageComposer?.busy && (bash ? bashCommandReady(draft) && !imageComposer?.images.length : draft.trim().length > 0 || Boolean(imageComposer?.images.length));
 
+  const currentDraft = useRef(draft);
+  currentDraft.current = draft;
+  const mounted = useRef(true);
+  useEffect(() => {mounted.current = true; return () => {mounted.current = false;};}, []);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dictationInsertion = useRef<{draft: string; start: number; end: number} | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
   const [caret, setCaret] = useState(0);
@@ -304,6 +327,7 @@ export function SessionComposer({
   }
 
   function enterShell() {
+    if (!shellEnabled) return;
     if (bash) {
       return;
     }
@@ -324,7 +348,23 @@ export function SessionComposer({
     if (list === null || list.length === 0 || bash) {
       return;
     }
-    const { text, attached, skipped } = await formatAttachments(list);
+    const raster = [...list].filter(file => /^image\/(png|jpeg|webp)$/i.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name));
+    if (raster.length) {
+      if (!imageComposer?.capable) {setAttachNotice("This host does not support image input. Update Spanreed and use a qualified Grok Build version."); return;}
+      await imageComposer.add(raster);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (raster.length !== list.length) setAttachNotice("Images were selected. Attach text files separately so each selection can be reviewed.");
+      return;
+    }
+    const pickedDraft = draft;
+    let result: Awaited<ReturnType<typeof formatAttachments>>;
+    try {result = await formatAttachments(list);} catch {
+      if (mounted.current) setAttachNotice("The files could not be read. Your draft is unchanged.");
+      return;
+    }
+    if (!mounted.current) return;
+    if (currentDraft.current !== pickedDraft) {setAttachNotice("Your draft changed while the files were being read. Attach them again."); return;}
+    const { text, attached, skipped } = result;
     if (fileInputRef.current !== null) {
       fileInputRef.current.value = "";
     }
@@ -350,6 +390,11 @@ export function SessionComposer({
     const padAfter = end < draft.length && !/^\s/.test(draft.slice(end)) ? "\n" : "";
     const insert = `${padBefore}${text}${padAfter}`;
     const next = `${draft.slice(0, start)}${insert}${draft.slice(end)}`;
+    if (draftFits && !draftFits(next)) {
+      setAttachNotice("Those files exceed the 256 KiB command limit with this draft after encoding. Your draft is unchanged.");
+      return;
+    }
+    if ([...list].some((file) => !isTextishFile(file))) setAttachNotice("Binary files are attached as encoded text. This connection does not send images to vision input.");
     onDraftChange(next);
     focusAt(start + insert.length);
   }
@@ -357,6 +402,7 @@ export function SessionComposer({
   const modelOptions = models.map((model) => ({
     id: model.id,
     label: model.name,
+    disabled: model.selectable === false,
   }));
   const effortOptions = efforts.map((effort) => ({
     id: effort.id,
@@ -364,8 +410,9 @@ export function SessionComposer({
   }));
 
   return (
-    <div className="shrink-0 px-3 pb-3 pt-1">
-      <div className="relative mx-auto w-[min(760px,100%)]">
+    <div className="session-composer shrink-0 px-3 pb-3 pt-1">
+      {imageComposer && <ImageAttachments composer={imageComposer} />}
+      <div className="relative w-full max-w-[48rem]">
         {menuOpen ? (
           <MentionMenu
             id={listboxId}
@@ -377,11 +424,12 @@ export function SessionComposer({
           />
         ) : null}
 
-        <PromptQueue queued={queued} onRemove={onRemoveQueued} />
-
+        <PromptQueue queued={queued} onRemove={onRemoveQueued} disabled={!connected} />
+        {tooLarge && <p role="status" className="mb-2 px-1 text-body-sm text-warning">This message exceeds the 256 KiB command limit after encoding. Shorten it or remove an attachment. Your draft is still here.</p>}
+        {blockedShell && <p role="status" className="mb-2 px-1 text-body-sm text-warning">Shell commands starting with ! are unavailable in shared conversations. Run the command in your terminal, or ask Grok to run it with your permission.</p>}
         {attachNotice !== null ? (
           <p
-            className="mb-2 truncate px-1 font-mono text-label text-subtle-foreground"
+            className="mb-2 px-1 font-mono text-label text-subtle-foreground"
             aria-live="polite"
           >
             {attachNotice}
@@ -425,7 +473,7 @@ export function SessionComposer({
             aria-label="Prompt composer"
             data-composer-chrome="card"
             className={cn(
-              "flex min-h-24 min-w-0 flex-1 flex-col rounded-xl bg-card shadow-composer",
+              "flex min-h-24 min-w-0 flex-1 flex-col rounded-xl border border-border bg-card shadow-composer",
               "transition-[box-shadow] duration-150 ease-fluid",
             )}
           >
@@ -461,7 +509,7 @@ export function SessionComposer({
                   onDraftChange(body.length === 0 ? "!" : `! ${body}`);
                   return;
                 }
-                onDraftChange(applyDraftForBash(body, draft));
+                onDraftChange(shellEnabled ? applyDraftForBash(body, draft) : body);
               }}
               onKeyDown={(event) => {
                 if (handleMenuKey(event)) {
@@ -479,7 +527,7 @@ export function SessionComposer({
                   openFilePicker();
                   return;
                 }
-                if (shouldExitBashOnKey(draft, event)) {
+                if (shellEnabled && shouldExitBashOnKey(draft, event)) {
                   event.preventDefault();
                   onDraftChange("");
                   return;
@@ -489,20 +537,20 @@ export function SessionComposer({
                   return;
                 }
                 event.preventDefault();
+                if (!canSend) return;
                 if ((event.ctrlKey || event.metaKey) && phase === "streaming") {
-                  onSendNow();
+                  if (!interruptDisabled) onSendNow();
                   return;
                 }
                 onSubmit();
               }}
               placeholder={bash ? SHELL_PLACEHOLDER : PROMPT_PLACEHOLDER}
               className={cn(
-                "w-full resize-none overflow-y-auto bg-transparent px-4 pb-2 pt-4",
+                "min-h-[60px] max-h-[180px] w-full resize-none overflow-y-auto bg-transparent px-4 pb-2 pt-4",
                 "text-body leading-5 text-foreground outline-none",
                 "placeholder:text-subtle-foreground",
                 bash && "font-mono",
               )}
-              style={{ minHeight: INPUT_MIN_PX, maxHeight: INPUT_MAX_PX }}
             />
 
             <div className="flex h-11 shrink-0 items-center px-2">
@@ -526,34 +574,52 @@ export function SessionComposer({
                   onCommands={insertCommandMention}
                   onContext={insertFileMention}
                   onShell={enterShell}
+                  shellEnabled={shellEnabled}
                 />
                 {modelOptions.length === 0 ? null : (
                   <ComposerSelect
                     label="Model"
+                    unknownLabel="Model unknown"
                     value={modelId ?? ""}
                     options={modelOptions}
-                    disabled={!connected || bash}
+                    disabled={!connected || bash || configurationDisabled}
                     onChange={onModelChange}
                   />
                 )}
                 {effortOptions.length === 0 ? null : (
                   <ComposerSelect
                     label="Reasoning effort"
+                    unknownLabel="Effort unknown"
                     value={effortId ?? ""}
                     options={effortOptions}
-                    disabled={!connected || bash}
+                    disabled={!connected || bash || configurationDisabled}
                     onChange={onEffortChange}
                   />
                 )}
               </div>
 
               <div className="ml-auto flex shrink-0 items-center gap-1">
+                {remoteExperimentEnabled("dictation") && !bash && <Dictation disabled={!connected} onOpen={() => {
+                  const start = inputRef.current?.selectionStart ?? draft.length;
+                  dictationInsertion.current = {draft, start, end: inputRef.current?.selectionEnd ?? start};
+                }} onInsert={text => {
+                  const insertion = dictationInsertion.current;
+                  if (!connected || !insertion || insertion.draft !== currentDraft.current) return false;
+                  const {start, end} = insertion;
+                  const inserted = `${start > 0 && !/\s$/.test(draft.slice(0, start)) ? " " : ""}${text}`;
+                  const next = `${draft.slice(0, start)}${inserted}${draft.slice(end)}`;
+                  if (draftFits && !draftFits(next)) return false;
+                  onDraftChange(next);
+                  setDismissedAt(null);
+                  focusAt(start + inserted.length);
+                  return true;
+                }} />}
                 {phase === "streaming" ? (
                   <>
                     <IconButton
                       size="sm"
                       onClick={onSendNow}
-                      disabled={!canSend}
+                      disabled={!canSend || interruptDisabled}
                       title="Stop the current turn and run this message next (Ctrl+Enter)"
                       aria-label="Stop the current turn and send this now"
                     >
@@ -562,6 +628,7 @@ export function SessionComposer({
                     <IconButton
                       size="sm"
                       onClick={onCancel}
+                      disabled={!connected || interruptDisabled}
                       title="Stop the current turn and send nothing"
                       aria-label="Stop the current turn"
                     >
@@ -647,12 +714,14 @@ function ComposerPlusMenu({
   onCommands,
   onContext,
   onShell,
+  shellEnabled,
 }: {
   disabled: boolean;
   onAttachFiles: () => void;
   onCommands: () => void;
   onContext: () => void;
   onShell: () => void;
+  shellEnabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -704,7 +773,7 @@ function ComposerPlusMenu({
         aria-label="Add to message"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Add images, files, commands, or shell"
+        title={shellEnabled ? "Add images, files, commands, or shell" : "Add images, files, or commands"}
         onClick={() => setOpen((current) => !current)}
         className={open ? "bg-accent/60 text-foreground" : undefined}
       >
@@ -716,7 +785,7 @@ function ComposerPlusMenu({
           aria-label="Add to message"
           className="absolute bottom-full left-0 z-40 mb-2 min-w-[15.5rem] overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-overlay"
         >
-          {items.map((item) => (
+          {items.filter(item => shellEnabled || item.id !== "shell").map((item) => (
             <button
               key={item.id}
               type="button"
@@ -756,14 +825,16 @@ function ComposerPlusMenu({
  */
 function ComposerSelect({
   label,
+  unknownLabel,
   value,
   options,
   disabled,
   onChange,
 }: {
   label: string;
+  unknownLabel: string;
   value: string;
-  options: { id: string; label: string }[];
+  options: { id: string; label: string; disabled?: boolean }[];
   disabled: boolean;
   onChange: (id: string) => void;
 }) {
@@ -774,7 +845,7 @@ function ComposerSelect({
   useDismissOnOutside(open, rootRef, () => setOpen(false));
 
   const selected = options.find((option) => option.id === value);
-  const display = selected?.label ?? label;
+  const display = selected?.label ?? unknownLabel;
 
   return (
     <div ref={rootRef} className="relative min-w-0 max-w-[11rem] shrink">
@@ -820,6 +891,7 @@ function ComposerSelect({
                 <button
                   type="button"
                   role="option"
+                  disabled={disabled || option.disabled}
                   aria-selected={isSelected}
                   className={cn(
                     "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-body-sm",
@@ -897,7 +969,7 @@ function McpControl({ tools }: { tools: ToolProjection[] }) {
           role="listbox"
           aria-label="MCP integrations"
         >
-          <p className="px-1 font-mono text-label font-semibold uppercase tracking-[0.06em] text-subtle-foreground">
+          <p className="px-1 text-body-sm font-medium text-muted-foreground">
             MCP integrations
           </p>
           <ul className="mt-1 max-h-48 overflow-y-auto">
@@ -911,7 +983,7 @@ function McpControl({ tools }: { tools: ToolProjection[] }) {
               >
                 <span
                   className={cn(
-                    "size-1.5 shrink-0 rounded-full",
+                    "size-1.5 shrink-0 rounded-[1px]",
                     mcp.enabled ? "bg-success" : "bg-destructive",
                   )}
                   aria-hidden="true"

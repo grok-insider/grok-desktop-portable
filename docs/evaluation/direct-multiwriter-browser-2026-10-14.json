@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-13T22:36:41.609Z",
+  "finishedAt": "2026-10-13T22:36:58.381Z",
+  "origin": "https://grok.fabrials.com",
+  "result": "passed",
+  "checks": [
+    "deployment_response_csp_enforced",
+    "qualification_pairing_uses_its_exact_origin",
+    "source_identity_binds_the_loaded_shell",
+    "unavailable_source_reports_failure_without_false_links",
+    "source_dialog_returns_keyboard_focus",
+    "source_dialog_accepts_version_bound_synthetic_metadata",
+    "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+    "source_dialog_fits_mobile_viewport",
+    "real_direct_noise_pairing_restores_synthetic_native_history",
+    "private_handshake_preserves_the_real_browser_origin",
+    "pairing_fragment_erased",
+    "closing_source_preserves_computer_settings_and_connection",
+    "source_information_does_not_disconnect_the_private_session",
+    "two_independent_pairings_are_simultaneously_writable_without_takeover",
+    "custom_model_and_effort_roundtrip_converges_across_devices",
+    "stale_model_revision_is_refused_without_overwriting_newer_device_choice",
+    "model_revision_conflict_is_explained_as_a_transient_notice",
+    "model_revision_conflict_dismisses_without_a_persistent_error",
+    "paused_fifo_preserves_distinct_device_origins_without_starting_inference",
+    "paused_queue_fits_mobile_viewport",
+    "stale_clear_revision_preserves_concurrently_enqueued_messages",
+    "queue_revision_conflict_is_explained_as_a_transient_notice",
+    "queue_revision_conflict_dismisses_without_a_persistent_error",
+    "first_device_model_changes_disabled_during_turn",
+    "first_device_unqualified_stop_disabled",
+    "second_device_model_changes_disabled_during_turn",
+    "second_device_unqualified_stop_disabled",
+    "second_device_reconnect_preserves_active_turn_queue_and_receipt_count",
+    "original_device_transcript_not_reset_or_duplicated",
+    "reconnecting_device_transcript_not_duplicated",
+    "both_devices_allow_model_changes_after_fifo_drains",
+    "both_devices_clear_working_status_after_fifo_drains",
+    "fifo_executes_each_accepted_turn_once_and_removal_never_executes",
+    "both_transcripts_agree_on_exactly_once_fifo_order",
+    "first_empty_catalogue_has_no_selectable_model",
+    "second_empty_catalogue_has_no_selectable_model",
+    "no_horizontal_overflow_2560x1440",
+    "composer_reachable_2560x1440",
+    "no_horizontal_overflow_390x844",
+    "composer_reachable_390x844",
+    "no_horizontal_overflow_844x390",
+    "composer_reachable_844x390",
+    "no_horizontal_overflow_390x430",
+    "composer_reachable_390x430",
+    "direct_pairing_and_draft_survive_reload",
+    "private_drafts_and_history_never_enter_static_shell_cache",
+    "installed_shell_opens_with_app_origin_blackholed",
+    "consented_history_readable_without_cloud_or_private_host",
+    "private_host_remains_usable_without_fabrials_or_app_origin",
+    "explicit_forget_revokes_and_removes_saved_profile",
+    "forget_removes_durable_draft_and_history_rows",
+    "no_external_application_requests",
+    "no_uncaught_browser_errors"
+  ],
+  "errors": [],
+  "runnerSha256": "0d2436754527d9dc22ccd4fad7bda9c40b3b6b71d25ede3a61eb8a38e8fd376f",
+  "artifactSha256": "1b1e8d4091d66b5c5d1f3a889b0836d62a9d72c1f2d7a018b445a36320adb273",
+  "nativeFixtureSha256": "dbec16886ade99f553ff17b20f33351affda91485ad89b50287744c4c1d15d43",
+  "browser": "155.0.8059.39",
+  "expectedResourceErrors": [
+    {
+      "url": "https://grok.fabrials.com/sources/fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982.json",
+      "status": 404
+    }
+  ],
+  "sourceUiFixture": {
+    "metadata": "Synthetic success metadata; real missing response and real emitted third-party notices",
+    "sourceArchiveDownloadQualified": false,
+    "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c"
+  },
+  "multiwriter": {
+    "fixture": "Actual Noise host with deterministic synthetic ACP; no inference",
+    "sessions": 1,
+    "browserContexts": 2,
+    "schedulerBound": "Covered by Rust saturation tests; browser checks convergence and exactly-once transcript",
+    "queueReceipts": {
+      "completed": 2,
+      "removed": 1
+    },
+    "expectedConflicts": {
+      "configuration": 1,
+      "clearQueue": 1
+    }
+  },
+  "offlineShellMs": 33,
+  "notQualified": [
+    "Production TLS trust: laboratory self-signed certificate",
+    "Actual hosting and CDN routing",
+    "Tailscale",
+    "Physical Android and Apple hardware",
+    "Grok inference: synthetic history only",
+    "Real push delivery",
+    "GPU performance: hidden software compositor",
+    "Cancellation GUI execution: the synthetic ACP intentionally does not advertise qualified targeted cancellation",
+    "Source archive distribution: the successful source metadata is a synthetic fixture; missing-source behavior and emitted third-party notices are real.",
+    "This local browser result does not establish that the tested shell has been deployed.",
+    "The offline shell timing is one laboratory observation, not a production latency benchmark."
+  ],
+  "artifactHashScope": "SHA-256 of index.html concatenated with sw.js from the tested apps/web/dist build; source archive verification was not enabled for this run.",
+  "display": {
+    "backend": "Syl hidden Sway compositor",
+    "desktop": {
+      "width": 2560,
+      "height": 1440
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844
+    },
+    "hostFocusUsed": false,
+    "profile": "Disposable isolated Chrome profile"
+  },
+  "transportSummary": {
+    "countsByKind": {
+      "proxy": 5,
+      "native-frame": 290,
+      "browser-frame": 203
+    },
+    "nativeFrameKinds": {
+      "ready": 5,
+      "data": 285
+    },
+    "handshakeOrigins": [
+      "https://grok.fabrials.com"
+    ]
+  },
+  "syntheticScreenshots": [
+    {
+      "name": "multiwriter-desktop.png",
+      "sha256": "4f96de0ea4bd8f62ad3051207d27b49232aa1378f17ad6b3dc110197418df727"
+    },
+    {
+      "name": "multiwriter-mobile.png",
+      "sha256": "efa8b58e35d1609cc703882083b3f24e77c871aad6d8f55624574cbb32c859e7"
+    },
+    {
+      "name": "multiwriter-queue-mobile.png",
+      "sha256": "70928a858e05fbc67d16e9cc29b555a887e16a8e987f347787ab73d2bf57bd43"
+    }
+  ],
+  "review": {
+    "visual": "Reviewed desktop and mobile after idle, plus paused mobile queue; no horizontal overflow, controls reachable, no stale Working indicator or persistent conflict banner.",
+    "priorFindingsFixed": [
+      "Configuration and queue revision conflicts previously left a generic persistent banner; they now explain the conflict in a transient notice.",
+      "The reconnected browser retained an obsolete Working tab after the native turn ended; the authoritative execution state now clears it.",
+      "Paused queue status text wrapped into a narrow mobile column; mobile actions now occupy the next row."
+    ],
+    "priorFailedRun": {
+      "artifactSha256": "4fe99efa7baf54188d05c98c29bb6f0271a1b0006d10604983adf93cf4b5e7e4",
+      "result": "failed",
+      "reason": "Native FIFO completed, but reconnected browser retained Working for more than 15 seconds."
+    }
+  }
+}

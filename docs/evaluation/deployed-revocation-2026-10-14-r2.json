@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-10-14T01:10:36.296853+00:00",
+  "origin": "https://grok.fabrials.com",
+  "result": "passed within stated scope",
+  "sources": {
+    "portable": {
+      "commit": "00393e13e45b7dfbbfcc9844b46d758f2a582486",
+      "dirty": false,
+      "sha256": "71a219a81bb7186c73074501b773b4235f31dac7bd1d81556a4dd68b3f3c63d6"
+    },
+    "libs": {
+      "commit": "648741029f5daceeaeb61395f00f529213011926",
+      "dirty": false,
+      "sha256": "9339475ca041739fcdfe909ec1f1c6206cd9481dbc7094ef40bee582b3e7beaf"
+    }
+  },
+  "nativeSourceCommit": "7e2a7816c73d7e58b64852509b47ede75527859a",
+  "sourceArchive": {
+    "path": "/sources/377d1352f3a6366472216216755b35fc8fc7cde89e3dd8fde4a6655588ef0197.tar.gz",
+    "sha256": "377d1352f3a6366472216216755b35fc8fc7cde89e3dd8fde4a6655588ef0197",
+    "bytes": 4469779
+  },
+  "shellId": "ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac",
+  "nativeBinarySha256": "90d3f5078a3f392220f59d80d09ae96ad3f8bf4b33b28ab6f5f3d1ccbf4c6bf3",
+  "image": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:6df6e4e20580c51a5f4cb4f09bf1fa694d0dcb03acb5f4c1d2bf874115149b24",
+  "rollbackImage": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:cb2d1f85c12b0da067a3b2f727c9d006dc7506dfecd3b453d85f88e234f6ee3b",
+  "checks": {
+    "deployed-cdn": {
+      "passed": 238,
+      "failed": 0,
+      "receiptSha256": "3bd74ff194a0df5149595dab2dc5b90969da0bbcabfe2b53f9ccf0c78892f26c",
+      "adapterSha256": "47be6ecc9c125e06a25cac9ab73e25ca2259f3308db0e31316fae0be3307c74c"
+    },
+    "deployed-origin": {
+      "passed": 236,
+      "failed": 0,
+      "receiptSha256": "cd4a75190f396a5bfba61807abe87f89d5389dca870f9569ab3353ba8e9d4437",
+      "adapterSha256": "47be6ecc9c125e06a25cac9ab73e25ca2259f3308db0e31316fae0be3307c74c"
+    },
+    "rollback-cdn": {
+      "passed": 238,
+      "failed": 0,
+      "receiptSha256": "e34be499ec569677f5668f2b70a42b24409d8deadb72dcfc67df37b77b8b3485",
+      "adapterSha256": "553375d332e200661634c7d046b7e0ef61591471f3e0f222800d6313563797db"
+    },
+    "restored-cdn": {
+      "passed": 238,
+      "failed": 0,
+      "receiptSha256": "e84661c07cf4f737cf3a9f8e7ca30dfcda9b86d6ca8a899002149c8e8e5c846f",
+      "adapterSha256": "47be6ecc9c125e06a25cac9ab73e25ca2259f3308db0e31316fae0be3307c74c"
+    },
+    "browser-update": {
+      "result": "passed",
+      "checks": [
+        "initial_trusted_https",
+        "baseline_source_identity",
+        "baseline_controlled",
+        "baseline_stable_after_reload",
+        "update_requires_explicit_action",
+        "new_shell_has_distinct_identity",
+        "baseline_source_metadata_available",
+        "baseline_metadata_bound_to_shell",
+        "baseline_archive_public_bytes",
+        "baseline_license_public_bytes",
+        "baseline_notices_public_bytes",
+        "candidate_source_metadata_available",
+        "candidate_metadata_bound_to_shell",
+        "candidate_archive_public_bytes",
+        "candidate_license_public_bytes",
+        "candidate_notices_public_bytes",
+        "updated_shell_opens_offline",
+        "explicit_offline_rollback_restores_prior_shell"
+      ],
+      "receiptSha256": "8c0a7732c4d43e343c33f3f399dfb5fb4d9519a5a36c29296e2deaf63aa0e591",
+      "browser": "155.0.8059.39",
+      "notQualified": [
+        "Private pairing, drafts and active turns across this upgrade",
+        "Android installation and suspension",
+        "Inference and push",
+        "Hardware GPU performance"
+      ],
+      "shells": {
+        "baseline": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982",
+        "candidate": "ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac"
+      }
+    },
+    "live-two-browsers": {
+      "result": "passed",
+      "checks": [
+        "browser_1_trusted_public_tls",
+        "browser_1_noise_pairing_completed",
+        "browser_1_can_control",
+        "browser_1_no_controller_conflict",
+        "browser_1_pairing_fragment_consumed",
+        "browser_2_trusted_public_tls",
+        "browser_2_noise_pairing_completed",
+        "browser_2_can_control",
+        "browser_2_no_controller_conflict",
+        "browser_2_pairing_fragment_consumed",
+        "both_independent_browsers_remain_writers",
+        "reload_reconnects_without_new_pairing",
+        "peer_remains_writer_after_reconnect",
+        "browser_1_forget_confirmed_in_ui",
+        "browser_1_pairing_revoked_at_host",
+        "peer_remains_writable_after_other_pairing_revoked",
+        "browser_2_forget_confirmed_in_ui",
+        "browser_2_pairing_revoked_at_host",
+        "preexisting_pairings_preserved"
+      ],
+      "receiptSha256": "c0e836f1cf26e4b275b130df5e33a8b64cdd1a857bbadd2e8815cea2ad6dfce4",
+      "browser": "155.0.8059.39",
+      "notQualified": [
+        "Active turn or inference",
+        "Physical mobile interaction",
+        "Push",
+        "Keyboard and suspension"
+      ],
+      "testPairingsRemoved": true
+    }
+  },
+  "station": {
+    "receiptSha256": "425cccf5a3f43b41e29dbf7f853e4ed8b99da1c2c2328ba3ec2c3ce7bf075617",
+    "fiveIdentitiesByteIdentical": true,
+    "preservedProcessesUnchanged": true,
+    "ordinaryServiceAndCliUnchanged": true,
+    "tailscaleServeUnchanged": true
+  },
+  "limitations": [
+    "No S24 physical qualification of this exact candidate yet; the prior S24 push receipt belongs to the older shell and native binary.",
+    "The live two-browser test sends no prompts; simultaneous queue execution is covered separately by the deterministic ACP laboratory.",
+    "Preserved process identity does not establish terminal conversation continuation.",
+    "No stable release, public publication opening, new billed infrastructure, 24-hour soak or seven-day cohort.",
+    "Windows installers, real network handoff and extended mobile suspension remain unqualified."
+  ]
+}

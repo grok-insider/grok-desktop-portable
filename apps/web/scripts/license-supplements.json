@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "entries": [
+    {
+      "package": "embla-carousel",
+      "version": "8.6.0",
+      "manifestSha256": "25a173f262cefcb739f4b11268e866cff088976e0f0e79059f75811ddab8e77c",
+      "texts": [
+        {
+          "file": "embla-carousel@8.6.0/LICENSE",
+          "sha256": "992490064b90ec94c302fe5f29dcc14cb44145857064e46f9ffe6c8f511c1093",
+          "source": "https://github.com/davidjerleke/embla-carousel/blob/v8.6.0/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "embla-carousel-react",
+      "version": "8.6.0",
+      "manifestSha256": "c3b98c1f6ab7f079cee036c666d9b9d761ab1ff2ca328e0d139b19bf89b014ee",
+      "texts": [
+        {
+          "file": "embla-carousel@8.6.0/LICENSE",
+          "sha256": "992490064b90ec94c302fe5f29dcc14cb44145857064e46f9ffe6c8f511c1093",
+          "source": "https://github.com/davidjerleke/embla-carousel/blob/v8.6.0/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "embla-carousel-reactive-utils",
+      "version": "8.6.0",
+      "manifestSha256": "3fd96f05014a38ef57e5f4ad7c7081778769b0f6bfa85761d925a6de8af5c3ab",
+      "texts": [
+        {
+          "file": "embla-carousel@8.6.0/LICENSE",
+          "sha256": "992490064b90ec94c302fe5f29dcc14cb44145857064e46f9ffe6c8f511c1093",
+          "source": "https://github.com/davidjerleke/embla-carousel/blob/v8.6.0/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "react-remove-scroll-bar",
+      "version": "2.3.8",
+      "manifestSha256": "e372f857ce05f266137c65293436b5380fec42ac311e6acb9378ed78b98d75d0",
+      "texts": [
+        {
+          "file": "react-remove-scroll-bar@2.3.8/LICENSE",
+          "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
+          "source": "https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE",
+          "note": "The 2.3.8 package ships no license file and its release has no tag. The author added this MIT text to the repository on 2025-05-21, after that release; package.json declares MIT."
+        }
+      ]
+    },
+    {
+      "package": "victory-vendor",
+      "version": "37.3.6",
+      "manifestSha256": "e895a58a809f2daabdc5452f332a6a319ec0e83ec3b63654dd098ee1e10ce5d0",
+      "texts": [
+        {
+          "file": "victory-vendor@37.3.6/LICENSE.txt",
+          "sha256": "34dee5fd5e5cc756efb5ad4d64652bce719bdf5e900ca5d7538253e737930bc4",
+          "source": "https://github.com/FormidableLabs/victory/blob/v37.3.6/LICENSE.txt"
+        }
+      ],
+      "packageFiles": [
+        {
+          "path": "lib-vendor/d3-array/LICENSE",
+          "sha256": "faa682e3e430941f958d26180458f5934a62f58dac4d70ccdd15608c15d0f884"
+        },
+        {
+          "path": "lib-vendor/d3-color/LICENSE",
+          "sha256": "faa682e3e430941f958d26180458f5934a62f58dac4d70ccdd15608c15d0f884"
+        },
+        {
+          "path": "lib-vendor/d3-ease/LICENSE",
+          "sha256": "b989d9085148d21ff64a75e14462aefa06b2589a55553b07b1460c70081c7d08"
+        },
+        {
+          "path": "lib-vendor/d3-format/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-interpolate/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-path/LICENSE",
+          "sha256": "0ab21426fad1e8b819ea8ab4c7faf5a24d4fca9c01572fe722490d600bba0d22"
+        },
+        {
+          "path": "lib-vendor/d3-scale/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-shape/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-time-format/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-time/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-timer/LICENSE",
+          "sha256": "e008c5e25a6be382593089c29bfabbc553c6378eee02895aec46ce396cc404ee"
+        },
+        {
+          "path": "lib-vendor/d3-voronoi/LICENSE",
+          "sha256": "ad6cf57648385d6c40a29f73c55e42922dd793823df5ea265ccd834873bf09b9"
+        },
+        {
+          "path": "lib-vendor/internmap/LICENSE",
+          "sha256": "9ea8903938dab5f12c4572d60725069bec2d1b0dc3bcc210b09bae946a5ebb1f"
+        }
+      ]
+    },
+    {
+      "package": "@fabrials/ui",
+      "version": "0.9.0",
+      "manifestSha256": "379f1d69b0c8bcaa28e682a704a95fb1da5292f5a7e4f00701c275f07c0113be",
+      "packageFiles": [
+        {
+          "path": "dist/fonts/OFL.txt",
+          "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+        }
+      ]
+    }
+  ]
+}

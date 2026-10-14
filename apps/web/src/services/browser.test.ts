@@ -58,3 +58,10 @@ describe("agents that only look like WebKit", () => {
     expect(detectBrowserSupport(epiphany).ok).toBe(false);
   });
 });
+
+
+it("allows Safari for the HTTPS remote and private same-origin transports", () => {
+  const safari = "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Version/18.0 Mobile Safari/604.1";
+  expect(detectBrowserSupport(safari, true)).toEqual({ok: true, engine: "webkit"});
+  expect(detectBrowserSupport(safari, false).ok).toBe(false);
+});

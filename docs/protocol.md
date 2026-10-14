@@ -114,12 +114,21 @@ track this integer.
 |-------|------|
 | `requestId` | Opaque, client-generated, bounded length. Correlates the response |
 | `idempotencyKey` | Required for any operation with a side effect. Replaying a key never re-executes |
-| `controllerEpoch` | Required for any mutating operation and must equal the current lease epoch |
+| `controllerEpoch` | Required for any mutating operation and must equal the current lease epoch; this is a fencing value, not a secret or sufficient authorization |
 | `expectedRevision` | Optimistic concurrency against the addressed resource. A mismatch is rejected, never merged |
 | `deadlineMs` | Client-declared deadline, bounded by the host maximum |
 
 Identifiers are restricted to alphanumerics, `-`, `_`, and `.`, which also means
 a workspace identifier can never carry a filesystem path.
+
+In Shared/private HTTP mode, the controlling WebSocket receives a private
+`hostStatus` hello with `state: "controlling:<epoch>"` and a 64-character random
+hexadecimal `controllerToken`. Commands include that value in
+`x-grok-light-controller`. The host requires the authenticated browser session,
+current epoch and connection token together. The browser retains this token
+only in memory and clears it on disconnect or `watching`; it is never journaled,
+persisted or broadcast. The managed transport binds control to its authenticated
+encrypted channel rather than using this HTTP header.
 
 ## 4. Operations
 
@@ -299,6 +308,19 @@ them. `permissionRequest` carries only the option ids Light may render.
 `sessionSnapshot` may carry restored `messages` **and** `tools` (bounded tool
 rows from `updates.jsonl`, no bodies). After refresh or resume the SPA must
 show tool activity that was already in the durable history, not only text turns.
+Both are bounded: the live window keeps the last 512 messages within 256 KiB of
+text and the last 128 tool rows, and disk rehydration keeps the first 256 KiB
+and 200 tool rows of the newest 64 MiB. Whatever the bounds leave out is
+reported, never implied: `omittedMessages` and `omittedTools` count earlier rows
+the snapshot no longer carries, and `historyTruncated` marks text that was cut
+or not loaded. All three are absent when the history is complete, so older
+browsers see the same shape. The SPA shows one notice at the top of the
+transcript and does not merge locally held rows into a snapshot.
+Consented offline history saves the same three values with its copy and shows
+the same notice when that copy is read. A later save replaces the earlier copy,
+so a copy saved after truncation can hold fewer messages than one saved before.
+Copies written by older shells lack the values and show no notice; older shells
+ignore them.
 
 **Qualified CLI minimum:** product integrity (light ADR 0005) assumes Grok Build
 **≥ 0.2.115**. `grok-light doctor` and the `cli_matrix` module share that floor.
@@ -422,3 +444,43 @@ never silently in release builds. The constant name in code is expected to be
 along the lines of `ALLOWED_WEB_ORIGINS` (exact identifier is implementation).
 
 Changing the allowlist is a security-sensitive release.
+
+## Direct private transport and typed images (ADR 0020)
+
+The public PWA uses the direct endpoint recorded by an explicit pairing link.
+Its WebSocket is `/remote` with subprotocol `fabrials.remote.v1`; the ready
+frame supplies `channelId`, and the Noise handshake binds both channel and
+installation to the pinned host key. No relay ticket or account request is part
+of this path. The legacy managed adapter is retained separately.
+
+Bootstrap, pairing, events and ordinary text operations use envelope version 2.
+Image operations alone require envelope version 3, advertised as
+`contentProtocolVersion: 3`; `upstreamPrompt.image` must also be true. Version
+mismatch is a compatibility failure and preserves pairing and unsent drafts.
+
+| Operation | Result |
+| --- | --- |
+| `startImageUpload {sessionId,byteLength,sha256}` | `imageUploadStarted {uploadId,chunkBytes:32768,expiresAt}` |
+| `appendImageUpload {sessionId,uploadId,offset,data}` | `imageChunkAccepted {offset}`; offset is the next expected byte |
+| `finishImageUpload {sessionId,uploadId}` | `imageReady {imageId,image}` |
+| `discardImage {imageId}` | Host discards its prepared temporary image |
+| `promptContent {sessionId,text,imageIds,sendNow?}` | Durable command receipt, with the same ambiguity rules as prompts |
+| `readImageChunk {sessionId,sha256,offset}` | `imageChunk {sha256,offset,data,nextOffset,totalBytes}` |
+
+Chunk `data` is base64 inside a typed operation, not prompt text. Image
+descriptors contain `sha256`, `mimeType` (`image/png` or `image/jpeg`),
+`byteLength`, `width` and `height`; they never expose a filesystem path.
+The browser validates response offsets and the final hash when reading images.
+The host validates actual format, decoded dimensions, bounds and authority.
+
+`promptSent` and snapshot messages can carry `images`; snapshot messages can
+also carry an `unavailableImages` count. `imageRejected` warns that the upstream
+dropped image input. A text response does not erase that warning.
+
+`messageImage {sessionId,role,imageId,phase,image?}` streams terminal/provider
+images with `phase: pending | ready | unavailable`. Pending reserves the original
+message position. Ready or unavailable resolves that exact image ID and never
+appends to whichever turn happens to be current. The browser allows at most 64
+pending placeholders; snapshots replace incomplete live projections and contain
+resolved images or explicit unavailable counts. None of this data belongs in
+the static service-worker cache.

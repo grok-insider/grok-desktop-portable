@@ -63,6 +63,16 @@ describe("project", () => {
     expect(one(state).transcript[2]?.text).toBe("two");
   });
 
+  it.each(["tool", "thought"])("keeps the final answer after an intervening %s", (kind) => {
+    let state = project(open(S), envelope({kind: "messageDelta", sessionId: S, text: "Running."}, 1));
+    state = project(state, envelope(kind === "tool"
+      ? {kind: "toolStart", sessionId: S, toolCallId: "t-1", name: "shell", action: "execute", readOnly: false}
+      : {kind: "thoughtDelta", sessionId: S, text: "Checking."}, 2));
+    state = project(state, envelope({kind: "messageDelta", sessionId: S, text: "DONE"}, 3));
+    state = project(state, envelope({kind: "messageDelta", sessionId: S, text: "."}, 4));
+    expect(one(state).transcript.map(({text, seq}) => ({text, seq}))).toEqual([{text: "Running.", seq: 1}, {text: "DONE.", seq: 3}]);
+  });
+
   it("tracks a tool call from start to end", () => {
     let state = project(
       open(S),
@@ -112,6 +122,7 @@ describe("project", () => {
   it("leaves the projection untouched for events it does not render", () => {
     for (const event of [
       { kind: "hostStatus", state: "ok" },
+      { kind: "remoteDevicesChanged" },
       { kind: "toolProgress", sessionId: S, toolCallId: "t-1" },
       { kind: "error", code: "boom" },
     ] satisfies LightEvent[]) {
@@ -218,6 +229,28 @@ describe("project", () => {
     );
     expect(one(state).tools).toHaveLength(1);
     expect(projectionFor(state, "s-other").transcript).toHaveLength(1);
+  });
+
+  it("keeps what a bounded snapshot left out until the next snapshot", () => {
+    let state = project(
+      open(S),
+      envelope({ kind: "sessionSnapshot", sessionId: S, messages: [{ role: "agent", text: "recent", seq: 9 }], omittedMessages: 688, omittedTools: 2 }, 0),
+    );
+    expect(one(state).history).toEqual({ omittedMessages: 688, omittedTools: 2, truncated: false });
+    state = project(state, envelope({ kind: "messageDelta", sessionId: S, text: " more" }, 5));
+    expect(one(state).history?.omittedMessages).toBe(688);
+    state = project(state, envelope({ kind: "sessionSnapshot", sessionId: S, messages: [{ role: "agent", text: "complete", seq: 0 }] }, 0));
+    expect(one(state).history).toBeUndefined();
+    state = project(state, envelope({ kind: "sessionSnapshot", sessionId: S, messages: [], historyTruncated: true }, 0));
+    expect(one(state).history).toEqual({ omittedMessages: 0, omittedTools: 0, truncated: true });
+  });
+
+  it("ignores malformed omission counts", () => {
+    const state = project(
+      open(S),
+      envelope({ kind: "sessionSnapshot", sessionId: S, messages: [], omittedMessages: -3, omittedTools: 1.5, historyTruncated: "yes" } as unknown as LightEvent, 0),
+    );
+    expect(one(state).history).toBeUndefined();
   });
 
   it("restores tool rows from a session snapshot", () => {
@@ -591,6 +624,15 @@ describe("resuming a conversation", () => {
 });
 
 describe("a queued message", () => {
+  it.each([false, true])("shows one confirmed prompt for sender=%s, including after replay", (sender) => {
+    let state = open(S);
+    if (sender) state = {...state, [S]: {...one(state), transcript: [{id: "u-request-1", role: "user", text: "optimistic", seq: 1}]}};
+    const sent = envelope({kind: "promptSent", sessionId: S, text: "confirmed", idempotencyKey: "request-1"}, 4);
+    state = project(state, sent);
+    state = project(state, sent);
+    expect(one(state).transcript).toEqual([{id: "u-request-1", role: "user", text: "confirmed", seq: 4}]);
+  });
+
   it("appears as the user's turn when the host sends it", () => {
     // The browser adds its own turns as it sends them; a queued one leaves
     // later and from the host, so without this the reply arrived with no
@@ -620,4 +662,64 @@ describe("a queued message", () => {
     expect(one(state).transcript).toHaveLength(3);
     expect(one(state).transcript[2]?.text).toBe("second");
   });
+});
+
+it("shows streamed user turns from the terminal and separates later turns", () => {
+  let state = open(S);
+  state = project(state, envelope({kind: "userMessageDelta", sessionId: S, text: "Inspect "}, 1));
+  state = project(state, envelope({kind: "userMessageDelta", sessionId: S, text: "this file"}, 2));
+  expect(one(state).transcript.map((entry) => entry.text)).toEqual(["Inspect this file"]);
+  state = project(state, envelope({kind: "messageDelta", sessionId: S, text: "Done"}, 3));
+  state = project(state, envelope({kind: "userMessageDelta", sessionId: S, text: "Now test"}, 4));
+  expect(one(state).transcript.map((entry) => [entry.role, entry.text])).toEqual([["user", "Inspect this file"], ["agent", "Done"], ["user", "Now test"]]);
+});
+
+it("does not append terminal user text to an optimistic browser prompt", () => {
+  let state = project(open(S), envelope({kind: "promptSent", sessionId: S, text: "Browser prompt"}, 1));
+  state = project(state, envelope({kind: "userMessageDelta", sessionId: S, text: "Terminal prompt"}, 2));
+  expect(one(state).transcript.map((entry) => entry.text)).toEqual(["Browser prompt", "Terminal prompt"]);
+});
+
+it("preserves the visible running turn while the intermediary reconnects to the terminal leader", () => {
+  let state = project(open(S), envelope({kind: "messageDelta", sessionId: S, text: "Working"}, 1));
+  state = project(state, envelope({kind: "sessionStatus", sessionId: S, state: "reconnecting"}, 2));
+  expect(one(state).phase).toBe("streaming");
+  expect(one(state).transcript[0]?.text).toBe("Working");
+});
+
+it("retains image-only live and restored messages and surfaces upstream rejection", () => {
+  const image = {byteLength: 100, mimeType: "image/png" as const, width: 10, height: 10, sha256: "a".repeat(64)};
+  let state = project(openProjection({}, S), envelope({kind: "promptSent", sessionId: S, text: "", images: [image]}, 1));
+  expect(state[S].transcript[0].images).toEqual([image]);
+  state = project(state, envelope({kind: "imageRejected", sessionId: S}, 2));
+  expect(state[S].imageRejected).toBe(true);
+  state = project(state, envelope({kind: "sessionSnapshot", sessionId: S, messages: [{role: "user", text: "", images: [image]}, {role: "agent", text: "", unavailableImages: 1}], tools: []}, 3));
+  expect(state[S].transcript).toHaveLength(2);
+  expect(state[S].transcript[0].images).toEqual([image]);
+  expect(state[S].transcript[1].unavailableImages).toBe(1);
+});
+
+it("keeps delayed image completion in its original message after later turns", () => {
+  const image = {sha256: "a".repeat(64), mimeType: "image/png" as const, width: 8, height: 8, byteLength: 32};
+  let state = project(openProjection({}, S), envelope({kind: "messageImage", sessionId: S, role: "user", imageId: "image-one", phase: "pending"}, 1));
+  state = project(state, envelope({kind: "userMessageDelta", sessionId: S, text: "describe this"}, 2));
+  state = project(state, envelope({kind: "messageDelta", sessionId: S, text: "answer"}, 3));
+  state = project(state, envelope({kind: "messageImage", sessionId: S, role: "agent", imageId: "image-two", phase: "pending"}, 4));
+  state = project(state, envelope({kind: "messageImage", sessionId: S, role: "user", imageId: "image-one", phase: "ready", image}, 5));
+  expect(state[S].transcript).toHaveLength(2);
+  expect(state[S].transcript[0]).toMatchObject({role: "user", text: "describe this", liveImages: [{id: "image-one", phase: "ready", image}]});
+  expect(state[S].transcript[1]).toMatchObject({role: "agent", text: "answer", liveImages: [{id: "image-two", phase: "pending"}]});
+  const replay = project(state, envelope({kind: "messageImage", sessionId: S, role: "user", imageId: "image-one", phase: "pending"}, 6));
+  expect(replay[S].transcript).toEqual(state[S].transcript);
+});
+
+it("bounds pending image placeholders and lets snapshots replace incomplete streams", () => {
+  let state = openProjection({}, S);
+  for (let index = 0; index < 65; index++) state = project(state, envelope({kind: "messageImage", sessionId: S, role: "agent", imageId: `image-${index}`, phase: "pending"}, index + 1));
+  expect(state[S].transcript.flatMap(entry => entry.liveImages ?? []).filter(image => image.phase === "pending")).toHaveLength(64);
+  expect(state[S].transcript.at(-1)?.liveImages?.[0].phase).toBe("unavailable");
+  state = project(state, envelope({kind: "sessionSnapshot", sessionId: S, messages: [{role: "agent", text: "", unavailableImages: 65}], tools: []}, 66));
+  expect(state[S].transcript).toHaveLength(1);
+  expect(state[S].transcript[0].liveImages).toBeUndefined();
+  expect(state[S].transcript[0].unavailableImages).toBe(65);
 });

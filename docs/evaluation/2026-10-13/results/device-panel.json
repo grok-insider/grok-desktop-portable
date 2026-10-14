@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "device-panel",
+  "round": 2,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "f3c641bf582b018d2d1ff72e50ef92f6cf86409b956c3e9d8a11db5d28d502a0",
+  "decision": "inconclusive",
+  "reasons": [
+    "benefit_unmeasured"
+  ],
+  "failed": [],
+  "missing": []
+}

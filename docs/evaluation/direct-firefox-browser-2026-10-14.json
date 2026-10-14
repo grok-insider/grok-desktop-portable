@@ -1,0 +1,1032 @@
+{
+  "schema": 1,
+  "scope": "Exact r3 direct-mode laboratory qualification on Firefox157 and shared-runner Chromium regression; no production or retail-browser release attestation",
+  "runs": [
+    {
+      "schema": 1,
+      "startedAt": "2026-10-14T03:27:28.048Z",
+      "origin": "https://grok.fabrials.com",
+      "checks": [
+        "deployment_candidate_and_real_corresponding_source_verified",
+        "firefox_proxy_refuses_non_fixture_authorities",
+        "deployment_response_csp_enforced",
+        "qualification_pairing_uses_its_exact_origin",
+        "source_identity_binds_the_loaded_shell",
+        "unavailable_source_reports_failure_without_false_links",
+        "source_dialog_returns_keyboard_focus",
+        "source_dialog_loads_real_version_bound_metadata",
+        "source_dialog_exposes_verified_archive_link",
+        "browser_downloads_exact_real_archive",
+        "source_dialog_exposes_verified_license_link",
+        "browser_downloads_exact_real_license",
+        "source_dialog_exposes_verified_notices_link",
+        "browser_downloads_exact_real_notices",
+        "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+        "source_dialog_fits_mobile_viewport",
+        "real_direct_noise_pairing_restores_synthetic_native_history",
+        "private_handshake_preserves_the_real_browser_origin",
+        "pairing_fragment_erased",
+        "closing_source_preserves_computer_settings_and_connection",
+        "source_information_does_not_disconnect_the_private_session",
+        "two_independent_pairings_are_simultaneously_writable_without_takeover",
+        "custom_model_and_effort_roundtrip_converges_across_devices",
+        "stale_model_revision_is_refused_without_overwriting_newer_device_choice",
+        "model_revision_conflict_is_explained_as_a_transient_notice",
+        "model_revision_conflict_dismisses_without_a_persistent_error",
+        "paused_fifo_preserves_distinct_device_origins_without_starting_inference",
+        "paused_queue_fits_mobile_viewport",
+        "stale_clear_revision_preserves_concurrently_enqueued_messages",
+        "queue_revision_conflict_is_explained_as_a_transient_notice",
+        "queue_revision_conflict_dismisses_without_a_persistent_error",
+        "first_device_model_changes_disabled_during_turn",
+        "first_device_unqualified_stop_disabled",
+        "second_device_model_changes_disabled_during_turn",
+        "second_device_unqualified_stop_disabled",
+        "second_device_reconnect_preserves_active_turn_queue_and_receipt_count",
+        "original_device_transcript_not_reset_or_duplicated",
+        "reconnecting_device_transcript_not_duplicated",
+        "both_devices_allow_model_changes_after_fifo_drains",
+        "both_devices_clear_working_status_after_fifo_drains",
+        "fifo_executes_each_accepted_turn_once_and_removal_never_executes",
+        "both_transcripts_agree_on_exactly_once_fifo_order",
+        "first_empty_catalogue_has_no_selectable_model",
+        "second_empty_catalogue_has_no_selectable_model",
+        "no_horizontal_overflow_2560x1440",
+        "composer_reachable_2560x1440",
+        "editor_visible_without_clipping_2560x1440",
+        "send_visible_without_clipping_2560x1440",
+        "document_not_scrolled_2560x1440",
+        "no_horizontal_overflow_390x844",
+        "composer_reachable_390x844",
+        "editor_visible_without_clipping_390x844",
+        "send_visible_without_clipping_390x844",
+        "document_not_scrolled_390x844",
+        "no_horizontal_overflow_844x390",
+        "composer_reachable_844x390",
+        "editor_visible_without_clipping_844x390",
+        "send_visible_without_clipping_844x390",
+        "document_not_scrolled_844x390",
+        "no_horizontal_overflow_750x354",
+        "composer_reachable_750x354",
+        "editor_visible_without_clipping_750x354",
+        "send_visible_without_clipping_750x354",
+        "document_not_scrolled_750x354",
+        "no_horizontal_overflow_390x430",
+        "composer_reachable_390x430",
+        "editor_visible_without_clipping_390x430",
+        "send_visible_without_clipping_390x430",
+        "document_not_scrolled_390x430",
+        "layout_queue_remains_paused_until_explicit_cleanup",
+        "computer_navigation_available_after_layout_checks",
+        "direct_pairing_and_draft_survive_reload",
+        "private_drafts_and_history_never_enter_static_shell_cache",
+        "installed_shell_opens_with_app_origin_blackholed",
+        "consented_history_readable_without_cloud_or_private_host",
+        "private_host_remains_usable_without_fabrials_or_app_origin",
+        "explicit_forget_revokes_and_removes_saved_profile",
+        "forget_removes_durable_draft_and_history_rows",
+        "no_external_application_requests",
+        "no_uncaught_browser_errors"
+      ],
+      "errors": [],
+      "notQualified": [
+        "Production TLS trust: laboratory self-signed certificate",
+        "Actual hosting and CDN routing",
+        "Tailscale",
+        "Physical Android and Apple hardware",
+        "Grok inference: synthetic history only",
+        "Real push delivery",
+        "GPU performance: hidden software compositor",
+        "Firefox touchscreen/mobile-keyboard emulation and native installation prompt; Chromium CDP-only checks are omitted",
+        "Cancellation GUI execution: the synthetic ACP intentionally does not advertise qualified targeted cancellation",
+        "Descendants that leave their recorded process group; no hostile-process containment claim"
+      ],
+      "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+      "sources": {
+        "portable": {
+          "commit": "abe4f35895aacda102a09c3b50475379febf3b6c",
+          "dirty": false,
+          "sha256": "5c1881ec032463ad625198ec468134777cc51437bea13c8953b43ab086a9b305"
+        },
+        "libs": {
+          "commit": "ee3060d023c5f5f34196e1ef7f439b65be9d0bb8",
+          "dirty": false,
+          "sha256": "ca2f3527e8cd050f62e31520bfe8bd2791d7dd3ca843e1182f771b1adc291041"
+        }
+      },
+      "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+      "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+      "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+      "firefox": {
+        "mode": "Isolated Playwright Firefox, headless software rendering",
+        "proxy": {
+          "allowedAuthorities": [
+            "desktop.grok.me:443",
+            "grok.fabrials.com:443",
+            "direct-fixture.test:443",
+            "remote.fabrials.com:443"
+          ],
+          "accepted": 19,
+          "rejected": 1,
+          "outsideAuthorityDenied": true
+        },
+        "profileRetired": true
+      },
+      "omittedChecks": {
+        "reason": "Firefox does not implement Chromium CDP touch emulation",
+        "touchMediaQueries": 7,
+        "touchShortViewports": [
+          {
+            "width": 750,
+            "height": 136
+          },
+          {
+            "width": 667,
+            "height": 136
+          }
+        ],
+        "shortViewportAssertions": 16
+      },
+      "browser": "157.0",
+      "engine": "firefox",
+      "sourceDistribution": {
+        "metadata": "Real verified corresponding-source archive",
+        "native": {
+          "version": "0.7.1",
+          "commit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a"
+        },
+        "archiveSha256": "d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc",
+        "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c",
+        "sourceArchiveDownloadQualified": true
+      },
+      "multiwriter": {
+        "fixture": "Actual Noise host with deterministic synthetic ACP; no inference",
+        "sessions": 1,
+        "browserContexts": 2,
+        "schedulerBound": "Covered by Rust saturation tests; browser checks convergence and exactly-once transcript",
+        "queueReceipts": {
+          "completed": 2,
+          "removed": 1
+        },
+        "expectedConflicts": {
+          "configuration": 1,
+          "clearQueue": 1
+        }
+      },
+      "layoutBannerFixture": "Synthetic installation offer using the real application banner; not Android installation evidence",
+      "offlineShellMs": 89,
+      "result": "passed",
+      "browserClosedGracefully": true,
+      "cleanup": {
+        "firefox": {
+          "exited": true,
+          "processGroupEmpty": true
+        },
+        "native": {
+          "exited": true,
+          "processGroupEmpty": true
+        }
+      },
+      "finishedAt": "2026-10-14T03:27:46.643Z",
+      "evidenceDirectory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/firefox-r3-157-multiwriter-final",
+      "runnerSeal": {
+        "unit": "fabrials-direct-engine-55293832abee.scope",
+        "engine": "firefox",
+        "mode": "multiwriter",
+        "scriptHashes": {
+          "scripts/qualify-direct-browser.ts": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+          "scripts/qa/direct-firefox.ts": "173cd73b2cd2eee254b6e80ddc0c11b0fb9de2c91ec1329cf7cab61199dca059"
+        },
+        "playwrightVersion": "1.64.0",
+        "browserHashes": {
+          "firefox": "1f637a7cfe8f1a3ec814a7da7e38c360a3e3c39553b8c7245ac5d6643fd495eb",
+          "libxul.so": "13290f667a6ba71cddd3394d38a546f86b2c602d73bccfe6cf1bc0f5afb2d3bc"
+        }
+      },
+      "scopeRetirement": {
+        "unit": "fabrials-direct-engine-55293832abee.scope",
+        "controlGroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-engine-55293832abee.scope",
+        "cgroupEmpty": true,
+        "exitCode": 0,
+        "elapsedSeconds": 18.717497609999555
+      }
+    },
+    {
+      "schema": 1,
+      "startedAt": "2026-10-14T03:27:28.048Z",
+      "origin": "https://grok.fabrials.com",
+      "checks": [
+        "deployment_candidate_and_real_corresponding_source_verified",
+        "two_real_native_hosts_have_distinct_endpoint_installation_and_identity",
+        "firefox_proxy_refuses_non_fixture_authorities",
+        "deployment_response_csp_enforced",
+        "qualification_pairing_uses_its_exact_origin",
+        "source_identity_binds_the_loaded_shell",
+        "unavailable_source_reports_failure_without_false_links",
+        "source_dialog_returns_keyboard_focus",
+        "source_dialog_loads_real_version_bound_metadata",
+        "source_dialog_exposes_verified_archive_link",
+        "browser_downloads_exact_real_archive",
+        "source_dialog_exposes_verified_license_link",
+        "browser_downloads_exact_real_license",
+        "source_dialog_exposes_verified_notices_link",
+        "browser_downloads_exact_real_notices",
+        "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+        "source_dialog_fits_mobile_viewport",
+        "real_direct_noise_pairing_restores_synthetic_native_history",
+        "private_handshake_preserves_the_real_browser_origin",
+        "pairing_fragment_erased",
+        "closing_source_preserves_computer_settings_and_connection",
+        "source_information_does_not_disconnect_the_private_session",
+        "no_horizontal_overflow_2560x1440",
+        "composer_reachable_2560x1440",
+        "editor_visible_without_clipping_2560x1440",
+        "send_visible_without_clipping_2560x1440",
+        "document_not_scrolled_2560x1440",
+        "no_horizontal_overflow_390x844",
+        "composer_reachable_390x844",
+        "editor_visible_without_clipping_390x844",
+        "send_visible_without_clipping_390x844",
+        "document_not_scrolled_390x844",
+        "no_horizontal_overflow_844x390",
+        "composer_reachable_844x390",
+        "editor_visible_without_clipping_844x390",
+        "send_visible_without_clipping_844x390",
+        "document_not_scrolled_844x390",
+        "no_horizontal_overflow_750x354",
+        "composer_reachable_750x354",
+        "editor_visible_without_clipping_750x354",
+        "send_visible_without_clipping_750x354",
+        "document_not_scrolled_750x354",
+        "no_horizontal_overflow_390x430",
+        "composer_reachable_390x430",
+        "editor_visible_without_clipping_390x430",
+        "send_visible_without_clipping_390x430",
+        "document_not_scrolled_390x430",
+        "computer_navigation_available_after_layout_checks",
+        "direct_pairing_and_draft_survive_reload",
+        "private_drafts_and_history_never_enter_static_shell_cache",
+        "installed_shell_opens_with_app_origin_blackholed",
+        "consented_history_readable_without_cloud_or_private_host",
+        "private_host_remains_usable_without_fabrials_or_app_origin",
+        "explicit_forget_revokes_and_removes_saved_profile",
+        "forget_removes_durable_draft_and_history_rows",
+        "multihost_a_initial_history_is_scoped",
+        "multihost_crossed_key_cannot_pair_or_expose_foreign_content",
+        "multihost_crossed_installation_cannot_pair_or_expose_foreign_content",
+        "multihost_b_initial_history_is_scoped",
+        "multihost_two_pairings_and_two_separate_draft_history_scopes_saved",
+        "multihost_computer_identity_has_useful_width_390_light",
+        "multihost_computer_actions_have_44px_targets_390_light",
+        "multihost_mobile_actions_follow_identity_390_light",
+        "multihost_computer_identity_has_useful_width_390_dark",
+        "multihost_computer_actions_have_44px_targets_390_dark",
+        "multihost_mobile_actions_follow_identity_390_dark",
+        "multihost_computer_identity_has_useful_width_2560_light",
+        "multihost_computer_actions_have_44px_targets_2560_light",
+        "multihost_computer_identity_has_useful_width_2560_dark",
+        "multihost_computer_actions_have_44px_targets_2560_dark",
+        "multihost_computer_list_fits_mobile_and_has_two_independent_connect_actions",
+        "multihost_a_offline_history_excludes_other_host",
+        "multihost_b_offline_history_excludes_other_host",
+        "multihost_offline_history_does_not_attempt_either_host",
+        "multihost_return_to_a_restores_only_its_draft_and_history",
+        "multihost_a_recovery_reaches_unavailable_host",
+        "multihost_a_pending_retry_cancelled_after_switch_to_b",
+        "multihost_switch_during_a_recovery_keeps_b_draft_identity_and_history",
+        "multihost_revoking_a_deletes_only_a_pairing_draft_and_history",
+        "multihost_b_offline_history_excludes_other_host",
+        "multihost_b_remains_usable_after_a_revocation",
+        "multihost_surviving_b_pairing_and_draft_persist_after_reload",
+        "multihost_explicit_cleanup_removes_both_scopes",
+        "no_external_application_requests",
+        "no_uncaught_browser_errors"
+      ],
+      "errors": [],
+      "notQualified": [
+        "Production TLS trust: laboratory self-signed certificate",
+        "Actual hosting and CDN routing",
+        "Tailscale",
+        "Physical Android and Apple hardware",
+        "Grok inference: synthetic history only",
+        "Real push delivery",
+        "GPU performance: hidden software compositor",
+        "Firefox touchscreen/mobile-keyboard emulation and native installation prompt; Chromium CDP-only checks are omitted",
+        "Descendants that leave their recorded process group; no hostile-process containment claim"
+      ],
+      "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+      "sources": {
+        "portable": {
+          "commit": "abe4f35895aacda102a09c3b50475379febf3b6c",
+          "dirty": false,
+          "sha256": "5c1881ec032463ad625198ec468134777cc51437bea13c8953b43ab086a9b305"
+        },
+        "libs": {
+          "commit": "ee3060d023c5f5f34196e1ef7f439b65be9d0bb8",
+          "dirty": false,
+          "sha256": "ca2f3527e8cd050f62e31520bfe8bd2791d7dd3ca843e1182f771b1adc291041"
+        }
+      },
+      "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+      "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+      "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+      "multihost": {
+        "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "runnerSha256": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+        "runtime": "Two instances of the same fixture binary with isolated state and synthetic GROK_HOME; no Grok process or deployed CLI",
+        "hosts": 2,
+        "fixtureHistorySessionIds": "Deliberately identical to exercise host scoping",
+        "trustedTls": false,
+        "geometry": [
+          {
+            "width": 390,
+            "dark": false,
+            "cards": [
+              {
+                "headingWidth": 276,
+                "endpointWidth": 276,
+                "identityBottom": 349,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 361
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 361
+                  }
+                ]
+              },
+              {
+                "headingWidth": 276,
+                "endpointWidth": 276,
+                "identityBottom": 189,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 201
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 201
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "width": 390,
+            "dark": true,
+            "cards": [
+              {
+                "headingWidth": 276,
+                "endpointWidth": 276,
+                "identityBottom": 349,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 361
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 361
+                  }
+                ]
+              },
+              {
+                "headingWidth": 276,
+                "endpointWidth": 276,
+                "identityBottom": 189,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 201
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 201
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "width": 2560,
+            "dark": false,
+            "cards": [
+              {
+                "headingWidth": 424.75,
+                "endpointWidth": 424.75,
+                "identityBottom": 282,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 241
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 241
+                  }
+                ]
+              },
+              {
+                "headingWidth": 424.75,
+                "endpointWidth": 424.75,
+                "identityBottom": 172,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 131
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 131
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "width": 2560,
+            "dark": true,
+            "cards": [
+              {
+                "headingWidth": 424.75,
+                "endpointWidth": 424.75,
+                "identityBottom": 282,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 241
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 241
+                  }
+                ]
+              },
+              {
+                "headingWidth": 424.75,
+                "endpointWidth": 424.75,
+                "identityBottom": 172,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.5,
+                    "height": 44,
+                    "top": 131
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 131
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "firefox": {
+        "mode": "Isolated Playwright Firefox, headless software rendering",
+        "proxy": {
+          "allowedAuthorities": [
+            "desktop.grok.me:443",
+            "grok.fabrials.com:443",
+            "direct-fixture.test:443",
+            "direct-fixture-b.test:443",
+            "remote.fabrials.com:443"
+          ],
+          "accepted": 20,
+          "rejected": 1,
+          "outsideAuthorityDenied": true
+        },
+        "profileRetired": true
+      },
+      "omittedChecks": {
+        "reason": "Firefox does not implement Chromium CDP touch emulation",
+        "touchMediaQueries": 7,
+        "touchShortViewports": [
+          {
+            "width": 750,
+            "height": 136
+          },
+          {
+            "width": 667,
+            "height": 136
+          }
+        ],
+        "shortViewportAssertions": 16
+      },
+      "browser": "157.0",
+      "engine": "firefox",
+      "sourceDistribution": {
+        "metadata": "Real verified corresponding-source archive",
+        "native": {
+          "version": "0.7.1",
+          "commit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a"
+        },
+        "archiveSha256": "d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc",
+        "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c",
+        "sourceArchiveDownloadQualified": true
+      },
+      "layoutBannerFixture": "Synthetic installation offer using the real application banner; not Android installation evidence",
+      "offlineShellMs": 114,
+      "expectedConnectionErrors": [
+        {
+          "reason": "deliberately blocked private host",
+          "message": "[JavaScript Error: \"Firefox can\u2019t establish a connection to the server at wss://direct-fixture.test/remote.\" {file: \"https://grok.fabrials.com/assets/index-BOTrB-6j.js\" line: 60}]"
+        }
+      ],
+      "result": "passed",
+      "browserClosedGracefully": true,
+      "cleanup": {
+        "firefox": {
+          "exited": true,
+          "processGroupEmpty": true
+        },
+        "native-b": {
+          "exited": true,
+          "processGroupEmpty": true
+        },
+        "native": {
+          "exited": true,
+          "processGroupEmpty": true
+        }
+      },
+      "finishedAt": "2026-10-14T03:27:46.849Z",
+      "evidenceDirectory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/firefox-r3-157-multihost-final",
+      "runnerSeal": {
+        "unit": "fabrials-direct-engine-c80125a0e3f7.scope",
+        "engine": "firefox",
+        "mode": "multihost",
+        "scriptHashes": {
+          "scripts/qualify-direct-browser.ts": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+          "scripts/qa/direct-firefox.ts": "173cd73b2cd2eee254b6e80ddc0c11b0fb9de2c91ec1329cf7cab61199dca059"
+        },
+        "playwrightVersion": "1.64.0",
+        "browserHashes": {
+          "firefox": "1f637a7cfe8f1a3ec814a7da7e38c360a3e3c39553b8c7245ac5d6643fd495eb",
+          "libxul.so": "13290f667a6ba71cddd3394d38a546f86b2c602d73bccfe6cf1bc0f5afb2d3bc"
+        }
+      },
+      "scopeRetirement": {
+        "unit": "fabrials-direct-engine-c80125a0e3f7.scope",
+        "controlGroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-engine-c80125a0e3f7.scope",
+        "cgroupEmpty": true,
+        "exitCode": 0,
+        "elapsedSeconds": 18.91767729899584
+      }
+    },
+    {
+      "schema": 1,
+      "startedAt": "2026-10-14T03:27:53.346Z",
+      "origin": "https://grok.fabrials.com",
+      "checks": [
+        "deployment_candidate_and_real_corresponding_source_verified",
+        "two_real_native_hosts_have_distinct_endpoint_installation_and_identity",
+        "deployment_response_csp_enforced",
+        "qualification_pairing_uses_its_exact_origin",
+        "source_identity_binds_the_loaded_shell",
+        "unavailable_source_reports_failure_without_false_links",
+        "source_dialog_returns_keyboard_focus",
+        "source_dialog_loads_real_version_bound_metadata",
+        "source_dialog_exposes_verified_archive_link",
+        "browser_downloads_exact_real_archive",
+        "source_dialog_exposes_verified_license_link",
+        "browser_downloads_exact_real_license",
+        "source_dialog_exposes_verified_notices_link",
+        "browser_downloads_exact_real_notices",
+        "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+        "source_dialog_fits_mobile_viewport",
+        "real_direct_noise_pairing_restores_synthetic_native_history",
+        "private_handshake_preserves_the_real_browser_origin",
+        "pairing_fragment_erased",
+        "closing_source_preserves_computer_settings_and_connection",
+        "source_information_does_not_disconnect_the_private_session",
+        "touch_input_2560x1440",
+        "no_horizontal_overflow_2560x1440",
+        "composer_reachable_2560x1440",
+        "editor_visible_without_clipping_2560x1440",
+        "send_visible_without_clipping_2560x1440",
+        "document_not_scrolled_2560x1440",
+        "touch_input_390x844",
+        "no_horizontal_overflow_390x844",
+        "composer_reachable_390x844",
+        "editor_visible_without_clipping_390x844",
+        "send_visible_without_clipping_390x844",
+        "document_not_scrolled_390x844",
+        "touch_input_844x390",
+        "no_horizontal_overflow_844x390",
+        "composer_reachable_844x390",
+        "editor_visible_without_clipping_844x390",
+        "send_visible_without_clipping_844x390",
+        "document_not_scrolled_844x390",
+        "touch_input_750x354",
+        "no_horizontal_overflow_750x354",
+        "composer_reachable_750x354",
+        "editor_visible_without_clipping_750x354",
+        "send_visible_without_clipping_750x354",
+        "document_not_scrolled_750x354",
+        "touch_input_750x136",
+        "no_horizontal_overflow_750x136",
+        "composer_reachable_750x136",
+        "editor_visible_without_clipping_750x136",
+        "send_visible_without_clipping_750x136",
+        "document_not_scrolled_750x136",
+        "navigation_and_updates_deferred_while_typing_750",
+        "navigation_and_updates_return_on_blur_750",
+        "editor_revealed_after_refocus_750",
+        "touch_input_667x136",
+        "no_horizontal_overflow_667x136",
+        "composer_reachable_667x136",
+        "editor_visible_without_clipping_667x136",
+        "send_visible_without_clipping_667x136",
+        "document_not_scrolled_667x136",
+        "navigation_and_updates_deferred_while_typing_667",
+        "navigation_and_updates_return_on_blur_667",
+        "editor_revealed_after_refocus_667",
+        "touch_input_390x430",
+        "no_horizontal_overflow_390x430",
+        "composer_reachable_390x430",
+        "editor_visible_without_clipping_390x430",
+        "send_visible_without_clipping_390x430",
+        "document_not_scrolled_390x430",
+        "computer_navigation_restored_after_keyboard_dismissal",
+        "direct_pairing_and_draft_survive_reload",
+        "private_drafts_and_history_never_enter_static_shell_cache",
+        "installed_shell_opens_with_app_origin_blackholed",
+        "consented_history_readable_without_cloud_or_private_host",
+        "private_host_remains_usable_without_fabrials_or_app_origin",
+        "explicit_forget_revokes_and_removes_saved_profile",
+        "forget_removes_durable_draft_and_history_rows",
+        "multihost_a_initial_history_is_scoped",
+        "multihost_crossed_key_cannot_pair_or_expose_foreign_content",
+        "multihost_crossed_installation_cannot_pair_or_expose_foreign_content",
+        "multihost_b_initial_history_is_scoped",
+        "multihost_two_pairings_and_two_separate_draft_history_scopes_saved",
+        "multihost_computer_identity_has_useful_width_390_light",
+        "multihost_computer_actions_have_44px_targets_390_light",
+        "multihost_mobile_actions_follow_identity_390_light",
+        "multihost_computer_identity_has_useful_width_390_dark",
+        "multihost_computer_actions_have_44px_targets_390_dark",
+        "multihost_mobile_actions_follow_identity_390_dark",
+        "multihost_computer_identity_has_useful_width_2560_light",
+        "multihost_computer_actions_have_44px_targets_2560_light",
+        "multihost_computer_identity_has_useful_width_2560_dark",
+        "multihost_computer_actions_have_44px_targets_2560_dark",
+        "multihost_computer_list_fits_mobile_and_has_two_independent_connect_actions",
+        "multihost_a_offline_history_excludes_other_host",
+        "multihost_b_offline_history_excludes_other_host",
+        "multihost_offline_history_does_not_attempt_either_host",
+        "multihost_return_to_a_restores_only_its_draft_and_history",
+        "multihost_a_recovery_reaches_unavailable_host",
+        "multihost_a_pending_retry_cancelled_after_switch_to_b",
+        "multihost_switch_during_a_recovery_keeps_b_draft_identity_and_history",
+        "multihost_revoking_a_deletes_only_a_pairing_draft_and_history",
+        "multihost_b_offline_history_excludes_other_host",
+        "multihost_b_remains_usable_after_a_revocation",
+        "multihost_surviving_b_pairing_and_draft_persist_after_reload",
+        "multihost_explicit_cleanup_removes_both_scopes",
+        "no_external_application_requests",
+        "no_uncaught_browser_errors"
+      ],
+      "errors": [],
+      "notQualified": [
+        "Production TLS trust: laboratory self-signed certificate",
+        "Actual hosting and CDN routing",
+        "Tailscale",
+        "Physical Android and Apple hardware",
+        "Grok inference: synthetic history only",
+        "Real push delivery",
+        "GPU performance: hidden software compositor",
+        "Descendants that leave their recorded process group; Syl compositor is closed through its own API"
+      ],
+      "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+      "sources": {
+        "portable": {
+          "commit": "abe4f35895aacda102a09c3b50475379febf3b6c",
+          "dirty": false,
+          "sha256": "5c1881ec032463ad625198ec468134777cc51437bea13c8953b43ab086a9b305"
+        },
+        "libs": {
+          "commit": "ee3060d023c5f5f34196e1ef7f439b65be9d0bb8",
+          "dirty": false,
+          "sha256": "ca2f3527e8cd050f62e31520bfe8bd2791d7dd3ca843e1182f771b1adc291041"
+        }
+      },
+      "runnerSha256": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+      "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+      "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+      "multihost": {
+        "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "runnerSha256": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+        "runtime": "Two instances of the same fixture binary with isolated state and synthetic GROK_HOME; no Grok process or deployed CLI",
+        "hosts": 2,
+        "fixtureHistorySessionIds": "Deliberately identical to exercise host scoping",
+        "trustedTls": false,
+        "geometry": [
+          {
+            "width": 390,
+            "dark": false,
+            "cards": [
+              {
+                "headingWidth": 261,
+                "endpointWidth": 261,
+                "identityBottom": 349,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 361
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 361
+                  }
+                ]
+              },
+              {
+                "headingWidth": 261,
+                "endpointWidth": 261,
+                "identityBottom": 189,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 201
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 201
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "width": 390,
+            "dark": true,
+            "cards": [
+              {
+                "headingWidth": 276,
+                "endpointWidth": 276,
+                "identityBottom": 349,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 361
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 361
+                  }
+                ]
+              },
+              {
+                "headingWidth": 276,
+                "endpointWidth": 276,
+                "identityBottom": 189,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 201
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 201
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "width": 2560,
+            "dark": false,
+            "cards": [
+              {
+                "headingWidth": 424.734375,
+                "endpointWidth": 424.734375,
+                "identityBottom": 282,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 241
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 241
+                  }
+                ]
+              },
+              {
+                "headingWidth": 424.734375,
+                "endpointWidth": 424.734375,
+                "identityBottom": 172,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 131
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 131
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "width": 2560,
+            "dark": true,
+            "cards": [
+              {
+                "headingWidth": 424.734375,
+                "endpointWidth": 424.734375,
+                "identityBottom": 282,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 241
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 241
+                  }
+                ]
+              },
+              {
+                "headingWidth": 424.734375,
+                "endpointWidth": 424.734375,
+                "identityBottom": 172,
+                "actions": [
+                  {
+                    "label": "Offline history",
+                    "width": 123.515625,
+                    "height": 44,
+                    "top": 131
+                  },
+                  {
+                    "label": "Connect",
+                    "width": 73.75,
+                    "height": 44,
+                    "top": 131
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "browser": "155.0.8059.39",
+      "engine": "chromium",
+      "expectedResourceErrors": [
+        {
+          "url": "https://grok.fabrials.com/sources/e2ed580c58b2b07255d85205ec8a1ad0988a7a3c2f6ee1cef44f968e3f976a9e.json",
+          "status": 404
+        }
+      ],
+      "sourceDistribution": {
+        "metadata": "Real verified corresponding-source archive",
+        "native": {
+          "version": "0.7.1",
+          "commit": "e6d9cc8cb076d7896edec98ee7338d4d4d8f1f7a"
+        },
+        "archiveSha256": "d7482730885ea14e67d3df818a6680ea731173bf700c4c4f4bd2555b34a90bfc",
+        "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c",
+        "sourceArchiveDownloadQualified": true
+      },
+      "layoutBannerFixture": "Synthetic installation offer using the real application banner; not Android installation evidence",
+      "offlineShellMs": 32,
+      "expectedConnectionErrors": [
+        {
+          "reason": "deliberately blocked private host",
+          "message": "WebSocket connection to 'wss://direct-fixture.test/remote' failed: Error during WebSocket handshake: Unexpected response code: 503"
+        }
+      ],
+      "result": "passed",
+      "browserClosedGracefully": true,
+      "hiddenCompositorClosed": true,
+      "cleanup": {
+        "syl": {
+          "exited": true,
+          "processGroupEmpty": true
+        },
+        "chrome": {
+          "exited": true,
+          "processGroupEmpty": true
+        },
+        "native-b": {
+          "exited": true,
+          "processGroupEmpty": true
+        },
+        "native": {
+          "exited": true,
+          "processGroupEmpty": true
+        }
+      },
+      "finishedAt": "2026-10-14T03:28:10.560Z",
+      "evidenceDirectory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/chromium-r3-firefox-final-regression",
+      "runnerSeal": {
+        "unit": "fabrials-direct-engine-da6d00651a1d.scope",
+        "engine": "chromium",
+        "mode": "multihost",
+        "scriptHashes": {
+          "scripts/qualify-direct-browser.ts": "af0bfb482c806c8f4837caff87962f7c07a21a1c86ff27b0d4d4828cd2306350",
+          "scripts/qa/direct-firefox.ts": "173cd73b2cd2eee254b6e80ddc0c11b0fb9de2c91ec1329cf7cab61199dca059"
+        },
+        "playwrightVersion": "1.58.2"
+      },
+      "scopeRetirement": {
+        "unit": "fabrials-direct-engine-da6d00651a1d.scope",
+        "controlGroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-engine-da6d00651a1d.scope",
+        "cgroupEmpty": true,
+        "exitCode": 0,
+        "elapsedSeconds": 17.31254434699804
+      }
+    }
+  ],
+  "controls": {
+    "outsideAuthority": "Each Firefox run sent an actual CONNECT for outside-qualification.invalid:443 and required 403 before launching the browser. The native destination remains fixed loopback.",
+    "missingExecutable": {
+      "result": "passed",
+      "path": "/does-not-exist/firefox",
+      "spawned": false,
+      "elapsedMs": 6.51644,
+      "proxyDenied": true,
+      "scope": "Direct helper invocation exited after expected missing-executable failure; no browser was started."
+    },
+    "historicalFailures": [
+      {
+        "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/firefox-r3-157-multihost",
+        "failure": "explicit_forget_revokes_and_removes_saved_profile",
+        "finding": "The heading rendered before asynchronous list refresh; the failure capture was already empty. The runner now waits for Add your first computer before inspecting saved-profile absence."
+      },
+      {
+        "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/firefox-r3-157-multihost-complete",
+        "failure": "no_uncaught_browser_errors",
+        "finding": "Firefox emits a differently worded console error for the deliberately blocked host. The runner classifies only that exact failure signature while that host is explicitly blocked; unexpected errors still fail."
+      }
+    ]
+  },
+  "visualInspection": [
+    "firefox-r3-157-multihost-final/multihost-computers-390-light.png",
+    "firefox-r3-157-multihost-final/multihost-computers-2560-dark.png",
+    "firefox-r3-157-multiwriter-final/multiwriter-mobile.png"
+  ]
+}

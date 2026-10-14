@@ -1,3 +1,8 @@
+import { OfflineHistory } from "./components/OfflineHistory";
+import { SourceLicense } from "./components/SourceLicense";
+import { DirectNotifications } from "./components/DirectNotifications";
+import { ImageReaderContext } from "./components/TranscriptImages";
+import { useImageComposer } from "./services/useImageComposer";
 /**
  * Grok Desktop Portable application shell.
  *
@@ -8,23 +13,43 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { DraftRecovery } from "./components/DraftRecovery";
+import { SpeechPlayback } from "./components/SpeechPlayback";
+import { ShareInbox } from "./components/ShareInbox";
+import { SessionQueueStatus } from "./components/SessionQueueStatus";
+import { useSessionRuntime } from "./services/useSessionRuntime";
+import { useCommandReceipts } from "./services/commandReceipts";
+import { CommandReceiptNotice } from "./components/CommandReceiptNotice";
+import { canChangeConfiguration, stopCurrentTurn } from "./services/sessionExecution";
+import { RemoteNotifications } from "./components/RemoteNotifications";
+import { RemoteControls } from "./components/RemoteControls";
+import { RemoteToolsNotice, RemoteToolsPanel, useRemoteControlAttention } from "./components/RemoteToolsPanel";
+import { OptionalDialogsBlockedContext } from "./components/ComposerDialog";
+import { useRemoteControls } from "./services/useRemoteControls";
+import { remoteExperimentEnabled } from "./services/experiments";
+import { useDrafts } from "./services/useDrafts";
+import { forgetDraftScope } from "./services/drafts";
+import { Button } from "./components/ui";
 import { showHostToast } from "./components/HostToaster";
-import { detectBrowserSupport } from "./services/browser";
+import { detectBrowserSupport, reloadDocument } from "./services/browser";
+import { enqueueRequest, removeRequest } from "./services/pendingRequests";
 import {
   type BridgeProbeState,
   probeBridge,
 } from "./services/bridgeProbe";
 import {
-  BRIDGE_PORT_KEY,
   BRIDGE_SESSION_KEY,
+  PRIVATE_SESSION_KEY,
   LightClient,
   hasStoredPort,
+  pairingChangedInStorage,
   resolveBridgeBaseUrl,
   takePairingFragment,
   type ClientFailure,
+  type EventConnection,
+  isPrivateDocumentOrigin,
 } from "./services/client";
 import {
-  probeAfterHostGone,
   probeAfterSessionLoss,
   shouldDemoteFromWork,
   shouldShowWork,
@@ -35,9 +60,9 @@ import {
   type PresenceStats,
 } from "./services/presence";
 import { isBashMode, bashSendText } from "./services/bashMode";
+import { COMMAND_ID_PLACEHOLDER } from "./services/commandSize";
 import {
   pickDefaultEffort,
-  pickDefaultModelId,
   type ModelProjection,
 } from "./services/models";
 import {
@@ -89,6 +114,9 @@ import { PermissionDialog, type PermissionPrompt } from "./views/PermissionDialo
 import { ReviewBanner } from "./views/ReviewBanner";
 import { HomeView, type WorkspaceSummary } from "./views/HomeView";
 import { SetupView } from "./views/SetupView";
+import { InteractionDialog } from "./views/InteractionDialog";
+import { ShareSession } from "./views/ShareSession";
+import type { InteractionRequest } from "./services/protocol";
 import { SessionView } from "./views/SessionView";
 
 const RECONNECT_MS = 2_000;
@@ -96,6 +124,7 @@ const RECONNECT_MS = 2_000;
 const RECONNECT_MAX_MS = 30_000;
 /** Attempts before the page stops trying and says so. */
 const RECONNECT_MAX_ATTEMPTS = 8;
+const CONNECTION_READY_TIMEOUT_MS = 10_000;
 
 interface InspectorLoad {
   data: SessionInspectorProjection | null;
@@ -115,6 +144,11 @@ function hostErrorMessage(code: string): string {
   switch (code) {
     case "controller_held":
       return "Another tab is already controlling this host. Close it or wait for the lease to expire.";
+    case "command_outcome_unknown":
+    case "interrupted_needs_review":
+      return "The computer cannot confirm the result of an earlier action. Check the conversation and terminal before sending it again. It has not been retried.";
+    case "agent_transport_lost":
+      return "Spanreed is reconnecting to Grok. The terminal session may still be running; no action will be resent.";
     case "picker_unavailable":
       return "The directory picker could not open. Enrol a path with `spanreed agent workspace add` instead.";
     case "workspace_enrolment_failed":
@@ -136,7 +170,7 @@ function isEphemeralHostError(code: string): boolean {
 }
 
 
-export function App({ client: injected }: { client?: LightClient } = {}) {
+export function App({ client: injected, remoteHostId, draftScope: suppliedDraftScope, onRevokeOwn: suppliedRevokeOwn }: { client?: LightClient; remoteHostId?: string; draftScope?: string; onRevokeOwn?: () => Promise<void> } = {}) {
   // The client must survive every render. A default parameter value would be
   // re-evaluated on each one, producing a new instance that loses the CSRF
   // token and re-runs the event effect in a connect/disconnect loop.
@@ -145,13 +179,22 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const [probe, setProbe] = useState<BridgeProbeState>({ kind: "checking" });
   const [failure, setFailure] = useState<ClientFailure | undefined>();
   const [connected, setConnected] = useState(false);
+  const [remoteConnectionVersion, setRemoteConnectionVersion] = useState(0);
+  const [watching, setWatching] = useState(false);
+  const canControl = connected && !watching;
   const [projections, setProjections] = useState<Projections>(EMPTY_PROJECTIONS);
   // Both are per conversation. Held in one slot they leaked across a switch:
   // a draft written for one conversation could be sent to another, and a
   // second permission request silently replaced the first, leaving the agent
   // that raised it waiting on a decision the user could no longer see.
-  const [prompts, setPrompts] = useState<Record<string, PermissionPrompt>>({});
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [interactions, setInteractions] = useState<Record<string, InteractionRequest[]>>({});
+  const [prompts, setPrompts] = useState<Record<string, PermissionPrompt[]>>({});
+  const draftScope = suppliedDraftScope ?? client.draftScope;
+  const {drafts, setDrafts, updateDraft, remember, enabled: draftsRemembered, available: draftsAvailable, notice: draftNotice, status: draftStatus, busy: draftBusy} = useDrafts(draftScope);
+  const liveDrafts = useRef(drafts);
+  liveDrafts.current = drafts;
+  const draftsRememberedRef = useRef(draftsRemembered);
+  draftsRememberedRef.current = draftsRemembered;
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [projects, setProjects] = useState<ProjectProjection[]>([]);
   const [pendingReviews, setPendingReviews] = useState<ReviewProjection[]>([]);
@@ -166,6 +209,14 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     return route.kind === "session" ? route.sessionId : null;
   });
   const [openSessions, setOpenSessions] = useState<SessionProjection[]>([]);
+  const [suspendedSessionIds, setSuspendedSessionIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [restoringSessions, setRestoringSessions] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const openSessionsRef = useRef<SessionProjection[]>([]);
+  const suspendedSessionsRef = useRef(new Map<string, SessionProjection>());
+  const restoreReadyRef = useRef(new Map<string, number>());
+  const restoreAttemptsRef = useRef(new Map<string, number>());
+  const restoresInFlightRef = useRef(new Map<string, number>());
+  const workspaceReadTicket = useRef(0);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string | undefined>();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -183,8 +234,8 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   >({});
   const [cliNotice, setCliNotice] = useState<string | undefined>();
   const [models, setModels] = useState<ModelProjection[]>([]);
-  const [modelId, setModelId] = useState<string | null>(null);
-  const [effortId, setEffortId] = useState<string | null>(null);
+  const configInFlight = useRef(new Set<string>());
+  const [configuring, setConfiguring] = useState(new Set<string>());
   const [configTools, setConfigTools] = useState<ToolProjection[]>([]);
   // Per conversation, because the agent publishes them per session and two
   // conversations may be running different agents' command sets.
@@ -207,7 +258,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const [wsGeneration, setWsGeneration] = useState(0);
   /** Anonymous public presence (hosted SPA only); null when unavailable. */
   const [presence, setPresence] = useState<PresenceStats | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<EventConnection | null>(null);
+  const probeGeneration = useRef(0);
+  const pendingPromptEntries = useRef(new Map<string, {sessionId: string; entryId: string}>());
   /** Sequences `listContext` replies so a slow one cannot overwrite a newer. */
   const contextTicket = useRef(0);
   const inspectorTickets = useRef<Record<string, number>>({});
@@ -220,9 +273,23 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const autoDiagnosedRef = useRef<Set<string>>(new Set());
   /** In-flight dry-runs keyed by conversation — de-dupe concurrent triggers. */
   const diagnoseInFlightRef = useRef<Set<string>>(new Set());
-  const browserSupport = detectBrowserSupport();
+  const browserSupport = detectBrowserSupport(undefined, client.remote || isPrivateDocumentOrigin());
   const activeChangeMode = sessionId === null ? "git" : (changeModes[sessionId] ?? "git");
   const activeInspector = sessionId === null ? undefined : inspectors[sessionId];
+  const sessionRuntime = useSessionRuntime(client, connected, sessionId);
+  const refreshSessionRuntime = sessionRuntime.refresh;
+  const receiptScope = client.receiptScope ?? draftScope ?? remoteHostId ?? client.bridgeBaseUrl;
+  const commandReceipts = useCommandReceipts(client, receiptScope);
+  const submitReceipt = commandReceipts.submit;
+  const commandBlocked = client.multiWriter && (commandReceipts.storageFailed || commandReceipts.pending.some(row => row.sessionId === sessionId));
+  const execution = sessionId === null ? undefined : sessionRuntime.execution[sessionId];
+  const liveModels = sessionId === null ? undefined : sessionRuntime.models[sessionId];
+  const modelId = (client.multiWriter ? liveModels?.currentModel : activeInspector?.data?.model) ?? null;
+  const effortId = (client.multiWriter ? liveModels?.currentEffort : activeInspector?.data?.reasoningEffort) ?? null;
+  const catalogue = client.multiWriter ? (liveModels?.selectableModels ?? []).map(model => ({...model, selectable: liveModels?.canSetModel === true})) : models;
+  const sessionModels = modelId !== null && !catalogue.some((model) => model.id === modelId)
+    ? [...catalogue, {id: modelId, name: activeInspector?.data?.modelDisplayName ?? modelId, selectable: false, supportsReasoningEffort: Boolean(liveModels?.canSetEffort), reasoningEfforts: liveModels?.effortOptions ?? []}]
+    : catalogue;
   const activeChanges =
     sessionId === null ? undefined : sessionChanges[sessionId]?.[activeChangeMode];
   const activeReviewRevision =
@@ -231,8 +298,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // Hosted SPA: anonymous heartbeat to grok-insider-web (landing + Work).
   // Never sends bridge secrets; soft-fails when the public API is down.
   useEffect(() => {
+    if (client.remote) return;
     return startPresenceLoop({ onStats: setPresence });
-  }, []);
+  }, [client]);
 
   /** Leave Work for landing when pairing dies or the host is gone. */
   const demoteToLanding = useCallback(
@@ -240,14 +308,18 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       // Always keep the remembered port: landing Retry and "serve then open"
       // need resolveBridgeBaseUrl to still point at the last loopback port.
       // Clear only the session grant (tokens). Port is discovery, not authority.
-      client.clearPairing({ clearPort: false });
+      if (next.kind === "needs_pairing") {
+        void forgetDraftScope(draftScope).catch(() => showHostToast("Saved drafts could not be deleted. Clear this browser’s site data before sharing this device."));
+        setDrafts({});
+        client.clearPairing({ clearPort: false });
+      }
       setPaired(false);
       setConnected(false);
       setReconnecting(false);
       setRefusal(undefined);
       setProbe(next);
     },
-    [client],
+    [client, draftScope, setDrafts],
   );
 
   /**
@@ -259,6 +331,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
    */
   const reportClientFailure = useCallback(
     (failure: ClientFailure, fallback: string) => {
+      if (failure.kind === "refused" && failure.code === "controller_required") setWatching(true);
       if (shouldDemoteFromWork(failure)) {
         demoteToLanding(probeAfterSessionLoss(failure));
         return;
@@ -283,13 +356,18 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // Hosted UI: probe loopback bridge, then pair if needed (ADR 0016).
   // Same-origin fallback (empty bridge base) skips probe and pairs as before.
   // Resume store: restore tokens + port from document origin before resume.
-  const runProbeAndPair = useCallback(() => {
+  const runProbeAndPair = useCallback((incoming?: NonNullable<ReturnType<typeof takePairingFragment>>) => {
     if (!browserSupport.ok) {
       return;
     }
+    const generation = ++probeGeneration.current;
     setProbe({ kind: "checking" });
-    const fragment = takePairingFragment();
-    if (fragment?.port) {
+    const fragment = incoming ?? takePairingFragment();
+    if (fragment) {
+      setPaired(false);
+      setConnected(false);
+    }
+    if (fragment?.port && !isPrivateDocumentOrigin() && !client.remote) {
       client.setBridgeBaseUrl(`http://127.0.0.1:${fragment.port}`);
     } else {
       // Silent resume path: restore grant before reading base URL.
@@ -303,7 +381,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     // `localhost` (jsdom tests and unrelated dev servers use that name).
     const onLoopbackDocument =
       typeof location !== "undefined" &&
-      (location.hostname === "127.0.0.1" ||
+      (isPrivateDocumentOrigin() || location.hostname === "127.0.0.1" ||
         location.hostname === "[::1]" ||
         location.hostname.endsWith(".grok-light.localhost"));
     const base =
@@ -313,6 +391,10 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       client.setBridgeBaseUrl(resolved);
     }
     const afterPairAttempt = (isPaired: boolean) => {
+      if (client.remote) {
+        setProbe(isPaired ? {kind: "ready"} : {kind: "needs_pairing"});
+        return;
+      }
       const apiBase = client.bridgeBaseUrl || base;
       if (!apiBase) {
         // No known API port yet (hosted, never opened) → treat as missing bridge.
@@ -326,28 +408,29 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         bridgeBaseUrl: apiBase,
         isPaired,
       }).then((state) => {
-        if (state.kind === "bridge_missing" || state.kind === "blocked_lna") {
-          // Drop tokens so we do not look paired, but keep the port so
-          // LandingView can show "serve" (hadPort) and Retry re-probes the same base.
-          client.clearPairing({ clearPort: false });
-        }
-        setProbe(state);
+        if (generation === probeGeneration.current) setProbe(state);
       });
     };
 
     const nonce = fragment?.nonce ?? null;
     const attempt = nonce === null ? client.resume() : client.pair(nonce);
     void attempt.then((result) => {
+      if (generation !== probeGeneration.current) return;
       if (result.ok) {
         setPaired(true);
+        if (nonce !== null) setWsGeneration((current) => current + 1);
         setFailure(undefined);
         afterPairAttempt(true);
         return;
       }
       // Keep port always (discovery for Retry / sticky serve). Clear grant only.
-      client.clearPairing({ clearPort: false });
+      if (result.failure.kind === "not_paired") client.clearPairing({ clearPort: false });
       setPaired(false);
       setFailure(nonce === null ? undefined : result.failure);
+      if (client.remote && result.failure.kind === "unreachable") {
+        setProbe({kind: "bridge_missing"});
+        return;
+      }
       if (result.failure.kind === "protocol_mismatch") {
         setProbe(probeAfterSessionLoss(result.failure));
         return;
@@ -358,18 +441,35 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
 
   useEffect(() => {
     runProbeAndPair();
-  }, [runProbeAndPair]);
+    const onHashChange = () => {
+      if (client.remote) return;
+      const fragment = takePairingFragment();
+      if (fragment) runProbeAndPair(fragment);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => {
+      probeGeneration.current += 1;
+      window.removeEventListener("hashchange", onHashChange);
+    };
+  }, [client, runProbeAndPair]);
 
   // Other tabs that clear the resume grant re-run probe (storage event).
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === BRIDGE_SESSION_KEY || event.key === BRIDGE_PORT_KEY) {
-        runProbeAndPair();
+      if (!client.remote && pairingChangedInStorage(event)) {
+        setPaired(false);
+        setConnected(false);
+        client.dispose();
+        socketRef.current?.close();
+        socketRef.current = null;
+        reloadDocument();
+      } else if (!client.remote && event.key === (isPrivateDocumentOrigin() ? PRIVATE_SESSION_KEY : BRIDGE_SESSION_KEY)) {
+        client.restoreFromStorage();
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [runProbeAndPair]);
+  }, [client]);
 
   // Ask the host for the enrolment set. The reply also says whether a session
   // is already open, which is what decides the view.
@@ -383,12 +483,6 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         return;
       }
       setModels(projected.models);
-      setModelId((current) => {
-        if (current !== null && projected.models.some((model) => model.id === current)) {
-          return current;
-        }
-        return pickDefaultModelId(projected.models, projected.defaultModelId);
-      });
     });
   }, [client]);
 
@@ -538,10 +632,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   );
 
   useEffect(() => {
+    if (connected && sessionId !== null) refreshInspector(sessionId);
+  }, [connected, sessionId, activeReviewRevision, refreshInspector]);
+
+  useEffect(() => {
     if (!reviewPanelOpen || sessionId === null) {
       return;
     }
-    refreshInspector(sessionId);
     refreshChanges(sessionId, activeChangeMode);
   }, [
     activeChangeMode,
@@ -553,8 +650,11 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   ]);
 
   const refreshWorkspaces = useCallback(() => {
+    const ticket = ++workspaceReadTicket.current;
+    const generation = probeGeneration.current;
     setBusy(true);
-    void client.send({ kind: "listWorkspaces" }).then((result) => {
+    return client.send({ kind: "listWorkspaces" }).then((result) => {
+      if (ticket !== workspaceReadTicket.current) return;
       setBusy(false);
       if (!result.ok) {
         reportClientFailure(result.failure, "The host refused the request.");
@@ -566,11 +666,17 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         setProjects(projected.projects ?? []);
         setPendingReviews(projected.pendingReviews ?? []);
         refreshModels();
-        const open = projected.openSessions ?? [];
+        const resident = projected.openSessions ?? [];
+        for (const session of resident) {
+          suspendedSessionsRef.current.delete(session.sessionId);
+          restoreReadyRef.current.delete(session.sessionId);
+          restoreAttemptsRef.current.delete(session.sessionId);
+        }
+        for (const id of suspendedSessionsRef.current.keys()) restoreReadyRef.current.set(id, generation);
+        setSuspendedSessionIds(new Set(suspendedSessionsRef.current.keys()));
+        const open = [...resident, ...suspendedSessionsRef.current.values()].sort((left, right) => left.openedAtMs - right.openedAtMs);
+        openSessionsRef.current = open;
         setOpenSessions(open);
-        // Track a projection per open conversation, and forget the ones the
-        // host no longer holds so a closed session cannot keep a transcript
-        // alive in the browser.
         setProjections((current) => {
           let next = current;
           for (const session of open) {
@@ -583,8 +689,6 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           }
           return next;
         });
-        // A conversation the host no longer holds leaves nothing behind: its
-        // draft and any request it raised go with it.
         const live = new Set(open.map((session) => session.sessionId));
         // Closed sessions may reopen later with a new id, or the same id after
         // a host rebuild — drop auto-diagnose marks so recovery can run again.
@@ -599,11 +703,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           }
         }
         setDrafts((current) =>
-          Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id))),
+          draftsRememberedRef.current ? current : Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id))),
         );
         setPrompts((current) =>
           Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id))),
         );
+        setInteractions((current) => retainLive(current, live));
         setInspectors((current) => retainLive(current, live));
         setSessionChanges((current) => retainLive(current, live));
         setChangeModes((current) => retainLive(current, live));
@@ -619,6 +724,40 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       }
     });
   }, [client, refreshModels]);
+
+  const restoreSession = useCallback((target: string, explicit = false) => {
+    const generation = probeGeneration.current;
+    const session = suspendedSessionsRef.current.get(target);
+    if (!canControl || !session || restoreReadyRef.current.get(target) !== generation || restoresInFlightRef.current.get(target) === generation || (!explicit && restoreAttemptsRef.current.get(target) === generation)) return;
+    restoreAttemptsRef.current.set(target, generation);
+    restoresInFlightRef.current.set(target, generation);
+    setRestoringSessions((current) => new Map([...current, [target, generation]]));
+    setRefusal(undefined);
+    void client.send({kind: "loadSession", workspaceId: session.workspaceId, sessionId: target}, {idempotencyKey: crypto.randomUUID()}).then(async (result) => {
+      if (generation !== probeGeneration.current) return;
+      if ((result.ok && asSessionCreated(result.value)?.sessionId === target) || (!result.ok && result.failure.kind === "refused" && result.failure.code === "session_already_active")) {
+        await refreshWorkspaces();
+        if (generation !== probeGeneration.current) return;
+        refreshInspector(target);
+        return;
+      }
+      if (!result.ok) reportClientFailure(result.failure, "The conversation could not be reopened. Your draft is still here.");
+      else setRefusal("The host did not confirm that this conversation reopened. Your draft is still here.");
+    }).finally(() => {
+      if (restoresInFlightRef.current.get(target) !== generation) return;
+      restoresInFlightRef.current.delete(target);
+      setRestoringSessions((current) => {
+        if (current.get(target) !== generation) return current;
+        const next = new Map(current);
+        next.delete(target);
+        return next;
+      });
+    });
+  }, [canControl, client, refreshInspector, refreshWorkspaces, reportClientFailure]);
+
+  useEffect(() => {
+    if (sessionId !== null && suspendedSessionIds.has(sessionId)) restoreSession(sessionId);
+  }, [restoreSession, sessionId, suspendedSessionIds]);
 
   const refreshHostStatus = useCallback(() => {
     void client.send({ kind: "getHostStatus" }).then((result) => {
@@ -693,18 +832,6 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     }
   }, [openSessions, refreshTools, selectedWorkspaceId, sessionId]);
 
-  useEffect(() => {
-    setEffortId((current) => {
-      const next = pickDefaultEffort(models, modelId);
-      if (current !== null && models.some((model) =>
-        model.id === modelId && model.reasoningEfforts.some((effort) => effort.id === current),
-      )) {
-        return current;
-      }
-      return next;
-    });
-  }, [modelId, models]);
-
   const refreshSessions = useCallback(
     (workspaceId: string) => {
       setBusy(true);
@@ -737,6 +864,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
 
   const startSession = useCallback(
     (workspaceId: string) => {
+      if (!canControl) return;
       setBusy(true);
       setSessionLoading(true);
       setRefusal(undefined);
@@ -745,7 +873,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       void client
         .send(
           { kind: "createSession", workspaceId },
-          { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+          { idempotencyKey: crypto.randomUUID() },
         )
         .then((result) => {
           setBusy(false);
@@ -761,7 +889,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           reportClientFailure(result.failure, "The host could not start a session.");
         });
     },
-    [client, refreshWorkspaces, reportClientFailure],
+    [canControl, client, refreshWorkspaces, reportClientFailure],
   );
 
   const resumeSession = useCallback(
@@ -776,13 +904,14 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       if (sessionId === agentSessionId) {
         return;
       }
+      if (!canControl) return;
       setBusy(true);
       setSessionLoading(true);
       // Same loading rule as start: diagnosis is per settled conversation id.
       void client
         .send(
           { kind: "loadSession", workspaceId, sessionId: agentSessionId },
-          { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+          { idempotencyKey: crypto.randomUUID() },
         )
         .then((result) => {
           setBusy(false);
@@ -820,6 +949,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     },
     [
       client,
+      canControl,
       openSessions,
       refreshSessions,
       refreshWorkspaces,
@@ -841,6 +971,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       target: string,
       options: { force?: boolean; surfaceAll?: boolean; reportFailure?: boolean } = {},
     ) => {
+      if (!canControl || suspendedSessionsRef.current.has(target)) return;
       const force = options.force === true;
       const surfaceAll = options.surfaceAll === true;
       const reportFailure = options.reportFailure === true;
@@ -859,7 +990,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       void client
         .send(
           { kind: "diagnoseSession", sessionId: target },
-          { controllerEpoch: 1 },
+          {},
         )
         .then((result) => {
           diagnoseInFlightRef.current.delete(target);
@@ -887,7 +1018,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           );
         });
     },
-    [client],
+    [canControl, client],
   );
 
   /** Banner "Check again" — user-initiated dry-run; surfaces healthy/unsupported too. */
@@ -912,7 +1043,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   }, [paired, runDiagnose, sessionId, sessionLoading]);
 
   const repairSession = useCallback(() => {
-    if (sessionId === null) {
+    if (!canControl || sessionId === null) {
       return;
     }
     const activeDiagnosis = diagnosisForSession(diagnoses, sessionId, sessionLoading);
@@ -929,8 +1060,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         { kind: "repairSession", sessionId: target, dryRun: false },
         {
           idempotencyKey: crypto.randomUUID(),
-          controllerEpoch: 1,
-        },
+                  },
       )
       .then((result) => {
         setRepairBusyBySession((held) => ({ ...held, [target]: false }));
@@ -949,16 +1079,17 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           );
         }
       });
-  }, [client, diagnoses, sessionId, sessionLoading]);
+  }, [canControl, client, diagnoses, sessionId, sessionLoading]);
 
   const acknowledgeReview = useCallback(
     (recordId: string) => {
+      if (!canControl) return;
       setBusy(true);
       setRefusal(undefined);
       void client
         .send(
           { kind: "acknowledgeInterrupted", recordId },
-          { controllerEpoch: 1, idempotencyKey: `ack-${recordId}` },
+          { idempotencyKey: `ack-${recordId}` },
         )
         .then((result) => {
           setBusy(false);
@@ -971,14 +1102,15 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           refreshWorkspaces();
         });
     },
-    [client, refreshWorkspaces],
+    [canControl, client, refreshWorkspaces],
   );
 
   const openPicker = useCallback(() => {
+    if (!canControl) return;
     setBusy(true);
     setRefusal(undefined);
     void client
-      .send({ kind: "openWorkspacePicker" }, { controllerEpoch: 1 })
+      .send({ kind: "openWorkspacePicker" }, {})
       .then((result) => {
         setBusy(false);
         if (!result.ok) {
@@ -987,15 +1119,95 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         // Nothing to refresh yet: the dialog is still open. The host emits
         // `workspacesChanged` once the user has chosen.
       });
-  }, [client]);
+  }, [canControl, client]);
 
   // There is no `openProject` here on purpose. The rail lists only projects
   // already enrolled (light ADR 0014), so the browser can never hold the id of
   // an unenrolled one. Enrolment goes through the host picker above, or
   // `spanreed agent workspace add`. The host operation still exists for the CLI.
 
+  const settlePromptEntry = useCallback((idempotencyKey: string, result: unknown) => {
+    const pending = pendingPromptEntries.current.get(idempotencyKey);
+    pendingPromptEntries.current.delete(idempotencyKey);
+    if (!pending || typeof result !== "object" || result === null || (result as {outcome?: string}).outcome !== "promptQueued") return;
+    setProjections((current) => {
+      const existing = current[pending.sessionId];
+      if (!existing) return current;
+      return {...current, [pending.sessionId]: {...existing, transcript: existing.transcript.filter((entry) => entry.id !== pending.entryId)}};
+    });
+  }, []);
+
+  const remoteControls = useRemoteControls({
+    client,
+    scopeKey:draftScope ?? remoteHostId ?? "local",
+    connectionVersion:remoteConnectionVersion,
+    connected,
+    canControl,
+    onEnrolled:() => {void refreshWorkspaces();},
+    onRevokeOwn:suppliedRevokeOwn ?? (async () => {
+      const result = await client.revokePairing();
+      if (!result.ok && result.failure.kind !== "not_paired") throw new Error("revocation_unconfirmed");
+      await client.forgetPairing();
+      demoteToLanding(probeAfterSessionLoss({kind:"not_paired"}));
+    }),
+  });
+  const imageComposer = useImageComposer({client, sessionId, receipts: commandReceipts, interrupt: execution?.activeTurn && stopCurrentTurn(execution) ? {turnId: execution.activeTurn.turnId, revision: execution.revision} : undefined, scope: draftScope?.startsWith('["direct",') || remoteExperimentEnabled("drafts") ? draftScope : undefined, canSend: canControl, capable: remoteControls.capabilities?.contentProtocolVersion === 3 && remoteControls.capabilities?.upstreamPrompt?.image === true, onSent: (target, text) => {if (liveDrafts.current[target] === text) updateDraft(target, "");}});
+  const notificationControls = client.remote && !remoteHostId ? <DirectNotifications client={client} scopeKey={draftScope ?? "local"} connectionVersion={remoteConnectionVersion} connected={connected} capable={remoteControls.capabilities?.pushNotifications} /> : <RemoteNotifications client={client} hostId={remoteHostId} scopeKey={draftScope ?? remoteHostId ?? "local"} connectionVersion={remoteConnectionVersion} connected={connected} capable={remoteControls.capabilities?.pushNotifications} />;
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const controlAttention = useRemoteControlAttention(remoteControls);
+  const hasRemoteTools = client.multiWriter || (client.remote && !remoteHostId) || remoteExperimentEnabled("push") || remoteExperimentEnabled("remote-projects") || remoteExperimentEnabled("control-transfer") || remoteExperimentEnabled("device-panel");
+  const toolsControl = hasRemoteTools ? <RemoteToolsPanel open={toolsOpen} onOpenChange={setToolsOpen} attention={controlAttention} error={remoteControls.error} connected={connected} available={Boolean(remoteControls.capabilities)}><RemoteControls {...remoteControls} />{notificationControls}<SourceLicense /></RemoteToolsPanel> : undefined;
+  const toolsNotice = hasRemoteTools ? <RemoteToolsNotice attention={controlAttention} error={remoteControls.error} onOpen={() => setToolsOpen(true)} /> : null;
+  const refreshRemoteDevices = remoteControls.onRefreshDevices;
+
   const handleEvent = useCallback((envelope: EventEnvelope) => {
+    if (envelope.event.kind === "sessionExecutionChanged" || envelope.event.kind === "sessionModelsChanged") {
+      refreshSessionRuntime(envelope.event.sessionId);
+      return;
+    }
+    if (envelope.event.kind === "remoteDevicesChanged") {
+      refreshRemoteDevices();
+      return;
+    }
+    if (envelope.event.kind === "hostStatus") {
+      if (envelope.event.state === "watching") setWatching(true);
+      else if (envelope.event.state === "writable" || /^controlling:\d+$/.test(envelope.event.state)) setWatching(false);
+    }
+    if (envelope.event.kind === "interactionRequest") {
+      const request = envelope.event;
+      setInteractions((current) => enqueueRequest(current, request));
+      return;
+    }
+    if (envelope.event.kind === "interactionResolved") {
+      const resolved = envelope.event;
+      setInteractions((current) => removeRequest(current, resolved));
+      setPrompts((current) => removeRequest(current, resolved));
+      return;
+    }
+    if (envelope.event.kind === "replayReset") {
+      for (const session of openSessionsRef.current) suspendedSessionsRef.current.set(session.sessionId, session);
+      restoreReadyRef.current.clear();
+      setSuspendedSessionIds(new Set(suspendedSessionsRef.current.keys()));
+      setInteractions({});
+      setProjections(EMPTY_PROJECTIONS);
+      setPrompts({});
+      refreshWorkspaces();
+      return;
+    }
+    if (envelope.event.kind === "permissionResolved") {
+      const resolved = envelope.event;
+      setPrompts((current) => removeRequest(current, resolved));
+      return;
+    }
+    if (envelope.event.kind === "commandCompleted") {
+      settlePromptEntry(envelope.event.idempotencyKey, envelope.event.result);
+      if (envelope.event.error) setRefusal(hostErrorMessage(envelope.event.error));
+      refreshWorkspaces();
+      return;
+    }
     if (envelope.event.kind === "workspacesChanged") {
+      setProjections(current => project(current, envelope));
+      for (const session of openSessionsRef.current) refreshSessionRuntime(session.sessionId);
       // The host-owned picker finished. The command that opened it returned
       // immediately, so this is the only signal that a directory was enrolled.
       refreshWorkspaces();
@@ -1013,13 +1225,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     }
     if (envelope.event.kind === "permissionRequest") {
       const raised = envelope.event;
-      setPrompts((current) => ({
-        ...current,
-        [raised.sessionId]: {
+      setPrompts((current) => enqueueRequest(current, {
           sessionId: raised.sessionId,
           requestId: raised.requestId,
           options: raised.options,
-        },
+          title: raised.title,
+          description: raised.description,
       }));
       return;
     }
@@ -1041,6 +1252,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       } else {
         setRefusal(hostMessage);
       }
+      if (hostCode === "agent_transport_lost") return;
       setProjections((current) =>
         Object.fromEntries(
           Object.entries(current).map(([id, value]) => [
@@ -1064,7 +1276,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       refreshWorkspaces();
     }
     setProjections((current) => project(current, envelope));
-  }, [refreshWorkspaces]);
+  }, [refreshWorkspaces, settlePromptEntry, refreshRemoteDevices, refreshSessionRuntime]);
 
   useEffect(() => {
     if (!paired) {
@@ -1072,68 +1284,114 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let readyTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
+    let connectionGeneration = 0;
 
     const connect = () => {
       if (cancelled) {
         return;
       }
       setReconnecting(true);
-      const socket = client.openEvents({
-        onEvent: handleEvent,
-        onOpen: () => {
-          if (cancelled) {
-            return;
-          }
-          setConnected(true);
+      setRemoteConnectionVersion(version => version + 1);
+      setConnected(false);
+      setWatching(false);
+      const generation = ++connectionGeneration;
+      let ready = false;
+      let closed = false;
+      const onClose = () => {
+        if (cancelled || generation !== connectionGeneration || closed) return;
+        closed = true;
+        clearTimeout(readyTimer);
+        setConnected(false);
+        socketRef.current = null;
+        attempts += 1;
+        if (attempts > RECONNECT_MAX_ATTEMPTS) {
           setReconnecting(false);
-          // A successful connection is what makes the budget a budget: it
-          // resets, so a long session survives many brief host restarts.
-          attempts = 0;
-        },
-        onClose: () => {
-          if (cancelled) {
-            return;
+          return;
+        }
+        setReconnecting(true);
+        const delay = Math.min(RECONNECT_MS * 2 ** (attempts - 1), RECONNECT_MAX_MS);
+        retryTimer = setTimeout(connect, delay);
+      };
+      const socket = client.openEvents({
+        onEvent: (event) => {
+          if (cancelled || generation !== connectionGeneration || closed) return;
+          if (event.event.kind === "hostStatus" && (event.event.state === "writable" || event.event.state === "watching" || /^controlling:[1-9]\d*$/.test(event.event.state))) {
+            ready = true;
+            clearTimeout(readyTimer);
+            attempts = 0;
+            setConnected(true);
+            setReconnecting(false);
           }
-          setConnected(false);
-          socketRef.current = null;
-          attempts += 1;
-          if (attempts > RECONNECT_MAX_ATTEMPTS) {
-            // Host is gone: leave Work for landing (not a permanent Disconnected shell).
-            demoteToLanding(probeAfterHostGone());
-            return;
-          }
-          setReconnecting(true);
-          // Back off so a host that stays down is polled at a slower and
-          // slower rate rather than every two seconds for ever.
-          const delay = Math.min(RECONNECT_MS * 2 ** (attempts - 1), RECONNECT_MAX_MS);
-          retryTimer = setTimeout(connect, delay);
+          handleEvent(event);
         },
+        onFailure: (failure) => {
+          if (!cancelled && generation === connectionGeneration && !closed) reportClientFailure(failure, "The connection could not be restored.");
+        },
+        onOpen: () => {},
+        onClose,
       });
       socketRef.current = socket;
       if (socket === null) {
         setConnected(false);
         setReconnecting(false);
+      } else if (!ready && !closed) {
+        readyTimer = setTimeout(() => {onClose(); socket.close();}, CONNECTION_READY_TIMEOUT_MS);
       }
     };
 
+    const reconnectWhenVisible = () => {
+      if (document.visibilityState === "hidden" || cancelled) return;
+      clearTimeout(retryTimer);
+      clearTimeout(readyTimer);
+      connectionGeneration += 1;
+      socketRef.current?.close();
+      attempts = 0;
+      connect();
+    };
+    window.addEventListener("online", reconnectWhenVisible);
+    document.addEventListener("visibilitychange", reconnectWhenVisible);
     connect();
     return () => {
+      window.removeEventListener("online", reconnectWhenVisible);
+      document.removeEventListener("visibilitychange", reconnectWhenVisible);
       cancelled = true;
       if (retryTimer !== undefined) {
         clearTimeout(retryTimer);
       }
+      clearTimeout(readyTimer);
       socketRef.current?.close();
       socketRef.current = null;
     };
   }, [client, demoteToLanding, handleEvent, paired, wsGeneration]);
 
+  const draftFits = (text: string, kind: "prompt" | "sendNow" = "sendNow") => {
+    if (sessionId === null) return false;
+    const bash = isBashMode(text.trim());
+    const wire = bash ? bashSendText(text.trim()) : text.trim();
+    return client.commandFits?.({kind, sessionId, text: wire, bash}, {idempotencyKey: COMMAND_ID_PLACEHOLDER}) ?? true;
+  };
+
   const sendPrompt = useCallback(
     (text: string) => {
-      if (sessionId === null) {
+      if (sessionId === null || suspendedSessionsRef.current.has(sessionId)) {
         return;
       }
       const target = sessionId;
+      const idempotencyKey = crypto.randomUUID();
+      if (client.multiWriter) {
+        void submitReceipt(target, {kind: "prompt", sessionId: target, text, bash: false}).then(result => {
+          if (!result.ok) {
+            reportClientFailure(result.failure, "The computer has not confirmed this message. Check the queue before sending it again.");
+            if (!liveDrafts.current[target]) updateDraft(target, text);
+          }
+          refreshSessionRuntime(target);
+        });
+        return;
+      }
+      const entryId = `u-${idempotencyKey}`;
+      pendingPromptEntries.current.set(idempotencyKey, {sessionId: target, entryId});
       setProjections((current) => {
         const existing = projectionFor(current, target);
         return {
@@ -1144,7 +1402,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             transcript: [
               ...existing.transcript,
               {
-                  id: `u-${existing.transcript.length}`,
+                  id: entryId,
                   role: "user",
                   text,
                   seq: nextLocalSeq(existing),
@@ -1160,10 +1418,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       void client
         .send(
           { kind: "prompt", sessionId: target, text: wire, bash },
-          {
-            idempotencyKey: crypto.randomUUID(),
-            controllerEpoch: 1,
-          },
+          { idempotencyKey },
         )
         .then((result) => {
           // A queued message has not been said yet, so it comes back out of
@@ -1175,28 +1430,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             result.value !== null &&
             (result.value as { outcome?: unknown }).outcome === "promptQueued";
           if (queued) {
-            setProjections((held) => {
-              const existing = held[target];
-              if (existing === undefined) {
-                return held;
-              }
-              return {
-                ...held,
-                [target]: {
-                  ...existing,
-                  transcript: existing.transcript.filter(
-                    (entry) =>
-                      !(
-                        entry.role === "user" &&
-                        (entry.text === text || entry.text === wire)
-                      ),
-                  ),
-                },
-              };
-            });
+            settlePromptEntry(idempotencyKey, result.value);
             refreshWorkspaces();
             return;
           }
+          if (result.ok && typeof result.value === "object" && result.value !== null && (result.value as {outcome?: string}).outcome === "commandAccepted") return;
+          if (result.ok || result.failure.kind !== "unreachable") settlePromptEntry(idempotencyKey, result.ok ? result.value : undefined);
           setProjections((current) => {
             const existing = current[target];
             return existing?.phase === "streaming"
@@ -1213,16 +1452,23 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           }
         });
     },
-    [client, refreshWorkspaces, reportClientFailure, runDiagnose, sessionId],
+    [client, refreshWorkspaces, reportClientFailure, runDiagnose, sessionId, settlePromptEntry, refreshSessionRuntime, submitReceipt, updateDraft],
   );
 
   const closeSession = useCallback(
     (target: string) => {
+      if (!canControl || restoresInFlightRef.current.get(target) === probeGeneration.current) return;
       setRefusal(undefined);
+      if (suspendedSessionsRef.current.delete(target)) {
+        restoreReadyRef.current.delete(target);
+        restoreAttemptsRef.current.delete(target);
+        void refreshWorkspaces();
+        return;
+      }
       void client
         .send(
           { kind: "closeSession", sessionId: target },
-          { idempotencyKey: `close-${target}`, controllerEpoch: 1 },
+          { idempotencyKey: `close-${target}` },
         )
         .then((result) => {
           if (!result.ok) {
@@ -1234,7 +1480,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           refreshWorkspaces();
         });
     },
-    [client, refreshWorkspaces, reportClientFailure],
+    [canControl, client, refreshWorkspaces, reportClientFailure],
   );
 
   const decide = useCallback(
@@ -1242,7 +1488,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       if (sessionId === null) {
         return;
       }
-      const answered = prompts[sessionId];
+      const answered = prompts[sessionId]?.[0];
       if (answered === undefined) {
         return;
       }
@@ -1255,14 +1501,15 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
             requestId: answered.requestId,
             optionId,
           },
-          { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+          { idempotencyKey: crypto.randomUUID() },
         )
-        .then(() => {
-          setPrompts((current) => {
-            const next = { ...current };
-            delete next[answered.sessionId];
-            return next;
-          });
+        .then((result) => {
+          setDeciding(false);
+          if (!result.ok) {
+            reportClientFailure(result.failure, "The answer was not delivered. Reconnect to see whether this request is still pending.");
+            return;
+          }
+          setPrompts((current) => removeRequest(current, answered));
           setDeciding(false);
         });
     },
@@ -1281,10 +1528,17 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // Every other probe state — including checking — is the welcome landing.
   // Injected test clients with empty base + successful resume set probe ready.
   if (!shouldShowWork(probe, paired)) {
+    if (client.remote) {
+      return <main className="remote-home">
+        <h1 className="text-title-sm font-semibold">{probe.kind === "needs_pairing" ? "This browser needs to pair again" : "Connecting to your computer"}</h1>
+        <p role="status" className="text-muted-foreground">{probe.kind === "needs_pairing" ? "Access was revoked or the pairing expired. On your computer, run spanreed remote pair and open its new link in this browser." : probe.kind === "error" ? probe.message : probe.kind === "checking" ? "Restoring your secure connection…" : "Your computer is unavailable. Check that Spanreed is running and reconnect."}</p>
+        {probe.kind !== "checking" && <Button onClick={() => runProbeAndPair()}>Reconnect</Button>}
+      </main>;
+    }
     return (
       <LandingView
         probe={probe}
-        onRetry={runProbeAndPair}
+        onRetry={() => runProbeAndPair()}
         hadPort={hasStoredPort()}
         presence={presence}
       />
@@ -1296,18 +1550,23 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
       reconnecting={reconnecting}
       onRetry={() => setWsGeneration((value) => value + 1)}
     />
-  ) : null;
+  ) : watching ? <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-4 py-3">
+    <p>Another browser tab has control. You can follow the conversation here. Close that tab or wait for its connection to expire.</p>
+    <Button onClick={() => setWsGeneration((value) => value + 1)}>Retry control</Button>
+  </div> : null;
 
   // Open conversations stay in the top bar on Home and Session (browser tabs).
   // Host `running` only updates when the list is re-read; merge live phase so a
   // turn this page started still shows Working on its tab.
-  const awaitingDecision = new Set(Object.keys(prompts));
-  const sessionsWithActivity = openSessions.map((session) => ({
-    ...session,
-    running:
-      session.running || projections[session.sessionId]?.phase === "streaming",
-    awaitingDecision: awaitingDecision.has(session.sessionId),
-  }));
+  const awaitingDecision = new Set([...Object.keys(prompts), ...Object.keys(interactions)]);
+  const sessionsWithActivity = openSessions.map((session) => {
+    const live = client.multiWriter ? sessionRuntime.execution[session.sessionId] : undefined;
+    return {
+      ...session,
+      running: Boolean((live ? live.activeTurn || live.externalTurnRunning : session.running) || projections[session.sessionId]?.phase === "streaming"),
+      awaitingDecision: awaitingDecision.has(session.sessionId),
+    };
+  });
   const titles = sessionTitles(projections);
   const shellTabs = sessionsWithActivity.map((session) => ({
     sessionId: session.sessionId,
@@ -1324,7 +1583,10 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
     return (
       <WorkShell
         surface="home"
+        trailing={toolsControl}
+        showThemeControl={!toolsControl}
         connected={connected}
+        canControl={canControl}
         tabs={shellTabs}
         activeTabId={null}
         onGoHome={() => {
@@ -1342,6 +1604,8 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         }}
       >
         {connectionStrip}
+        {toolsNotice}
+        <ShareInbox />
         <HomeView
           workspaces={workspaces}
           projects={projects}
@@ -1349,11 +1613,14 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           selectedWorkspaceId={selectedWorkspaceId}
           selectedWorkspaceName={workspaceName}
           busy={busy}
+          connected={connected}
+          canControl={canControl}
+          openSessionIds={openSessions.map((session) => session.sessionId)}
           error={refusal}
           banner={
             <ReviewBanner
               reviews={pendingReviews}
-              busy={busy}
+              busy={busy || !canControl}
               onAcknowledge={acknowledgeReview}
             />
           }
@@ -1384,9 +1651,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   // different conversation is announced on its tab instead: a dialog for
   // something the user is not looking at is a hijack, and with several running
   // they would fight for the screen.
-  const prompt = prompts[sessionId] ?? null;
+  const prompt = prompts[sessionId]?.[0] ?? null;
+  const interaction = interactions[sessionId]?.[0];
   const shown = projectionFor(projections, sessionId);
   const current = openSessions.find((session) => session.sessionId === sessionId);
+  const suspended = suspendedSessionIds.has(sessionId);
+  const restoring = restoringSessions.get(sessionId) === probeGeneration.current;
   const activeDiagnosis = diagnosisForSession(
     diagnoses,
     sessionId,
@@ -1395,8 +1665,21 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
   const repairBusy = repairBusyBySession[sessionId] ?? false;
 
   return (
-    <>
+    <ImageReaderContext.Provider value={{client, sessionId}}><OptionalDialogsBlockedContext.Provider value={!watching && Boolean(prompt || interaction)}>
+      {!watching && !prompt && interaction && <InteractionDialog key={interaction.requestId} request={interaction} busy={deciding || !connected} connected={connected} onReconnect={() => setWsGeneration((value) => value + 1)} onAnswer={(answer) => {
+        const request = interaction;
+        if (!request) return;
+        setDeciding(true);
+        void client.send({kind: "answerInteraction", sessionId: request.sessionId, requestId: request.requestId, answer}, {idempotencyKey: crypto.randomUUID()}).then((result) => {
+          setDeciding(false);
+          if (!result.ok) {reportClientFailure(result.failure, "The answer was not delivered."); return;}
+          setInteractions((current) => removeRequest(current, request));
+        });
+      }} />}
       <SessionView
+        imageComposer={imageComposer}
+        toolsControl={toolsControl}
+        shareControl={client.remote && draftScope ? <ShareSession compact key={sessionId} client={client} hostId={draftScope} sessionId={sessionId} canPublish={canControl && !suspended} /> : undefined}
         transcript={shown.transcript}
         tools={shown.tools}
         thoughts={shown.thoughts}
@@ -1409,7 +1692,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         members={shown.members}
         workflows={shown.workflows}
         backgroundTasks={shown.backgroundTasks}
+        history={shown.history}
         connected={connected}
+        canControl={canControl && !suspended}
         sessionLoading={sessionLoading}
         diagnosis={activeDiagnosis}
         repairBusy={repairBusy}
@@ -1428,8 +1713,12 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         }}
         workspaceName={current?.workspaceName ?? workspaceName}
         sessions={sessionsWithActivity}
-        queued={current?.queued ?? []}
-        models={models}
+        queued={client.multiWriter ? execution?.queue ?? [] : current?.queued ?? []}
+        submissionDisabled={commandBlocked}
+        shellEnabled={!client.multiWriter}
+        interruptDisabled={commandBlocked || client.multiWriter && (!execution || !stopCurrentTurn(execution))}
+        configurationDisabled={commandBlocked || client.multiWriter && (!canChangeConfiguration(execution, liveModels) || (sessionId !== null && configuring.has(sessionId)))}
+        models={sessionModels}
         modelId={modelId}
         effortId={effortId}
         configTools={configTools}
@@ -1450,8 +1739,19 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           }
         }}
         onModelChange={(nextModelId) => {
-          setModelId(nextModelId);
           if (sessionId === null) {
+            return;
+          }
+          if (client.multiWriter) {
+            if (!liveModels?.canSetModel || !canChangeConfiguration(execution, liveModels) || configInFlight.current.has(sessionId)) return;
+            const target = sessionId;
+            configInFlight.current.add(target);
+            setConfiguring(new Set(configInFlight.current));
+            void submitReceipt(target, {kind: "setSessionConfiguration", sessionId: target, modelId: nextModelId, expectedConfigRevision: liveModels.revision}).then(result => {
+              if (!result.ok) reportClientFailure(result.failure, "The model could not be changed. Refresh the conversation and try again.");
+              refreshSessionRuntime(target);
+              refreshInspector(target);
+            }).finally(() => {configInFlight.current.delete(target); setConfiguring(new Set(configInFlight.current));});
             return;
           }
           const effort = pickDefaultEffort(models, nextModelId) ?? undefined;
@@ -1463,17 +1763,30 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
                 modelId: nextModelId,
                 reasoningEffort: effort,
               },
-              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+              { idempotencyKey: crypto.randomUUID() },
             )
             .then((result) => {
               if (!result.ok) {
                 reportClientFailure(result.failure, "The host could not change the model.");
+              } else {
+                refreshInspector(sessionId);
               }
             });
         }}
         onEffortChange={(nextEffort) => {
-          setEffortId(nextEffort);
           if (sessionId === null || modelId === null) {
+            return;
+          }
+          if (client.multiWriter) {
+            if (!liveModels?.canSetEffort || !canChangeConfiguration(execution, liveModels) || configInFlight.current.has(sessionId)) return;
+            const target = sessionId;
+            configInFlight.current.add(target);
+            setConfiguring(new Set(configInFlight.current));
+            void submitReceipt(target, {kind: "setSessionConfiguration", sessionId: target, reasoningEffort: nextEffort, expectedConfigRevision: liveModels.revision}).then(result => {
+              if (!result.ok) reportClientFailure(result.failure, "Reasoning effort could not be changed. Refresh the conversation and try again.");
+              refreshSessionRuntime(target);
+              refreshInspector(target);
+            }).finally(() => {configInFlight.current.delete(target); setConfiguring(new Set(configInFlight.current));});
             return;
           }
           void client
@@ -1484,11 +1797,13 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
                 modelId,
                 reasoningEffort: nextEffort,
               },
-              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+              { idempotencyKey: crypto.randomUUID() },
             )
             .then((result) => {
               if (!result.ok) {
                 reportClientFailure(result.failure, "The host could not change reasoning effort.");
+              } else {
+                refreshInspector(sessionId);
               }
             });
         }}
@@ -1496,7 +1811,20 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           if (sessionId === null) {
             return;
           }
+          if (client.multiWriter) {
+            if (!execution?.activeTurn || !stopCurrentTurn(execution)) return;
+            const target = sessionId;
+            void submitReceipt(target, {kind: "interruptAndEnqueue", sessionId: target, expectedTurnId: execution.activeTurn.turnId, expectedQueueRevision: execution.revision, text}).then(result => {
+              if (!result.ok) {
+                reportClientFailure(result.failure, "The interruption could not be confirmed. Check the queue before trying again.");
+                if (!liveDrafts.current[target]) updateDraft(target, text);
+              }
+              refreshSessionRuntime(target);
+            });
+            return;
+          }
           const target = sessionId;
+          const idempotencyKey = crypto.randomUUID();
           setProjections((held) => {
             const existing = projectionFor(held, target);
             return {
@@ -1507,7 +1835,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
                 transcript: [
                   ...existing.transcript,
                   {
-                  id: `u-${existing.transcript.length}`,
+                  id: `u-${idempotencyKey}`,
                   role: "user",
                   text,
                   seq: nextLocalSeq(existing),
@@ -1521,7 +1849,7 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           void client
             .send(
               { kind: "sendNow", sessionId: target, text: wire, bash },
-              { idempotencyKey: crypto.randomUUID(), controllerEpoch: 1 },
+              { idempotencyKey },
             )
             .then((result) => {
               if (!result.ok) {
@@ -1533,25 +1861,25 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           if (sessionId === null) {
             return;
           }
-          void client
-            .send(
-              { kind: "removeQueued", sessionId, entryId },
-              { idempotencyKey: `unqueue-${entryId}`, controllerEpoch: 1 },
-            )
+          void (client.multiWriter
+            ? submitReceipt(sessionId, {kind: "removeQueued", sessionId, entryId})
+            : client.send({kind: "removeQueued", sessionId, entryId}, {idempotencyKey: `unqueue-${entryId}`}))
             .then((result) => {
               if (!result.ok) {
                 reportClientFailure(result.failure, "The host could not remove that message.");
-                return;
               }
+              refreshSessionRuntime(sessionId);
               refreshWorkspaces();
             });
         }}
+        draftRecovery={draftsAvailable || Boolean(draftScope) || remoteExperimentEnabled("speech-playback") ? <div className="session-draft-tools">{draftScope && <OfflineHistory key={draftScope} scope={draftScope} projections={projections} />}{draftsAvailable && <DraftRecovery enabled={draftsRemembered} onChange={remember} notice={draftNotice} status={draftStatus} busy={draftBusy} />}{remoteExperimentEnabled("speech-playback") && <SpeechPlayback key={sessionId} text={shown.transcript.findLast(entry => entry.role === "agent")?.text ?? ""} disabled={!connected || shown.phase === "streaming"} />}</div> : undefined}
+        draftFits={draftFits}
         draft={sessionId === null ? "" : (drafts[sessionId] ?? "")}
         onDraftChange={(text) => {
           if (sessionId === null) {
             return;
           }
-          setDrafts((held) => ({ ...held, [sessionId]: text }));
+          updateDraft(sessionId, text);
         }}
         activeSessionId={sessionId}
         sessionTitles={titles}
@@ -1564,21 +1892,48 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
           setRefusal(undefined);
           setSessionId(null);
         }}
-        connectionBanner={connectionStrip}
-        hostMessage={refusal ?? cliNotice}
+        connectionBanner={<>{connectionStrip}{toolsNotice}{client.multiWriter && <CommandReceiptNotice key={JSON.stringify([receiptScope, sessionId, commandReceipts.pending.find(row => row.sessionId === sessionId)?.key])} clearDisabled={imageComposer.busy} receipts={commandReceipts} sessionId={sessionId} connected={connected} onClearDraft={() => {updateDraft(sessionId, ""); for (const image of imageComposer.images) imageComposer.remove(image.id);}} />}{client.multiWriter && execution && <SessionQueueStatus key={sessionId} execution={execution} enabled={canControl && !suspended && !commandBlocked} reviewEnabled={canControl && !suspended} onAction={async operation => {
+          const result = operation.kind === "reviewUncertainTurn" ? await client.send(operation, {idempotencyKey: crypto.randomUUID()}) : await submitReceipt(sessionId, operation);
+          if (operation.kind === "reviewUncertainTurn") await commandReceipts.check(sessionId);
+          if (!result.ok) reportClientFailure(result.failure, "The queue changed. Review its current messages before trying again.");
+          refreshSessionRuntime(sessionId);
+        }} />}<ShareInbox
+          targetId={canControl && !suspended ? JSON.stringify([draftScope ?? remoteHostId ?? "local", sessionId]) : undefined}
+          targetLabel={titles[sessionId] ?? "selected conversation"}
+          acceptsImages={imageComposer.capable}
+          canAppend={(text) => draftFits([liveDrafts.current[sessionId], text].filter(Boolean).join("\n\n"))}
+          onAppend={async (text, images) => {
+            if (!canControl || suspended) return false;
+            const next = [liveDrafts.current[sessionId], text].filter(Boolean).join("\n\n");
+            if (!draftFits(next)) return false;
+            if (images?.length && !await imageComposer.add(images)) return false;
+            liveDrafts.current = {...liveDrafts.current, [sessionId]: next};
+            updateDraft(sessionId, next);
+            return true;
+          }}
+        />{suspended && <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted px-4 py-3"><p>{restoring ? "Reopening your conversation… Your draft is kept here." : "This conversation needs to reconnect. Your draft is kept here."}</p><Button disabled={!canControl || restoring} onClick={() => restoreSession(sessionId, true)}>Reopen conversation</Button></div>}</>}
+        hostMessage={shown.imageRejected ? "Grok rejected an image and may have continued using only text. Review its answer before relying on it." : refusal ?? cliNotice}
         onPrompt={sendPrompt}
         onCancel={() => {
           if (sessionId === null) {
             return;
           }
           const target = sessionId;
+          if (client.multiWriter) {
+            const operation = execution ? stopCurrentTurn(execution) : null;
+            if (!operation) {refreshSessionRuntime(target); return;}
+            void submitReceipt(target, operation).then(result => {
+              if (!result.ok) reportClientFailure(result.failure, "That response could not be stopped. Check its current state.");
+              refreshSessionRuntime(target);
+            });
+            return;
+          }
           void client
             .send(
               { kind: "cancelTurn", sessionId: target },
               {
                 idempotencyKey: crypto.randomUUID(),
-                controllerEpoch: 1,
-              },
+                              },
             )
             .then(() => {
               setProjections((value) => {
@@ -1591,9 +1946,9 @@ export function App({ client: injected }: { client?: LightClient } = {}) {
         }}
         onAcknowledge={acknowledgeReview}
       />
-      {prompt !== null ? (
-        <PermissionDialog prompt={prompt} onDecide={decide} busy={deciding} />
+      {prompt !== null && !watching ? (
+        <PermissionDialog key={prompt.requestId} prompt={prompt} onDecide={decide} busy={deciding || !connected} connected={connected} onReconnect={() => setWsGeneration((value) => value + 1)} />
       ) : null}
-    </>
+    </OptionalDialogsBlockedContext.Provider></ImageReaderContext.Provider>
   );
 }

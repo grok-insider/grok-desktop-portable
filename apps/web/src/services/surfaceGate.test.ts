@@ -56,9 +56,9 @@ describe("probeAfterHostGone", () => {
 });
 
 describe("shouldDemoteFromWork", () => {
-  it("demotes pairing and reachability failures", () => {
+  it("demotes revoked pairing while retaining Work during network failures", () => {
     expect(shouldDemoteFromWork({ kind: "not_paired" })).toBe(true);
-    expect(shouldDemoteFromWork({ kind: "unreachable" })).toBe(true);
+    expect(shouldDemoteFromWork({ kind: "unreachable" })).toBe(false);
     expect(shouldDemoteFromWork({ kind: "rejected" })).toBe(true);
     expect(
       shouldDemoteFromWork({ kind: "protocol_mismatch", hostVersion: 1 }),

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "qaCommit": "480f1be6d620325c70a6d06b51e624f86a033a2a",
+  "unit": "fabrials-direct-soak-418441350551.scope",
+  "startedAt": "2026-10-14T03:13:42.678Z",
+  "expectedFinishUtc": "2026-10-15T03:13:42.678000+00:00",
+  "reviewAfterCompletion": [
+    "soak-checkpoint.json",
+    "report.json",
+    "bounded-run.json",
+    "unit-result.json",
+    "unit-properties.json",
+    "cgroup-metrics.json"
+  ],
+  "mustPass": [
+    "requested 86400-second duration reached",
+    "all cycle assertions",
+    "resource thresholds and cgroup membership",
+    "final report passed",
+    "unit result passed with cgroup empty and no tagged/readable namespace processes"
+  ],
+  "notQualified": [
+    "paid inference",
+    "trusted TLS",
+    "physical Android/Apple",
+    "general product capacity",
+    "OS sleep or restart"
+  ],
+  "statusAtRecordedTime": "running; 24-hour result pending",
+  "recordedAt": "2026-10-14T03:15:35.569542+00:00",
+  "qaCheckoutWasClean": true,
+  "scripts": {
+    "scripts/qualify-direct-browser.ts": "175b48adc2acf6edcbc1d6f0fc3446556d75079bb2edb35e9f9cca6c5312f59a",
+    "scripts/qa/direct-soak.ts": "c285b042c1cfc0378e0908b8499d2bbf8924f8e603ca5935f5b86c4251dc490f",
+    "scripts/qa/direct-multihost.ts": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+    "scripts/qa/run-direct-soak.py": "8ca1a752f4f9464d0503ee4d8fd8ed6a5b0d0a53a57075bc20027378c78506a2"
+  },
+  "handoffSha256": "439ebf63d25617801be8fa32b985e318156a2c020d8f17ad3c71deb22d2cfd59",
+  "limitations": [
+    "This receipt records launch only, not a completed run",
+    "Final receipts must be collected after termination; a live checkpoint is insufficient"
+  ]
+}

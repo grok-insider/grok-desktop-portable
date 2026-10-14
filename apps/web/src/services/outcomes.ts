@@ -144,6 +144,7 @@ export interface SessionInspectorProjection {
   agentName?: string;
   model?: string;
   modelDisplayName?: string;
+  reasoningEffort?: string;
   turns: number;
   turnIndex: number;
   context?: SessionContextProjection;
@@ -203,6 +204,13 @@ export interface Integration {
 
 /** What the host did with a command. */
 export type DispatchOutcome =
+  | import("./pushNotifications").HostNotificationStatus
+  | {outcome:"notificationsConfigured";id:string;generation:number;expiresAt:number;active:boolean}
+  | import("./remoteControls").RemoteCapabilities
+  | import("./remoteControls").RemoteProjectsPage
+  | import("./remoteControls").BrowserDevices
+  | { outcome: "controlTransferRequested"; request: import("./remoteControls").ControlTransferRequest }
+  | { outcome: "controlTransferCancelled" | "controlTransferApproved"; requestId: string }
   | { outcome: "projection"; operation: string }
   | {
       outcome: "workspaces";
@@ -560,6 +568,7 @@ function isInspectorProjection(value: unknown): value is SessionInspectorProject
     !hasOptionalString(value, "agentName", 128) ||
     !hasOptionalString(value, "model", 128) ||
     !hasOptionalString(value, "modelDisplayName", 128) ||
+    !hasOptionalString(value, "reasoningEffort", 128) ||
     !hasOptionalString(value, "currentBranch", 128) ||
     !hasOptionalString(value, "defaultBranch", 128) ||
     !Array.isArray(value.availableChangeModes) ||
@@ -682,7 +691,7 @@ export function failureMessage(failure: ClientFailure, fallback: string): string
     case "not_paired":
       return "This browser is no longer paired. Run `spanreed agent open` to pair it again.";
     case "unreachable":
-      return "The local host stopped responding. Start it with `spanreed agent serve`.";
+      return "Your computer is not reachable. Reconnect to check its current state. No action is retried automatically.";
     default:
       return fallback;
   }
@@ -691,10 +700,71 @@ export function failureMessage(failure: ClientFailure, fallback: string): string
 /** Human explanation for a refusal code the host returned. */
 export function refusalMessage(code: string): string {
   switch (code) {
+    case "controller_required":
+    case "controller_held":
+      return "This browser does not have control. Close the controlling tab or wait for its connection to expire, then reconnect. Your action was not sent to Grok.";
+    case "request_too_large":
+      return "This message exceeds the 256 KiB command limit after encoding. Shorten it or remove an attachment. Your draft is still here.";
+    case "remote_experiment_disabled":
+    case "remote_projects_unsupported":
+      return "This computer does not offer that remote feature.";
+    case "unknown_remote_directory":
+    case "unknown_remote_cursor":
+    case "unknown_remote_root":
+      return "This folder selection has expired or is no longer approved. Return to Approved roots and select it again.";
+    case "remote_directory_changed":
+      return "The folder changed on the computer. Nothing was added. Return to Approved roots and check the folder before selecting it again.";
+    case "remote_directory_unavailable":
+      return "That folder is no longer available on the computer. Return to Approved roots to refresh the list.";
+    case "remote_directory_too_large":
+    case "remote_directory_handle_limit":
+    case "remote_directory_cursor_limit":
+    case "remote_root_limit":
+      return "This folder listing exceeds the computer's browsing limit. Choose a smaller approved folder in Spanreed.";
+    case "remote_roots_unusable":
+    case "workspace_storage":
+      return "The computer could not read or save its project settings. Check Spanreed on that computer before trying again.";
+    case "unknown_control_request":
+    case "control_target_unavailable":
+      return "That control request expired or its connection closed. Refresh the browser list and request control again.";
+    case "control_request_owner_required":
+      return "Only the connection that requested control can cancel that request. Refresh the browser list.";
+    case "connection_required":
+    case "controller_unavailable":
+      return "Control transfer needs an active connection and a controlling browser. Reconnect and refresh the browser list.";
+    case "already_controller":
+      return "This connection already has control. Refresh the browser list.";
     case "unknown_workspace":
       return "That workspace is no longer enrolled.";
     case "queue_full":
       return "Too many messages are already waiting in this conversation.";
+    case "queue_revision_conflict":
+      return "The queue changed on another device. Review the current messages before trying again. Nothing was changed by this action.";
+    case "configuration_conflict":
+      return "The model settings changed on another device. Review the current settings before trying again. Nothing was changed by this action.";
+    case "turn_changed":
+      return "That response has already changed. Review the current conversation before trying again.";
+    case "session_busy":
+      return "Wait for this conversation to finish its current action before changing its settings.";
+    case "model_unavailable":
+    case "unsupported_model":
+      return "Grok no longer offers that model. Choose a model from the current list.";
+    case "effort_not_supported":
+    case "unsupported_reasoning_effort":
+      return "That reasoning effort is not available for the current model. Review its current options.";
+    case "queue_byte_limit":
+      return "The computer's pending messages have reached their storage limit. Remove a queued message or wait for one to finish.";
+    case "command_history_full":
+    case "too_many_commands":
+      return "The computer cannot safely accept another action yet. Review pending actions before trying again.";
+    case "receipt_storage_unavailable":
+      return "This browser could not save the action receipt. Restore browser storage and reload before continuing.";
+    case "command_outcome_unresolved":
+      return "This action has not been confirmed. Check its status and review the result before sending anything else.";
+    case "targeted_cancel_unsupported":
+      return "This version of Grok cannot safely stop a specific response remotely. Use its terminal to stop it.";
+    case "remote_shell_disabled":
+      return "Direct shell commands are not available in shared conversations. Use the terminal or ask Grok to run a tool with your permission.";
     case "unknown_queue_entry":
       return "That message has already been sent or removed.";
     case "too_many_sessions":
@@ -737,9 +807,20 @@ export function refusalMessage(code: string): string {
  */
 export function isEphemeralRefusal(code: string): boolean {
   switch (code) {
+    case "controller_required":
+    case "controller_held":
     // session_already_active: navigate to the tab (no toast) — handled in App.
     case "too_many_sessions":
     case "queue_full":
+    case "queue_revision_conflict":
+    case "configuration_conflict":
+    case "turn_changed":
+    case "session_busy":
+    case "model_unavailable":
+    case "unsupported_model":
+    case "effort_not_supported":
+    case "unsupported_reasoning_effort":
+    case "queue_byte_limit":
     case "unknown_queue_entry":
     case "unknown_session":
     case "unknown_review_record":

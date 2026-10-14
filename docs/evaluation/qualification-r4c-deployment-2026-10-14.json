@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-14T21:22:48.088116+00:00",
+  "ownerDecision": "Always run the latest qualified version; deploy now (2026-10-14 ~23:00 Europe/Paris), ending the S24 overnight test early",
+  "candidate": {
+    "portable": "6870159256e77ddcd62ebbf216339d956d7a4379",
+    "libs": "bd01164cf98dc416c52482d5c9f5a2f5d9acfae2",
+    "spanreed": "4219cba26344ea3cbd87c56fed9a4d3cc01bccec",
+    "shell": "5bf49c9f5c116b8f8c715850ba38a9579d7db44f787ca521909961a4bd38693a",
+    "sourceArchiveSha256": "dde13f30387dba30cc464611e0fb7dd7a3e0880374af231ab3cf490f1b1c69d1"
+  },
+  "images": {
+    "current": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:23ed39dabcb6a549031c3193f158aeb135a5ecb0895d37b9ab14edac77c8f1b6",
+    "rollbackToR3": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:ad0bfddd5e857b2512cac5c006a0dbf2ee2876a25cb7d061e7a344192a7c4551",
+    "previous": "10.0.0.2:5000/grokinsider/grok-remote-qa@sha256:659463d155c2fc1c1c29d2ec25851ad9cc9db77bed27513dae75f27a1cfac5c8",
+    "protectedInRegistry": true
+  },
+  "retainedSources": [
+    "e2ed580c (r3)",
+    "ff22898f (r2)",
+    "fe9e3a52",
+    "a3612b47"
+  ],
+  "ci": {
+    "spanreed4219cba": "all checks passed, including Windows NSIS, cross and Nix",
+    "portable10bc674": "success"
+  },
+  "station": {
+    "switchedAt": "2026-10-14T21:13:06Z",
+    "unit": "spanreed-remote.service",
+    "qaUnit": "inactive, symlinks removed, profile spanreed-remote-qa-4-link kept for rollback",
+    "generation": "system-209-link",
+    "binarySha256": "99d3c46f7217f9f16b355aec061383377fa540e0201583a42376d0a97cb5916f",
+    "build": "NixOS flake input github:grok-insider/spanreed/4219cba (Nix build, not the qualification fixture)",
+    "identityFilesByteIdentical": true,
+    "localHealth": "ok",
+    "tailscaleHealth": "ok",
+    "downtimeSeconds": 23,
+    "doctorSameAsR3": true,
+    "otherUnits": "spanreed.service restarted once during activation and is active",
+    "nativeEmbedsDeployedShell": "the running binary contains the r4c shell id 5bf49c9f\u2026"
+  },
+  "livePairing": {
+    "r3ShellWithR4cHost": {
+      "result": "passed",
+      "checks": 24
+    },
+    "r4cShellWithR4cHost": {
+      "result": "passed",
+      "checks": 24
+    },
+    "runner": "both runs used qualify-live-pairing.mjs exactly as committed in 293771e (runnerSha256 matches)"
+  },
+  "deployedUpdateR3ToR4c": {
+    "result": "passed",
+    "checks": 18
+  },
+  "http": {
+    "r4cOrigin": {
+      "passed": 224,
+      "failed": 0
+    },
+    "r4cCdn": {
+      "passed": 226,
+      "failed": 0
+    },
+    "rollbackOrigin": {
+      "passed": 253,
+      "failed": 0
+    },
+    "rollbackCdn": {
+      "passed": 255,
+      "failed": 0
+    },
+    "restoredOrigin": {
+      "passed": 224,
+      "failed": 0
+    },
+    "restoredCdn": {
+      "passed": 226,
+      "failed": 0
+    },
+    "whyFewerChecksThanR3": "the r4c wrapper serves 53 static files (14 shell files, 25 fonts, 14 retained source files) against r3's 61 (29, 21, 11); the rollback image serves 64"
+  },
+  "coolifyRollbackExercised": {
+    "rollbackHealthyAt": "2026-10-14T21:21:28Z",
+    "restoredHealthyAt": "2026-10-14T21:22:07Z"
+  },
+  "container": {
+    "readOnlyRoot": true,
+    "memoryBytes": 134217728,
+    "nanoCpus": 500000000,
+    "pidsLimit": 64,
+    "capDrop": [
+      "ALL"
+    ],
+    "noNewPrivileges": true,
+    "user": "101:101",
+    "portBindings": {}
+  },
+  "s24Overnight": {
+    "result": "interrupted by owner decision",
+    "baselineHomePressedAt": "2026-10-14T19:06:22Z",
+    "secondsIdleBeforeInterruption": 6763,
+    "continuityHeld": true,
+    "screenOnAndUnlockedThroughout": true,
+    "qualifies": "nothing about sleep or Doze"
+  },
+  "soak24h": {
+    "status": "running; result pending",
+    "dueUtc": "2026-10-15T19:51:08Z"
+  },
+  "notQualified": [
+    "S24 on r4c",
+    "Doze or real overnight sleep",
+    "Paid inference",
+    "24-hour result"
+  ]
+}

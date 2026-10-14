@@ -1,0 +1,356 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-14T02:24:57.370Z",
+  "finishedAt": "2026-10-14T02:25:14.636Z",
+  "origin": "https://grok.fabrials.com",
+  "result": "passed",
+  "checks": [
+    "two_real_native_hosts_have_distinct_endpoint_installation_and_identity",
+    "deployment_response_csp_enforced",
+    "qualification_pairing_uses_its_exact_origin",
+    "source_identity_binds_the_loaded_shell",
+    "unavailable_source_reports_failure_without_false_links",
+    "source_dialog_returns_keyboard_focus",
+    "source_dialog_accepts_version_bound_synthetic_metadata",
+    "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+    "source_dialog_fits_mobile_viewport",
+    "real_direct_noise_pairing_restores_synthetic_native_history",
+    "private_handshake_preserves_the_real_browser_origin",
+    "pairing_fragment_erased",
+    "closing_source_preserves_computer_settings_and_connection",
+    "source_information_does_not_disconnect_the_private_session",
+    "touch_input_2560x1440",
+    "no_horizontal_overflow_2560x1440",
+    "composer_reachable_2560x1440",
+    "editor_visible_without_clipping_2560x1440",
+    "send_visible_without_clipping_2560x1440",
+    "document_not_scrolled_2560x1440",
+    "touch_input_390x844",
+    "no_horizontal_overflow_390x844",
+    "composer_reachable_390x844",
+    "editor_visible_without_clipping_390x844",
+    "send_visible_without_clipping_390x844",
+    "document_not_scrolled_390x844",
+    "touch_input_844x390",
+    "no_horizontal_overflow_844x390",
+    "composer_reachable_844x390",
+    "editor_visible_without_clipping_844x390",
+    "send_visible_without_clipping_844x390",
+    "document_not_scrolled_844x390",
+    "touch_input_750x354",
+    "no_horizontal_overflow_750x354",
+    "composer_reachable_750x354",
+    "editor_visible_without_clipping_750x354",
+    "send_visible_without_clipping_750x354",
+    "document_not_scrolled_750x354",
+    "touch_input_750x136",
+    "no_horizontal_overflow_750x136",
+    "composer_reachable_750x136",
+    "editor_visible_without_clipping_750x136",
+    "send_visible_without_clipping_750x136",
+    "document_not_scrolled_750x136",
+    "navigation_and_updates_deferred_while_typing_750",
+    "navigation_and_updates_return_on_blur_750",
+    "editor_revealed_after_refocus_750",
+    "touch_input_667x136",
+    "no_horizontal_overflow_667x136",
+    "composer_reachable_667x136",
+    "editor_visible_without_clipping_667x136",
+    "send_visible_without_clipping_667x136",
+    "document_not_scrolled_667x136",
+    "navigation_and_updates_deferred_while_typing_667",
+    "navigation_and_updates_return_on_blur_667",
+    "editor_revealed_after_refocus_667",
+    "touch_input_390x430",
+    "no_horizontal_overflow_390x430",
+    "composer_reachable_390x430",
+    "editor_visible_without_clipping_390x430",
+    "send_visible_without_clipping_390x430",
+    "document_not_scrolled_390x430",
+    "computer_navigation_restored_after_keyboard_dismissal",
+    "direct_pairing_and_draft_survive_reload",
+    "private_drafts_and_history_never_enter_static_shell_cache",
+    "installed_shell_opens_with_app_origin_blackholed",
+    "consented_history_readable_without_cloud_or_private_host",
+    "private_host_remains_usable_without_fabrials_or_app_origin",
+    "explicit_forget_revokes_and_removes_saved_profile",
+    "forget_removes_durable_draft_and_history_rows",
+    "multihost_a_initial_history_is_scoped",
+    "multihost_crossed_key_cannot_pair_or_expose_foreign_content",
+    "multihost_crossed_installation_cannot_pair_or_expose_foreign_content",
+    "multihost_b_initial_history_is_scoped",
+    "multihost_two_pairings_and_two_separate_draft_history_scopes_saved",
+    "multihost_computer_identity_has_useful_width_390_light",
+    "multihost_computer_actions_have_44px_targets_390_light",
+    "multihost_mobile_actions_follow_identity_390_light",
+    "multihost_computer_identity_has_useful_width_390_dark",
+    "multihost_computer_actions_have_44px_targets_390_dark",
+    "multihost_mobile_actions_follow_identity_390_dark",
+    "multihost_computer_identity_has_useful_width_2560_light",
+    "multihost_computer_actions_have_44px_targets_2560_light",
+    "multihost_computer_identity_has_useful_width_2560_dark",
+    "multihost_computer_actions_have_44px_targets_2560_dark",
+    "multihost_computer_list_fits_mobile_and_has_two_independent_connect_actions",
+    "multihost_a_offline_history_excludes_other_host",
+    "multihost_b_offline_history_excludes_other_host",
+    "multihost_offline_history_does_not_attempt_either_host",
+    "multihost_return_to_a_restores_only_its_draft_and_history",
+    "multihost_a_recovery_reaches_unavailable_host",
+    "multihost_a_pending_retry_cancelled_after_switch_to_b",
+    "multihost_switch_during_a_recovery_keeps_b_draft_identity_and_history",
+    "multihost_revoking_a_deletes_only_a_pairing_draft_and_history",
+    "multihost_b_offline_history_excludes_other_host",
+    "multihost_b_remains_usable_after_a_revocation",
+    "multihost_surviving_b_pairing_and_draft_persist_after_reload",
+    "multihost_explicit_cleanup_removes_both_scopes",
+    "no_external_application_requests",
+    "no_uncaught_browser_errors"
+  ],
+  "errors": [],
+  "runnerSha256": "8c01e8de00117d2aaf96978d79aed82675fa549ca7398bda47287ba5427e6216",
+  "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+  "nativeFixtureSha256": "1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903",
+  "browser": "155.0.8059.39",
+  "sourceUiFixture": {
+    "metadata": "Synthetic success metadata; real missing response and real emitted third-party notices",
+    "sourceArchiveDownloadQualified": false,
+    "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c"
+  },
+  "multihost": {
+    "nativeFixtureSha256": "1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903",
+    "runnerSha256": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+    "runtime": "Two instances of the same fixture binary with isolated state and synthetic GROK_HOME; no Grok process or deployed CLI",
+    "hosts": 2,
+    "fixtureHistorySessionIds": "Deliberately identical to exercise host scoping",
+    "trustedTls": false,
+    "geometry": [
+      {
+        "width": 390,
+        "dark": false,
+        "cards": [
+          {
+            "headingWidth": 261,
+            "endpointWidth": 261,
+            "identityBottom": 349,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 361
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 361
+              }
+            ]
+          },
+          {
+            "headingWidth": 276,
+            "endpointWidth": 276,
+            "identityBottom": 189,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 201
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 201
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 390,
+        "dark": true,
+        "cards": [
+          {
+            "headingWidth": 276,
+            "endpointWidth": 276,
+            "identityBottom": 349,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 361
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 361
+              }
+            ]
+          },
+          {
+            "headingWidth": 276,
+            "endpointWidth": 276,
+            "identityBottom": 189,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 201
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 201
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 2560,
+        "dark": false,
+        "cards": [
+          {
+            "headingWidth": 424.734375,
+            "endpointWidth": 424.734375,
+            "identityBottom": 282,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 241
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 241
+              }
+            ]
+          },
+          {
+            "headingWidth": 424.734375,
+            "endpointWidth": 424.734375,
+            "identityBottom": 172,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 131
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 131
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 2560,
+        "dark": true,
+        "cards": [
+          {
+            "headingWidth": 424.734375,
+            "endpointWidth": 424.734375,
+            "identityBottom": 282,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 241
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 241
+              }
+            ]
+          },
+          {
+            "headingWidth": 424.734375,
+            "endpointWidth": 424.734375,
+            "identityBottom": 172,
+            "actions": [
+              {
+                "label": "Offline history",
+                "width": 123.515625,
+                "height": 44,
+                "top": 131
+              },
+              {
+                "label": "Connect",
+                "width": 73.75,
+                "height": 44,
+                "top": 131
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "notQualified": [
+    "Production TLS trust: laboratory self-signed certificate",
+    "Actual hosting and CDN routing",
+    "Tailscale",
+    "Physical Android and Apple hardware",
+    "Grok inference: synthetic history only",
+    "Real push delivery",
+    "GPU performance: hidden software compositor",
+    "Descendants that leave their recorded process group; Syl compositor is closed through its own API"
+  ],
+  "browserClosedGracefully": true,
+  "hiddenCompositorClosed": true,
+  "cleanup": {
+    "syl": {
+      "exited": true,
+      "processGroupEmpty": true
+    },
+    "chrome": {
+      "exited": true,
+      "processGroupEmpty": true
+    },
+    "native-b": {
+      "exited": true,
+      "processGroupEmpty": true
+    },
+    "native": {
+      "exited": true,
+      "processGroupEmpty": true
+    }
+  },
+  "expectedConnectionErrors": [
+    {
+      "reason": "deliberately blocked private host",
+      "message": "WebSocket connection to 'wss://direct-fixture.test/remote' failed: Error during WebSocket handshake: Unexpected response code: 503"
+    }
+  ],
+  "artifactScope": "Locally rebuilt shell with mobile card correction; not the deployment candidate or corresponding-source archive.",
+  "earlierDeployedShellQualification": {
+    "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-qualified",
+    "checks": 95,
+    "result": "passed",
+    "deploymentManifestSha256": "864b96500c3310bbf4edd3d10bcb8c4cbd2e065f1fc354f7b0a5a931f193c218",
+    "limitations": "Earlier runner did not assert useful identity width, 44px actions or failed reconnect attempts. Its transport isolation evidence remains historical."
+  },
+  "negativeControl": {
+    "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/multihost-layout-before",
+    "result": "failed as expected",
+    "failedAssertion": "multihost_computer_identity_has_useful_width_390_light",
+    "mobileIdentityWidth": 31.734375,
+    "connectHeight": 36
+  }
+}

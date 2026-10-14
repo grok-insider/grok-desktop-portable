@@ -11,6 +11,16 @@
 
 /** Wire version this client implements. */
 export const PROTOCOL_VERSION = 2;
+export const CONTENT_PROTOCOL_VERSION = 3;
+export const MULTI_WRITER_PROTOCOL_VERSION = 4;
+
+export interface ImageDescriptor {
+  byteLength: number;
+  mimeType: "image/png" | "image/jpeg";
+  width: number;
+  height: number;
+  sha256: string;
+}
 
 /** WebSocket subprotocol carrying the same version. */
 export const WS_SUBPROTOCOL = "light.local.v1";
@@ -51,8 +61,49 @@ export type ChangeMode = "git" | "branch" | "lastTurn";
 
 /** The closed set of operations the browser may request. */
 export type Operation =
+  | { kind: "getSessionExecution"; sessionId: string }
+  | { kind: "reviewUncertainTurn"; sessionId: string; expectedTurnId: string }
+  | { kind: "setQueuePaused"; sessionId: string; paused: boolean; expectedQueueRevision: number }
+  | { kind: "clearQueuedPrompts"; sessionId: string; expectedQueueRevision: number }
+  | { kind: "cancelSessionTurn"; sessionId: string; expectedTurnId: string; queueDisposition: "pause" | "continue" }
+  | { kind: "interruptAndEnqueue"; sessionId: string; expectedTurnId: string; expectedQueueRevision: number; text: string; imageIds?: string[] }
+  | { kind: "getSessionModels"; sessionId: string }
+  | { kind: "setSessionConfiguration"; sessionId: string; expectedConfigRevision: number; modelId?: string; reasoningEffort?: string }
+  | { kind: "readImageChunk"; sessionId: string; sha256: string; offset: number }
+  | { kind: "startImageUpload"; sessionId: string; byteLength: number; sha256: string }
+  | { kind: "appendImageUpload"; sessionId: string; uploadId: string; offset: number; data: string }
+  | { kind: "finishImageUpload"; sessionId: string; uploadId: string }
+  | { kind: "discardImage"; imageId: string }
+  | { kind: "promptContent"; sessionId: string; text: string; imageIds: string[]; sendNow?: boolean }
+  | { kind: "forgetBrowserPairing" }
   | { kind: "bootstrap" }
   | { kind: "getHostStatus" }
+  | { kind: "getRemoteCapabilities" }
+  | { kind: "getDirectNotificationStatus" }
+  | { kind: "configureDirectNotifications"; subscription: {endpoint: string; expirationTime?: number | null; keys: {p256dh: string; auth: string}} }
+  | { kind: "disableDirectNotifications" }
+  | { kind: "getNotificationStatus" }
+  | { kind: "configureNotifications"; id:string; bindingToken:string; generation:number }
+  | { kind: "disableNotifications" }
+  | { kind: "listRemoteProjects"; directoryId?: string; cursor?: string }
+  | { kind: "enrollRemoteProject"; directoryId: string }
+  | { kind: "listBrowserDevices" }
+  | { kind: "requestControlTransfer" }
+  | { kind: "cancelControlTransfer"; requestId: string }
+  | { kind: "approveControlTransfer"; requestId: string }
+  | { kind: "getCommandStatus"; idempotencyKey: string }
+  | { kind: "answerInteraction"; sessionId: string; requestId: string; answer: Record<string, unknown> }
+  | { kind: "previewShare"; sessionId: string }
+  | { kind: "beginPublicationAuthorization" }
+  | { kind: "completePublicationAuthorization"; code: string; nonce: string }
+  | { kind: "previewPublication"; sessionId: string; imageHashes?: string[] }
+  | { kind: "createPublication"; sessionId: string; imageHashes: string[]; previewDigest: string; publishFutureText: true }
+  | { kind: "stopPublication"; publicationId: string }
+  | { kind: "resumePublication"; publicationId: string }
+  | { kind: "getPublicationStatus" }
+  | { kind: "getPublicationCommandStatus"; idempotencyKey: string }
+  | { kind: "startShare"; sessionId: string; shareId: string; generation: number; uploadToken: string }
+  | { kind: "stopShare"; sessionId: string; shareId: string }
   | { kind: "listWorkspaces" }
   | { kind: "openWorkspacePicker" }
   | { kind: "openProject"; projectId: string }
@@ -195,12 +246,30 @@ export interface SnapshotBackgroundTask {
 }
 
 /** Server-to-client events. */
+export interface InteractionRequest {
+  kind: "interactionRequest";
+  sessionId: string;
+  requestId: string;
+  interactionKind: "question" | "plan" | "mcp";
+  details: Record<string, unknown>;
+}
+
 export type LightEvent =
-  | { kind: "hostStatus"; state: string }
+  | { kind: "sessionExecutionChanged"; sessionId: string }
+  | { kind: "sessionModelsChanged"; sessionId: string }
+  | { kind: "messageImage"; sessionId: string; role: "user" | "agent"; imageId: string; phase: "pending" | "ready" | "unavailable"; image?: ImageDescriptor }
+  | { kind: "imageRejected"; sessionId: string }
+  | InteractionRequest
+  | { kind: "remoteDevicesChanged" }
+  | { kind: "interactionResolved"; sessionId: string; requestId: string }
+  | { kind: "replayReset" }
+  | { kind: "commandCompleted"; idempotencyKey: string; result?: unknown; error?: string }
+  | { kind: "permissionResolved"; sessionId: string; requestId: string }
+  | { kind: "hostStatus"; state: string; controllerToken?: string }
   | {
       kind: "sessionSnapshot";
       sessionId: string;
-      messages?: Array<{ role: string; text: string; seq?: number }>;
+      messages?: Array<{ role: string; text: string; seq?: number; images?: ImageDescriptor[]; unavailableImages?: number }>;
       /** Restored tool rows (no bodies). Absent/empty when history had none. */
       tools?: Array<{
         toolCallId: string;
@@ -219,6 +288,12 @@ export type LightEvent =
       workflows?: SnapshotWorkflow[];
       /** Background bash/monitor tasks (CLI Tasks pane). */
       backgroundTasks?: SnapshotBackgroundTask[];
+      /** Earlier messages the host left out of its bounded window. */
+      omittedMessages?: number;
+      /** Tool rows left out by the same bounds. */
+      omittedTools?: number;
+      /** Some history text was cut or not loaded. */
+      historyTruncated?: boolean;
     }
   | {
       kind: "backgroundTaskUpdated";
@@ -227,6 +302,7 @@ export type LightEvent =
     }
   | { kind: "sessionStatus"; sessionId: string; state: string }
   | { kind: "messageDelta"; sessionId: string; text: string }
+  | { kind: "userMessageDelta"; sessionId: string; text: string }
   | { kind: "thoughtDelta"; sessionId: string; text: string }
   | {
       kind: "toolStart";
@@ -267,13 +343,14 @@ export type LightEvent =
       changes: boolean;
       context: boolean;
     }
-  | { kind: "promptSent"; sessionId: string; text: string }
-  | { kind: "permissionRequest"; sessionId: string; requestId: string; options: string[] }
+  | { kind: "promptSent"; sessionId: string; text: string; idempotencyKey?: string | null; images?: ImageDescriptor[] }
+  | { kind: "permissionRequest"; sessionId: string; requestId: string; options: string[]; title?: string; description?: string }
   | { kind: "turnInterrupted"; sessionId: string; recordId: string }
   | { kind: "error"; code: string };
 
 /** An event with its cursor position. */
 export interface EventEnvelope {
+  observationEpoch?: number;
   protocolVersion: number;
   eventSequence: number;
   sessionRevision?: number;

@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "checkedAt": "2026-10-14T02:04:58.553Z",
+  "scope": "Live pairing runner and failure cleanup against unchanged QA station",
+  "nativeSourceCommit": "7e2a7816c73d7e58b64852509b47ede75527859a",
+  "nativeSha256": "90d3f5078a3f392220f59d80d09ae96ad3f8bf4b33b28ab6f5f3d1ccbf4c6bf3",
+  "shellId": "ff22898fc96c5524cf91c5af7bf30934d03e2b71e70360fc69d43e7ff96631ac",
+  "runnerSha256": "f010e1af8c38d29918636f1c767334228b02578136555314bda97011daf3d33d",
+  "browser": "155.0.8059.39",
+  "baseline": {
+    "result": "passed",
+    "checks": [
+      "selected_native_matches_expected_hash",
+      "running_service_matches_selected_native",
+      "browser_1_expected_shell_loaded",
+      "browser_1_trusted_public_tls",
+      "browser_1_noise_pairing_completed",
+      "browser_1_can_control",
+      "browser_1_no_controller_conflict",
+      "browser_1_pairing_fragment_consumed",
+      "browser_2_expected_shell_loaded",
+      "browser_2_trusted_public_tls",
+      "browser_2_noise_pairing_completed",
+      "browser_2_can_control",
+      "browser_2_no_controller_conflict",
+      "browser_2_pairing_fragment_consumed",
+      "both_independent_browsers_remain_writers",
+      "reload_reconnects_without_new_pairing",
+      "peer_remains_writer_after_reconnect",
+      "browser_1_forget_confirmed_in_ui",
+      "browser_1_pairing_revoked_at_host",
+      "peer_remains_writable_after_other_pairing_revoked",
+      "browser_2_forget_confirmed_in_ui",
+      "browser_2_pairing_revoked_at_host",
+      "preexisting_pairings_preserved",
+      "running_service_identity_unchanged"
+    ],
+    "reportSha256": "32d0549f08979ee3418f7fa76c4cf00ab5d07cedc4e9b5e760e144122f719013",
+    "testPairingsRemoved": true,
+    "unattributedNewPairings": 0,
+    "chromeProcessGroupEmpty": true,
+    "cleanup": {
+      "chrome": true,
+      "syl": true
+    }
+  },
+  "faultInjection": {
+    "result": "expected failure with verified cleanup",
+    "fault": "injected_after_pairing_before_controls",
+    "mutation": "Discard the remembered own pairing identifier after its durable browser write, then fail before the UI control checks. Finally must recover ownership from its own browser context.",
+    "runnerSha256": "9474a818449ab7ed8123b41c91ef3a23482cc467055397ee60b695cf7a493834",
+    "reportSha256": "f32080f632071b96edcc7febc562ec5a004f2f6155fef29489ce32fa522949b3",
+    "testPairingsRemoved": true,
+    "unattributedNewPairings": 0,
+    "chromeProcessGroupEmpty": true,
+    "cleanup": {
+      "chrome": true,
+      "syl": true
+    }
+  },
+  "limitations": [
+    "Active turn or inference",
+    "Physical mobile interaction",
+    "Push",
+    "Keyboard and suspension",
+    "Full descendant-process inventory after cleanup",
+    "Does not qualify the staged f3ebb334 native candidate; station remained on 7e2a7816.",
+    "No PWA deployment or station package update occurred."
+  ]
+}

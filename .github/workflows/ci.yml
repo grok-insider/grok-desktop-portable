@@ -35,7 +35,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck:web
       - run: pnpm test:web
+      - run: node --test scripts/remote-artifact.test.mjs
       - run: pnpm build:web
+      - run: node scripts/check-pwa-build.mjs apps/web/dist
       - run: pnpm test:public
       - run: pnpm test:install
       - uses: actions/upload-artifact@v4
@@ -44,3 +46,18 @@ jobs:
           path: apps/web/dist
           retention-days: 3
 
+  static-hosting:
+    name: static hosting
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || github.event_name == 'push'
+      || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test scripts/remote-coolify.test.mjs scripts/remote-coolify-http.test.mjs
+      - run: python3 scripts/wasm-notices.test.py
+      - run: python3 -m py_compile scripts/qualify-coolify-http.py

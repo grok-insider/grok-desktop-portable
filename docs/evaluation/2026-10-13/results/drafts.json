@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "drafts",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "b69ce7a0f6714db2c774222587e083a3a0fc045149353eb6237c125bfa8b39f1",
+  "decision": "inconclusive",
+  "reasons": [
+    "benefit_unmeasured"
+  ],
+  "failed": [],
+  "missing": []
+}

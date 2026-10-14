@@ -1,0 +1,23 @@
+.composer-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(36rem, calc(100% - 1.5rem));
+  max-height: calc(var(--app-viewport-height, 100dvh) - 1.5rem);
+  margin: auto;
+  padding: 0;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--fui-radius-xl);
+  box-shadow: var(--fui-shadow-lg);
+  overflow: hidden;
+}
+
+.composer-dialog[open] { display: flex; flex-direction: column; }
+.composer-dialog::backdrop { background: var(--fui-scrim); }
+.composer-dialog-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem .5rem .5rem 1rem; border-bottom: 1px solid var(--border); }
+.composer-dialog-header h2 { min-width: 0; overflow-wrap: anywhere; }
+.composer-dialog-body { min-height: 0; padding: 1rem; overflow-y: auto; overscroll-behavior: contain; }
+.composer-dialog :is(input, textarea, select) { font-size: max(16px, 1em); }
+.composer-dialog :is(input, textarea, select, a):focus-visible { outline: 2px solid var(--fui-focus); outline-offset: 2px; }
+.composer-dialog-header h2:focus { outline: none; }

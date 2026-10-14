@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-13T23:29:32.112Z",
+  "origin": "https://grok.fabrials.com",
+  "scope": "Two independent paired browsers against deployed PWA and station over trusted Tailscale TLS",
+  "checks": [
+    "browser_1_trusted_public_tls",
+    "browser_1_noise_pairing_completed",
+    "browser_1_can_control",
+    "browser_1_no_controller_conflict",
+    "browser_1_pairing_fragment_consumed",
+    "browser_2_trusted_public_tls",
+    "browser_2_noise_pairing_completed",
+    "browser_2_can_control",
+    "browser_2_no_controller_conflict",
+    "browser_2_pairing_fragment_consumed",
+    "both_independent_browsers_remain_writers",
+    "reload_reconnects_without_new_pairing",
+    "peer_remains_writer_after_reconnect"
+  ],
+  "notQualified": [
+    "Active turn or inference",
+    "Physical mobile interaction",
+    "Push",
+    "Keyboard and suspension"
+  ],
+  "phases": [],
+  "runnerSha256": "b8d20020e191147f386444f3ab2e53118cda310fcf6eb6c7a3b9fb518e73fd58",
+  "browser": "155.0.8059.39",
+  "result": "passed",
+  "finishedAt": "2026-10-13T23:29:36.592Z"
+}

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "experiment": "syl-integration",
+  "round": 1,
+  "catalogSha256": "228775da0fe1dd0718180e5481c92e6fbaeb49ff7715e9df4fe763fe2431eb1e",
+  "sourceManifestSha256": "b630df851cd47b3954453c36b6a3cd34efdeb70823c5cca187cced3b037bee2d",
+  "decision": "inconclusive",
+  "reasons": [
+    "benefit_unmeasured"
+  ],
+  "failed": [],
+  "missing": []
+}

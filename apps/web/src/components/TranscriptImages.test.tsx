@@ -1,0 +1,35 @@
+import {act, fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {afterEach, beforeEach, expect, it, vi} from "vitest";
+import {ImageReaderContext, TranscriptImages} from "./TranscriptImages";
+import {readImage} from "../services/readImage";
+import type {LightClient} from "../services/client";
+vi.mock("../services/readImage", () => ({readImage: vi.fn(), withImageReadSlot: (_signal: AbortSignal, action: () => Promise<Blob>) => action()}));
+const descriptor = {sha256: "a".repeat(64), width: 32, height: 32, byteLength: 10, mimeType: "image/png" as const};
+const first = {} as LightClient, second = {} as LightClient;
+beforeEach(() => {HTMLDialogElement.prototype.showModal = function () {this.setAttribute("open", "");}; HTMLDialogElement.prototype.close = function () {this.removeAttribute("open");}; vi.stubGlobal("URL", Object.assign(URL, {createObjectURL: vi.fn(() => "blob:private-one"), revokeObjectURL: vi.fn()}));});
+afterEach(() => {vi.clearAllMocks(); vi.unstubAllGlobals();});
+it.each(["session", "client", "disconnected"])("removes previous image and its preview immediately on %s change", async kind => {
+  vi.mocked(readImage).mockResolvedValueOnce(new Blob(["image"], {type: "image/png"}));
+  vi.mocked(readImage).mockImplementation(() => new Promise(() => {}));
+  const content = (value: {client: LightClient; sessionId: string} | null) => <ImageReaderContext.Provider value={value}><TranscriptImages images={[descriptor]} /></ImageReaderContext.Provider>;
+  const view = render(content({client: first, sessionId: "one"}));
+  await screen.findByRole("img", {name: "Image 1"});
+  fireEvent.click(screen.getByRole("button", {name: "View image 1"}));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  view.rerender(content(kind === "disconnected" ? null : {client: kind === "client" ? second : first, sessionId: kind === "session" ? "two" : "one"}));
+  expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:private-one");
+});
+it("does not create a URL for a late image from a previous session", async () => {
+  let finish!: (blob: Blob) => void;
+  vi.mocked(readImage).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  vi.mocked(readImage).mockImplementation(() => new Promise(() => {}));
+  const content = (sessionId: string) => <ImageReaderContext.Provider value={{client: first, sessionId}}><TranscriptImages images={[descriptor]} /></ImageReaderContext.Provider>;
+  const view = render(content("one"));
+  await waitFor(() => expect(readImage).toHaveBeenCalledTimes(1));
+  view.rerender(content("two"));
+  await act(async () => finish(new Blob(["private"], {type: "image/png"})));
+  expect(URL.createObjectURL).not.toHaveBeenCalled();
+  expect(screen.queryByRole("img")).not.toBeInTheDocument();
+});

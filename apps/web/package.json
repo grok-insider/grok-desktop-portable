@@ -12,10 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@fontsource-variable/ibm-plex-sans": "5.2.8",
-    "@fontsource/ibm-plex-mono": "5.2.7",
+    "@base-ui/react": "1.7.0",
+    "@fabrials/ai-ui": "0.9.0",
+    "@fabrials/ui": "0.9.0",
     "clsx": "2.1.1",
-    "lucide-react": "1.24.0",
+    "lucide-react": "1.40.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-markdown": "10.1.0",
@@ -32,6 +33,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
+    "fake-indexeddb": "6.2.5",
     "jsdom": "29.1.1",
     "tailwindcss": "4.3.2",
     "typescript": "7.0.2",

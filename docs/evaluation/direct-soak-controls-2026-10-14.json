@@ -1,0 +1,369 @@
+{
+  "schema": 1,
+  "scope": "Short controls of the bounded synthetic r3 soak runner; not a completed 24-hour soak",
+  "controls": [
+    {
+      "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/soak-final-guard-pilot",
+      "name": "soak-final-guard-pilot",
+      "report.json": {
+        "schema": 1,
+        "startedAt": "2026-10-14T03:09:00.263Z",
+        "errors": [],
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "runnerSha256": "175b48adc2acf6edcbc1d6f0fc3446556d75079bb2edb35e9f9cca6c5312f59a",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "result": "passed",
+        "browserClosedGracefully": true,
+        "hiddenCompositorClosed": true,
+        "finishedAt": "2026-10-14T03:09:29.411Z",
+        "checkCount": 102
+      },
+      "soak-checkpoint.json": {
+        "schema": 1,
+        "resourceEnforcement": "Verified cgroup CPU/memory/task limits and bounded tmpfs; sampled process RSS/FD/disk thresholds every 5 seconds; no general product capacity or IO qualification",
+        "startedAt": "2026-10-14T03:09:13.434Z",
+        "durationSeconds": 10,
+        "limits": {
+          "browserRssMiB": 3072,
+          "nativeRssMiB": 512,
+          "runnerRssMiB": 512,
+          "processes": 96,
+          "fileDescriptors": 4096,
+          "stateMiB": 512,
+          "profileMiB": 2048,
+          "cycleSeconds": 75
+        },
+        "envelope": {
+          "cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-soak-c5284e5c118a.scope",
+          "memoryBytes": 6442450944,
+          "tasks": 512,
+          "cpuCores": 2,
+          "outputMountBytes": 2147483648,
+          "filesystem": "tmpfs"
+        },
+        "fixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "helperSha256": "c285b042c1cfc0378e0908b8499d2bbf8924f8e603ca5935f5b86c4251dc490f",
+        "cycles": 4,
+        "checks": 102,
+        "stopReason": "duration_reached",
+        "elapsedSeconds": 12.592814466,
+        "qualifiedDuration": true,
+        "result": "passed",
+        "finishedAt": "2026-10-14T03:09:26.025Z"
+      },
+      "unit-result.json": {
+        "schema": 1,
+        "elapsedSeconds": 30.034345164000115,
+        "cgroupEmpty": true,
+        "outerScratchDirectoryEmpty": true,
+        "remainingTaggedOrNamespaceProcesses": [],
+        "unreadableSameUserProcesses": 4,
+        "result": "passed"
+      },
+      "bounded-run.json": {
+        "runnerExitCode": 0,
+        "elapsedSeconds": 29.393062554001517,
+        "killInjected": false,
+        "interrupted": false,
+        "scratchCapacityBytes": 2147483648,
+        "fileDescriptorLimit": [
+          4096,
+          4096
+        ]
+      },
+      "cgroup-metrics.json": {
+        "memory.current": "1063632896",
+        "memory.max": "6442450944",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "pids.current": "248",
+        "pids.max": "512",
+        "pids.events": "max 0",
+        "cpu.max": "200000 100000"
+      },
+      "unit-properties.json": {
+        "TimeoutStopUSec": "15s",
+        "RuntimeMaxUSec": "3min 10s",
+        "ControlGroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-soak-c5284e5c118a.scope",
+        "CPUQuotaPerSecUSec": "2s",
+        "MemoryMax": "6442450944",
+        "MemorySwapMax": "0",
+        "TasksMax": "512",
+        "KillMode": "control-group"
+      },
+      "fixture-seal.json": {
+        "schema": 1,
+        "commit": "ea695a14dca7a19335a50271088bd92ddd4f1f16",
+        "runtimeBaseCommit": "ee3060d",
+        "sourceSha256": "2b295f0785209789735a9fa58f4ef26fb4b9ad0f774ebdb176af53ea53363b59",
+        "binarySha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "fakeAgentSha256": "8513c4e146e3a958b1f6589b76b86315f89ca86ab7bc1f7fd6aaaf3bc92316bc",
+        "scope": "Recorded local build provenance; only example lifetime differs from the r3 runtime. Not a reproducible-build attestation."
+      },
+      "bounded-config.json": {
+        "portableCommit": "4d7fc64367d50391290c0fca4f273b6d64d4f2d0",
+        "portableDirty": true,
+        "scriptHashes": {
+          "scripts/qualify-direct-browser.ts": "175b48adc2acf6edcbc1d6f0fc3446556d75079bb2edb35e9f9cca6c5312f59a",
+          "scripts/qa/direct-soak.ts": "c285b042c1cfc0378e0908b8499d2bbf8924f8e603ca5935f5b86c4251dc490f",
+          "scripts/qa/direct-multihost.ts": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+          "scripts/qa/run-direct-soak.py": "8ca1a752f4f9464d0503ee4d8fd8ed6a5b0d0a53a57075bc20027378c78506a2"
+        }
+      }
+    },
+    {
+      "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/soak-final-guard-kill",
+      "name": "soak-final-guard-kill",
+      "soak-checkpoint.json": {
+        "schema": 1,
+        "resourceEnforcement": "Verified cgroup CPU/memory/task limits and bounded tmpfs; sampled process RSS/FD/disk thresholds every 5 seconds; no general product capacity or IO qualification",
+        "startedAt": "2026-10-14T03:09:55.178Z",
+        "durationSeconds": 60,
+        "limits": {
+          "browserRssMiB": 3072,
+          "nativeRssMiB": 512,
+          "runnerRssMiB": 512,
+          "processes": 96,
+          "fileDescriptors": 4096,
+          "stateMiB": 512,
+          "profileMiB": 2048,
+          "cycleSeconds": 75
+        },
+        "envelope": {
+          "cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-soak-a412d2d638e4.scope",
+          "memoryBytes": 6442450944,
+          "tasks": 512,
+          "cpuCores": 2,
+          "outputMountBytes": 2147483648,
+          "filesystem": "tmpfs"
+        },
+        "fixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "helperSha256": "c285b042c1cfc0378e0908b8499d2bbf8924f8e603ca5935f5b86c4251dc490f",
+        "cycles": 2,
+        "checks": 54
+      },
+      "unit-result.json": {
+        "schema": 1,
+        "elapsedSeconds": 21.047889643996314,
+        "cgroupEmpty": true,
+        "outerScratchDirectoryEmpty": true,
+        "remainingTaggedOrNamespaceProcesses": [],
+        "unreadableSameUserProcesses": 4,
+        "result": "failed"
+      },
+      "bounded-run.json": {
+        "runnerExitCode": -9,
+        "elapsedSeconds": 20.291498182996293,
+        "killInjected": true,
+        "interrupted": false,
+        "scratchCapacityBytes": 2147483648,
+        "fileDescriptorLimit": [
+          4096,
+          4096
+        ]
+      },
+      "cgroup-metrics.json": {
+        "memory.current": "1031335936",
+        "memory.max": "6442450944",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "pids.current": "247",
+        "pids.max": "512",
+        "pids.events": "max 0",
+        "cpu.max": "200000 100000"
+      },
+      "unit-properties.json": {
+        "TimeoutStopUSec": "15s",
+        "RuntimeMaxUSec": "4min",
+        "ControlGroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-direct-soak-a412d2d638e4.scope",
+        "CPUQuotaPerSecUSec": "2s",
+        "MemoryMax": "6442450944",
+        "MemorySwapMax": "0",
+        "TasksMax": "512",
+        "KillMode": "control-group"
+      },
+      "fixture-seal.json": {
+        "schema": 1,
+        "commit": "ea695a14dca7a19335a50271088bd92ddd4f1f16",
+        "runtimeBaseCommit": "ee3060d",
+        "sourceSha256": "2b295f0785209789735a9fa58f4ef26fb4b9ad0f774ebdb176af53ea53363b59",
+        "binarySha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "fakeAgentSha256": "8513c4e146e3a958b1f6589b76b86315f89ca86ab7bc1f7fd6aaaf3bc92316bc",
+        "scope": "Recorded local build provenance; only example lifetime differs from the r3 runtime. Not a reproducible-build attestation."
+      },
+      "bounded-config.json": {
+        "portableCommit": "4d7fc64367d50391290c0fca4f273b6d64d4f2d0",
+        "portableDirty": true,
+        "scriptHashes": {
+          "scripts/qualify-direct-browser.ts": "175b48adc2acf6edcbc1d6f0fc3446556d75079bb2edb35e9f9cca6c5312f59a",
+          "scripts/qa/direct-soak.ts": "c285b042c1cfc0378e0908b8499d2bbf8924f8e603ca5935f5b86c4251dc490f",
+          "scripts/qa/direct-multihost.ts": "dfd8d9118d9340b72d18b716f33a8762110723f188b2f39091df3dc2fa278bc1",
+          "scripts/qa/run-direct-soak.py": "8ca1a752f4f9464d0503ee4d8fd8ed6a5b0d0a53a57075bc20027378c78506a2"
+        }
+      }
+    },
+    {
+      "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/soak-negative-duplicate",
+      "name": "soak-negative-duplicate",
+      "report.json": {
+        "schema": 1,
+        "startedAt": "2026-10-14T02:38:54.742Z",
+        "errors": [],
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "runnerSha256": "e8f5d61b8b118c997a367c6dc05849c9da44cb309fc9a545297301bdc51fb892",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "nativeFixtureSha256": "1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903",
+        "result": "failed",
+        "failure": "exactly_once_transcript",
+        "browserClosedGracefully": true,
+        "hiddenCompositorClosed": true,
+        "finishedAt": "2026-10-14T02:39:11.196Z",
+        "checkCount": 41
+      },
+      "soak-checkpoint.json": {
+        "schema": 1,
+        "resourceEnforcement": "Sampled soft thresholds every 5 seconds; no hard capacity or CPU/IO qualification",
+        "startedAt": "2026-10-14T02:39:07.746Z",
+        "durationSeconds": 60,
+        "limits": {
+          "browserRssMiB": 3072,
+          "nativeRssMiB": 512,
+          "runnerRssMiB": 512,
+          "processes": 96,
+          "fileDescriptors": 4096,
+          "stateMiB": 512,
+          "profileMiB": 2048,
+          "cycleSeconds": 75
+        },
+        "envelope": null,
+        "fixtureSha256": "1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "helperSha256": "04e4dd641cf6c83f7f9b41b486aef3b5ff215e4c74a6c0ddfeb5c9b0c7eb6286",
+        "cycles": 0,
+        "checks": 10,
+        "cycleSettledBeforeFinalCheckpoint": true,
+        "result": "failed",
+        "failure": "exactly_once_transcript",
+        "finishedAt": "2026-10-14T02:39:10.953Z"
+      }
+    },
+    {
+      "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/soak-negative-rss",
+      "name": "soak-negative-rss",
+      "report.json": {
+        "schema": 1,
+        "startedAt": "2026-10-14T02:39:21.488Z",
+        "errors": [],
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "runnerSha256": "e8f5d61b8b118c997a367c6dc05849c9da44cb309fc9a545297301bdc51fb892",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "nativeFixtureSha256": "1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903",
+        "result": "failed",
+        "failure": "native_rss_limit",
+        "browserClosedGracefully": true,
+        "hiddenCompositorClosed": true,
+        "finishedAt": "2026-10-14T02:39:34.982Z",
+        "checkCount": 41
+      },
+      "soak-checkpoint.json": {
+        "schema": 1,
+        "resourceEnforcement": "Sampled soft thresholds every 5 seconds; no hard capacity or CPU/IO qualification",
+        "startedAt": "2026-10-14T02:39:34.718Z",
+        "durationSeconds": 60,
+        "limits": {
+          "browserRssMiB": 3072,
+          "nativeRssMiB": 1,
+          "runnerRssMiB": 512,
+          "processes": 96,
+          "fileDescriptors": 4096,
+          "stateMiB": 512,
+          "profileMiB": 2048,
+          "cycleSeconds": 75
+        },
+        "envelope": null,
+        "fixtureSha256": "1066a1af1323109b143597d1791b6b616f89f04a80ee13ab8255821e52f90903",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "helperSha256": "04e4dd641cf6c83f7f9b41b486aef3b5ff215e4c74a6c0ddfeb5c9b0c7eb6286",
+        "cycles": 0,
+        "checks": 1,
+        "cycleSettledBeforeFinalCheckpoint": true,
+        "result": "failed",
+        "failure": "native_rss_limit",
+        "finishedAt": "2026-10-14T02:39:34.739Z"
+      }
+    },
+    {
+      "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/soak-bounded-task-limit",
+      "name": "soak-bounded-task-limit",
+      "report.json": {
+        "schema": 1,
+        "startedAt": "2026-10-14T02:51:28.136Z",
+        "errors": [],
+        "deploymentManifestSha256": "184a9e1bdabb95454e9be0842460dc7a3cafce35395500e271fccabac6803363",
+        "runnerSha256": "7b34f749918d5340f0d55cd6fc2f78539b72a7be099a2a9797cc1913120ff6bb",
+        "artifactSha256": "1f2dc241bdebeea17eb9f2373c86676f6c1e498c8976018307c01ae237a69423",
+        "nativeFixtureSha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "result": "failed",
+        "failure": "fixture readiness deadline",
+        "hiddenCompositorClosed": true,
+        "finishedAt": "2026-10-14T02:51:44.623Z",
+        "checkCount": 1
+      },
+      "unit-result.json": {
+        "schema": 1,
+        "elapsedSeconds": 17.010894641993218,
+        "cgroupEmpty": true,
+        "result": "failed"
+      },
+      "bounded-run.json": {
+        "runnerExitCode": 1,
+        "elapsedSeconds": 16.90112995399977,
+        "killInjected": false,
+        "interrupted": false,
+        "scratchCapacityBytes": 2147483648
+      },
+      "cgroup-metrics.json": {
+        "memory.current": "43827200",
+        "memory.max": "6442450944",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "pids.current": "21",
+        "pids.max": "64",
+        "pids.events": "max 5",
+        "cpu.max": "200000 100000"
+      },
+      "fixture-seal.json": {
+        "schema": 1,
+        "commit": "ea695a14dca7a19335a50271088bd92ddd4f1f16",
+        "runtimeBaseCommit": "ee3060d",
+        "sourceSha256": "2b295f0785209789735a9fa58f4ef26fb4b9ad0f774ebdb176af53ea53363b59",
+        "binarySha256": "64efd34a39afb9673b68d4463c65640dfd4718b86abecd08062fa2624be0038e",
+        "fakeAgentSha256": "8513c4e146e3a958b1f6589b76b86315f89ca86ab7bc1f7fd6aaaf3bc92316bc",
+        "scope": "Recorded local build provenance; only example lifetime differs from the r3 runtime. Not a reproducible-build attestation."
+      },
+      "bounded-config.json": {}
+    },
+    {
+      "directory": "/home/friend/.local/share/fabrials-remote-release/2026-10-14/soak-runtime-dead-launcher",
+      "name": "soak-runtime-dead-launcher",
+      "report.json": {
+        "schema": 1,
+        "actualProperties": {
+          "RuntimeMaxUSec": "5s",
+          "ControlGroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/fabrials-soak-runtime-9ef1935c6fd0.scope",
+          "KillMode": "control-group"
+        },
+        "launcherKilled": true,
+        "scopeActiveAfterLauncherKilled": true,
+        "cgroupEmptyAfterRuntimeLimit": true,
+        "elapsedSeconds": 5.160845847996825,
+        "result": "passed",
+        "scope": "Platform scope expiry control with sleep; not the 24-hour soak"
+      }
+    }
+  ]
+}

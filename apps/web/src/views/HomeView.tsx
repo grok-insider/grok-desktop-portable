@@ -127,8 +127,12 @@ export function HomeView({
   selectedWorkspaceId,
   selectedWorkspaceName,
   busy,
+  connected = true,
+  canControl = true,
+  openSessionIds = [],
   error,
   banner,
+  remoteControls,
   onOpenPicker,
   onRefreshProjects,
   onRefreshSessions,
@@ -143,9 +147,13 @@ export function HomeView({
   selectedWorkspaceId: string | null;
   selectedWorkspaceName?: string;
   busy: boolean;
+  connected?: boolean;
+  canControl?: boolean;
+  openSessionIds?: string[];
   error?: string;
   /** Review records and other full-width notices, above the grid. */
   banner?: ReactNode;
+  remoteControls?: ReactNode;
   onOpenPicker: () => void;
   onRefreshProjects: () => void;
   onRefreshSessions: () => void;
@@ -201,6 +209,7 @@ export function HomeView({
       */}
       <div className="w-full max-w-[1440px] px-6 py-8">
         {banner}
+        {remoteControls}
         {error === undefined ? null : (
           <p
             role="alert"
@@ -227,7 +236,7 @@ export function HomeView({
                   size="sm"
                   aria-label="Refresh projects"
                   onClick={onRefreshProjects}
-                  disabled={busy}
+                  disabled={busy || !connected}
                 >
                   <RefreshCw size={14} aria-hidden="true" />
                 </IconButton>
@@ -235,7 +244,7 @@ export function HomeView({
                   size="sm"
                   aria-label="Add a project"
                   onClick={onOpenPicker}
-                  disabled={busy}
+                  disabled={busy || !connected || !canControl}
                 >
                   <FolderPlus size={14} aria-hidden="true" />
                 </IconButton>
@@ -261,7 +270,7 @@ export function HomeView({
                     variant="secondary"
                     size="sm"
                     onClick={onOpenPicker}
-                    disabled={busy}
+                    disabled={busy || !connected || !canControl}
                     className="self-start"
                   >
                     <FolderPlus size={14} aria-hidden="true" />
@@ -347,7 +356,7 @@ export function HomeView({
                       size="sm"
                       aria-label="Refresh sessions"
                       onClick={onRefreshSessions}
-                      disabled={busy}
+                      disabled={busy || !connected}
                     >
                       <RefreshCw size={14} aria-hidden="true" />
                     </IconButton>
@@ -355,7 +364,7 @@ export function HomeView({
                       variant="secondary"
                       size="sm"
                       onClick={onNewSession}
-                      disabled={busy}
+                      disabled={busy || !connected || !canControl}
                     >
                       <Plus size={14} aria-hidden="true" />
                       New session
@@ -387,7 +396,7 @@ export function HomeView({
                         <Button
                           variant="primary"
                           onClick={onNewSession}
-                          disabled={busy}
+                          disabled={busy || !connected || !canControl}
                         >
                           <Plus size={14} aria-hidden="true" />
                           New session
@@ -418,7 +427,7 @@ export function HomeView({
                                   turned a list of sixteen sessions into a
                                   column of sixteen filled buttons. */}
                               <Row
-                                disabled={busy}
+                                disabled={busy || ((!connected || !canControl) && !openSessionIds.includes(session.id))}
                                 aria-label={`Resume ${title}`}
                                 onClick={() => onResumeSession(session.id)}
                                 className="h-10 gap-3 px-1.5"

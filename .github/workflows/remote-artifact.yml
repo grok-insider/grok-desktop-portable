@@ -1,0 +1,137 @@
+name: Remote deployment artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: Exact application origin for this artifact
+        required: true
+        default: https://desktop.grok.me
+        type: choice
+        options:
+          - https://desktop.grok.me
+          - https://grok.fabrials.com
+      libs_commit:
+        description: Reviewed full commit SHA from grok-insider/fabrials-libs
+        required: true
+        type: string
+      spanreed_commit:
+        description: Reviewed Spanreed commit containing the matching native PWA
+        required: true
+        type: string
+      spanreed_version:
+        description: Spanreed source version x.y.z (published stable required for desktop.grok.me)
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      origin:
+        required: true
+        type: string
+      libs_commit:
+        required: true
+        type: string
+      spanreed_commit:
+        required: true
+        type: string
+      spanreed_version:
+        required: true
+        type: string
+    secrets:
+      FABRIALS_LIBS_READ_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remote-artifact-${{ github.ref }}-${{ inputs.libs_commit }}-${{ inputs.origin }}
+  cancel-in-progress: true
+
+jobs:
+  remote:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APP_ORIGIN: ${{ inputs.origin }}
+      LIBS_COMMIT: ${{ inputs.libs_commit }}
+      SPANREED_COMMIT: ${{ inputs.spanreed_commit }}
+      SPANREED_VERSION: ${{ inputs.spanreed_version }}
+    steps:
+      - name: Check immutable source and private-repository access
+        env:
+          FABRIALS_LIBS_READ_TOKEN: ${{ secrets.FABRIALS_LIBS_READ_TOKEN }}
+        run: |
+          [[ "$APP_ORIGIN" == https://desktop.grok.me || "$APP_ORIGIN" == https://grok.fabrials.com ]] || { echo 'Unsupported application origin.' >&2; exit 1; }
+          [[ "$LIBS_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo 'libs_commit must be a full lowercase commit SHA.' >&2; exit 1; }
+          [[ "$SPANREED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo 'spanreed_commit must be a full lowercase commit SHA.' >&2; exit 1; }
+          [[ "$SPANREED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'spanreed_version must be a stable x.y.z version.' >&2; exit 1; }
+          test -n "$FABRIALS_LIBS_READ_TOKEN" || { echo 'Configure FABRIALS_LIBS_READ_TOKEN with read-only access to fabrials-libs.' >&2; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: grok-insider/spanreed
+          ref: ${{ inputs.spanreed_commit }}
+          path: .remote-build/spanreed
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download the published corresponding-source archive
+        if: inputs.origin == 'https://desktop.grok.me'
+        run: |
+          name="spanreed-${SPANREED_VERSION}-source.tar.gz"
+          base="https://github.com/grok-insider/spanreed/releases/download/v${SPANREED_VERSION}"
+          mkdir -p .remote-build/source
+          curl --fail --location --retry 2 --max-time 120 --max-filesize 268435456 "$base/$name" -o ".remote-build/source/$name"
+          curl --fail --location --retry 2 --max-time 30 --max-filesize 512 "$base/$name.sha256" -o ".remote-build/source/$name.sha256"
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          name = f"spanreed-{os.environ['SPANREED_VERSION']}-source.tar.gz"
+          root = Path('.remote-build/source')
+          expected = [hashlib.sha256((root / name).read_bytes()).hexdigest(), name]
+          if (root / (name + '.sha256')).read_text().split() != expected:
+              raise SystemExit('Source archive checksum mismatch')
+          PY
+      - name: Build corresponding source from the reviewed qualification candidate
+        if: inputs.origin == 'https://grok.fabrials.com'
+        run: |
+          mkdir -p .remote-build/source
+          python3 .remote-build/spanreed/scripts/source-bundle.py build --portable "$PWD" --version "$SPANREED_VERSION" --sha "$SPANREED_COMMIT" --output "$PWD/.remote-build/source/spanreed-${SPANREED_VERSION}-source.tar.gz"
+      - uses: actions/checkout@v4
+        with:
+          repository: grok-insider/fabrials-libs
+          ref: ${{ inputs.libs_commit }}
+          token: ${{ secrets.FABRIALS_LIBS_READ_TOKEN }}
+          path: .remote-build/libs
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.3
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck:web
+      - run: pnpm test:web
+      - run: node scripts/remote-artifact.test.mjs
+      - name: Test real Noise crate
+        run: cargo test --locked --manifest-path .remote-build/libs/Cargo.toml -p fabrials-remote-noise
+      - name: Build real crypto, verify native interoperability and package Remote
+        run: node scripts/build-remote-artifact.mjs --libs .remote-build/libs --output .remote-build/artifact --spanreed .remote-build/spanreed --source-archive ".remote-build/source/spanreed-${SPANREED_VERSION}-source.tar.gz" --origin "$APP_ORIGIN"
+      - name: Verify deployment payload
+        run: node scripts/remote-artifact.mjs verify .remote-build/artifact --for-deploy --spanreed .remote-build/spanreed --origin "$APP_ORIGIN"
+      - name: Archive prebuilt deployment including hidden Vercel files
+        run: tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -czf .remote-build/grok-remote-vercel.tar.gz -C .remote-build/artifact .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grok-remote-vercel-${{ github.sha }}-${{ inputs.libs_commit }}-${{ inputs.origin == 'https://grok.fabrials.com' && 'qualification' || 'production' }}
+          path: .remote-build/grok-remote-vercel.tar.gz
+          if-no-files-found: error
+          retention-days: 14

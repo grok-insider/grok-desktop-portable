@@ -13,7 +13,7 @@
  * window edge.
  */
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { FolderOpen, Home, Plus, X } from "lucide-react";
 import { IconButton, StatusChip, cn } from "../components/ui";
 import { ThemeToggle } from "../theme/ThemeToggle";
@@ -40,6 +40,8 @@ export function WorkShell({
   onNewTab,
   phase,
   connected,
+  canControl = true,
+  showThemeControl = true,
   trailing,
   children,
 }: {
@@ -55,16 +57,27 @@ export function WorkShell({
   onNewTab?: () => void;
   phase?: SessionPhase;
   connected: boolean;
+  canControl?: boolean;
+  showThemeControl?: boolean;
   trailing?: ReactNode;
   children: ReactNode;
 }) {
   const homeActive = surface === "home";
   const showTabs = tabs.length > 0 || onNewTab !== undefined;
+  const tablist = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const list = tablist.current;
+    const active = list?.querySelector<HTMLElement>('[aria-selected="true"]')?.parentElement;
+    if (!list || !active) return;
+    const parent = list.getBoundingClientRect(), item = active.getBoundingClientRect();
+    if (item.left < parent.left) list.scrollLeft -= parent.left - item.left;
+    else if (item.right > parent.right) list.scrollLeft += item.right - parent.right;
+  }, [activeTabId, surface, tabs.length]);
 
   return (
-    <div className="flex h-dvh min-h-dvh flex-col bg-background p-2 max-[680px]:h-auto max-[680px]:p-0">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-raised max-[680px]:rounded-none max-[680px]:border-x-0">
-        <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border px-2">
+    <div className="work-shell flex h-dvh min-h-dvh flex-col bg-background max-[680px]:h-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+        <header className="work-header flex h-12 shrink-0 items-center gap-1 border-b border-border px-2">
           {/*
             Chrome, not the document heading. Each surface owns its own `h1`,
             so making this one too would leave every page with two and no
@@ -73,16 +86,17 @@ export function WorkShell({
           <button
             type="button"
             onClick={onGoHome}
+            aria-label="Home"
             aria-current={homeActive ? "page" : undefined}
             className={cn(
               "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-body font-medium transition-colors",
               homeActive
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                ? "border-b-2 border-brand-ink bg-accent text-foreground"
+                : "border-b-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
             )}
           >
             <Home size={14} className="shrink-0" aria-hidden="true" />
-            Home
+            <span className="max-[680px]:sr-only">Home</span>
           </button>
 
           {showTabs ? (
@@ -92,6 +106,7 @@ export function WorkShell({
                 aria-hidden="true"
               />
               <div
+                ref={tablist}
                 role="tablist"
                 className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
                 aria-label="Open conversations"
@@ -105,8 +120,8 @@ export function WorkShell({
                       className={cn(
                         "group flex h-8 max-w-[14rem] shrink-0 items-center gap-0.5 rounded-md pl-2 pr-0.5",
                         active
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                          ? "border-b-2 border-brand-ink bg-accent text-foreground"
+                          : "border-b-2 border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
                       <button
@@ -139,6 +154,7 @@ export function WorkShell({
                       <IconButton
                         size="sm"
                         onClick={() => onCloseTab?.(tab.sessionId)}
+                        disabled={!connected || !canControl}
                         aria-label={`Close ${tab.title}`}
                         className={cn(
                           "size-6 shrink-0",
@@ -168,19 +184,20 @@ export function WorkShell({
             <div className="min-w-0 flex-1" />
           )}
 
-          <div className="flex shrink-0 items-center gap-1.5 pl-1">
+          <div className="work-header-actions flex shrink-0 items-center gap-1.5 pl-1">
             {trailing}
-            {/* Idle is the resting state and draws nothing. */}
+            {showThemeControl && <ThemeToggle />}
+          </div>
+          {(phase === "streaming" || phase === "interrupted" || !connected) && <div className="work-header-status flex shrink-0 items-center gap-1.5">
             {phase === "streaming" ? (
               <StatusChip tone="info">Running</StatusChip>
             ) : phase === "interrupted" ? (
               <StatusChip tone="warning">Needs review</StatusChip>
             ) : null}
             {connected ? null : <StatusChip tone="destructive">Disconnected</StatusChip>}
-            <ThemeToggle />
-          </div>
+          </div>}
         </header>
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <div className={cn("flex min-h-0 flex-1 flex-col", surface === "session" && "overflow-y-auto")}>{children}</div>
       </div>
       {/* Polite status for assistive tech when connection or phase changes. */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">

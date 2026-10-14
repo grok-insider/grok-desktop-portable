@@ -24,7 +24,10 @@ import type {
 
 /** Everything the Work surface shows, folded from the host event stream. */
 export interface Projection {
+  observedThrough?: number;
+  observationEpoch?: number;
   transcript: TranscriptEntry[];
+  imageRejected?: boolean;
   tools: ToolEntry[];
   /** Streaming reasoning blocks (`thoughtDelta`); never mixed into agent text. */
   thoughts: ThoughtEntry[];
@@ -38,6 +41,20 @@ export interface Projection {
   workflows: SnapshotWorkflow[];
   /** Background bash/monitor tasks (CLI Tasks). */
   backgroundTasks: SnapshotBackgroundTask[];
+  /** What the last snapshot left out; absent when its history was complete. */
+  history?: HistoryOmission;
+}
+
+export interface HistoryOmission {
+  omittedMessages: number;
+  omittedTools: number;
+  truncated: boolean;
+}
+
+function historyOmission(event: {omittedMessages?: unknown; omittedTools?: unknown; historyTruncated?: unknown}): HistoryOmission | undefined {
+  const count = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0;
+  const omission = {omittedMessages: count(event.omittedMessages), omittedTools: count(event.omittedTools), truncated: event.historyTruncated === true};
+  return omission.omittedMessages || omission.omittedTools || omission.truncated ? omission : undefined;
 }
 
 /** Empty projection used before any event and after a hard reset. */
@@ -63,6 +80,41 @@ export const EMPTY_PROJECTION: Projection = {
 function projectOne(current: Projection, envelope: EventEnvelope): Projection {
   const event = envelope.event;
   switch (event.kind) {
+    case "sessionExecutionChanged":
+    case "sessionModelsChanged":
+      return current;
+    case "messageImage": {
+      const existing = current.transcript.findIndex(entry => entry.liveImages?.some(image => image.id === event.imageId));
+      if (existing >= 0) {
+        if (event.phase === "pending") return current;
+        const transcript = [...current.transcript];
+        const entry = transcript[existing];
+        if (entry.role !== event.role) return current;
+        transcript[existing] = {...entry, liveImages: entry.liveImages!.map(image => image.id === event.imageId && image.phase === "pending" ? {id: image.id, phase: event.phase === "ready" && event.image ? "ready" : "unavailable", ...(event.image ? {image: event.image} : {})} : image)};
+        return {...current, transcript};
+      }
+      if (event.phase === "ready") return current;
+      const pending = current.transcript.reduce((sum, entry) => sum + (entry.liveImages?.filter(image => image.phase === "pending").length ?? 0), 0);
+      const image = {id: event.imageId, phase: event.phase === "pending" && pending < 64 ? "pending" as const : "unavailable" as const};
+      const last = current.transcript.at(-1);
+      const latestOther = Math.max(current.tools.at(-1)?.seq ?? -1, current.thoughts.at(-1)?.seq ?? -1);
+      const continuing = last?.role === event.role && (event.role === "agent" || last.id.startsWith("terminal-")) && current.phase === "streaming" && last.seq >= latestOther && (last.liveImages?.length ?? 0) < 64;
+      return {...current, phase: "streaming", transcript: continuing
+        ? [...current.transcript.slice(0, -1), {...last, liveImages: [...last.liveImages ?? [], image]}]
+        : [...current.transcript, {id: `${event.role === "user" ? "terminal" : "a"}-${envelope.eventSequence}`, role: event.role, text: "", seq: envelope.eventSequence, liveImages: [image]}]};
+    }
+    case "userMessageDelta": {
+      const last = current.transcript.at(-1);
+      const latestOther = Math.max(current.tools.at(-1)?.seq ?? -1, current.thoughts.at(-1)?.seq ?? -1);
+      const continuing = last?.role === "user" && last.id.startsWith("terminal-") && current.phase === "streaming" && last.seq >= latestOther;
+      return {
+        ...current,
+        phase: "streaming",
+        transcript: continuing
+          ? [...current.transcript.slice(0, -1), {...last, text: last.text + event.text}]
+          : [...current.transcript, {id: `terminal-${envelope.eventSequence}`, role: "user", text: event.text, seq: envelope.eventSequence}],
+      };
+    }
     case "thoughtDelta": {
       // Continue the open thought block only while it is still the latest
       // timeline item. A message or tool after it starts a new thought block
@@ -101,11 +153,12 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
     }
     case "messageDelta": {
       const last = current.transcript.at(-1);
+      const latestOther = Math.max(current.tools.at(-1)?.seq ?? -1, current.thoughts.at(-1)?.seq ?? -1);
       // Only a turn still in flight continues the previous bubble. Once the
       // host has said the turn ended — idle, interrupted, or an error — the
       // next delta opens a new one, otherwise two separate answers would be
       // glued into a single message the user cannot tell apart.
-      if (last?.role === "agent" && current.phase === "streaming") {
+      if (last?.role === "agent" && current.phase === "streaming" && last.seq >= latestOther) {
         return {
           ...current,
           phase: "streaming",
@@ -129,22 +182,28 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
         ],
       };
     }
-    case "promptSent":
+    case "imageRejected":
+      return {...current, imageRejected: true};
+    case "promptSent": {
+      const id = event.idempotencyKey ? `u-${event.idempotencyKey}` : `q-${envelope.eventSequence}`;
       // A message the user queued has left. It becomes their turn now, since
       // the browser could not add it when they wrote it.
       return {
         ...current,
         phase: "streaming",
+        imageRejected: false,
         transcript: [
-          ...current.transcript,
+          ...current.transcript.filter((entry) => entry.id !== id),
           {
-            id: `q-${envelope.eventSequence}`,
+            id,
             role: "user",
             text: event.text,
+            ...(event.images?.length ? {images: event.images} : {}),
             seq: envelope.eventSequence,
           },
         ],
       };
+    }
     case "toolStart": {
       // A re-used id updates the row rather than stacking a duplicate.
       const started = {
@@ -225,7 +284,8 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
         reviews: [...current.reviews, { recordId: event.recordId }],
       };
     case "sessionStatus":
-      return { ...current, phase: event.state === "running" ? "streaming" : "idle" };
+      if (event.state === "reconnecting") return current;
+      return { ...current, phase: event.state === "running" ? "streaming" : event.state === "unavailable" ? "interrupted" : "idle" };
     case "sessionSnapshot": {
       // Full replace after resume. Messages and tools are host-rehydrated from
       // on-disk history — never paths, thoughts, or tool bodies.
@@ -233,7 +293,7 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
       const restored = messages.filter(
         (message) =>
           (message.role === "user" || message.role === "agent") &&
-          message.text.length > 0,
+          (message.text.length > 0 || Boolean(message.images?.length) || Boolean(message.unavailableImages)),
       );
       const restoredTools = (event.tools ?? []).filter(
         (tool) => typeof tool.toolCallId === "string" && tool.toolCallId.length > 0,
@@ -250,11 +310,14 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
       const backgroundTasks = (event.backgroundTasks ?? []).filter(
         (task) => typeof task.taskId === "string" && task.taskId.length > 0,
       );
+      const history = historyOmission(event);
       return {
         transcript: restored.map((message, index) => ({
           id: `restored-${index}`,
           role: message.role as "user" | "agent",
           text: message.text,
+          ...(message.images?.length ? {images: message.images} : {}),
+          ...(message.unavailableImages ? {unavailableImages: message.unavailableImages} : {}),
           seq:
             typeof message.seq === "number"
               ? message.seq + fallbackBase
@@ -284,6 +347,7 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
         members,
         workflows,
         backgroundTasks,
+        ...(history ? {history} : {}),
       };
     }
     case "backgroundTaskUpdated": {
@@ -306,7 +370,13 @@ function projectOne(current: Projection, envelope: EventEnvelope): Projection {
     case "sessionReviewUpdated":
     case "queueChanged":
     case "workspacesChanged":
+    case "remoteDevicesChanged":
     case "hostStatus":
+    case "interactionRequest":
+    case "interactionResolved":
+    case "permissionResolved":
+    case "replayReset":
+    case "commandCompleted":
     case "permissionRequest":
     case "error":
       return current;
@@ -359,6 +429,9 @@ function eventSession(envelope: EventEnvelope): string | null {
  * inventing a row from a stray delta would show work the user never started.
  */
 export function project(current: Projections, envelope: EventEnvelope): Projections {
+  if (envelope.event.kind === "workspacesChanged" && Number.isSafeInteger(envelope.eventSequence) && envelope.eventSequence >= 0) {
+    return Object.fromEntries(Object.entries(current).map(([id, projection]) => [id, projection.observedThrough === -1 ? {...projection, observedThrough: envelope.eventSequence, observationEpoch: envelope.observationEpoch ?? 0} : projection]));
+  }
   const sessionId = eventSession(envelope);
   if (sessionId === null) {
     return current;
@@ -374,10 +447,10 @@ export function project(current: Projections, envelope: EventEnvelope): Projecti
     if (envelope.event.kind !== "sessionSnapshot") {
       return current;
     }
-    return { ...current, [sessionId]: projectOne(EMPTY_PROJECTION, envelope) };
+    return { ...current, [sessionId]: {...projectOne(EMPTY_PROJECTION, envelope), observedThrough: envelope.eventSequence || -1, observationEpoch: envelope.observationEpoch ?? 0} };
   }
   const next = projectOne(existing, envelope);
-  return next === existing ? current : { ...current, [sessionId]: next };
+  return next === existing ? current : { ...current, [sessionId]: {...next, observationEpoch: envelope.observationEpoch ?? 0, observedThrough: envelope.event.kind === "sessionSnapshot" && envelope.eventSequence === 0 ? -1 : existing.observedThrough === -1 ? -1 : envelope.eventSequence > 0 ? envelope.eventSequence : existing.observedThrough} };
 }
 
 /** Begin tracking a conversation, keeping anything already folded for it. */
