@@ -178,8 +178,21 @@ each save replaced a fuller earlier copy. The checkpoints of that run did not
 yet record the window counts. The next candidate stores the counts with the
 offline copy and shows the same notice there. After the soak, the harness
 compares the offline view with the live window: the newest `SOAK_n_A/B` marker
-must be readable offline and the offline notice must report the live omitted
-count (no notice when nothing is omitted).
+must be readable offline, and the offline copy's messages plus its omitted
+count must equal the live window's, with a notice exactly when something is
+omitted.
+
+**Second r4 pilot (`soak-pilot-r4b-fast-cycles`): failed at the comparison,
+not the product.** Artifact from Portable `4f842f7` and Spanreed `ee2373e`.
+The loop passed 140 cycles and 3,928 checks; checkpoints showed no omission up
+to cycle 80 and then exact accounting while truncated (cycle 101: 516 visible
+plus 96 omitted = 612; cycle 140: 516 + 330 = 846). The offline copy showed the
+newest marker and "330 earlier messages", the window saved before the final
+reload. That reload received a fresh snapshot of the same 846 messages split
+differently (512 kept, 334 omitted), and the copy correctly refused to replace
+itself with an observation that was not newer. The first version of the check
+compared omitted counts alone; it now compares totals and records both windows
+in the report as `offlineHistoryWindow`.
 
 The laboratory certificate bypass does not qualify trusted TLS, Tailscale,
 physical Android/Apple behavior, deployed CDN routing, real push delivery,
