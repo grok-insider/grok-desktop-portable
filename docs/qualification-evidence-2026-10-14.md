@@ -138,11 +138,13 @@ Se envió un único prompt sintético autorizado y se pasó a Inicio. El host
 respondió con el texto pedido. Android publicó una notificación genérica
 («Grok», «There is activity on your computer.», visibilidad `PRIVATE` y
 versión pública «Contenidos ocultos») **3,5 s después de completar el paso a
-Inicio**, con los relojes del móvil y del host sincronizados. Sustituyó a la
+Inicio**. Los relojes del móvil y del host coincidían al segundo en una
+comparación posterior, así que el margen es de al menos 2,5 s. Sustituyó a la
 notificación de la primera prueba, que tenía la misma etiqueta y seguía en la
 bandeja. No llevaba texto de la conversación. Al pulsarla en la bandeja de
-Android, el mismo documento pasó a primer plano en la conversación, conectado
-y listo.
+Android, el mismo documento pasó a primer plano, conectado y listo, en la
+conversación que ya mostraba. No se probó la navegación desde otra ruta ni la
+apertura con la aplicación cerrada.
 
 Al terminar, el borrador estaba vacío, la rotación automática restaurada, el
 permiso de notificaciones conservado y no quedaba ningún reenvío de ADB. No se
@@ -163,13 +165,14 @@ El mismo instalador NSIS sin firma (`d0220e5f…`) se ejecutó de forma
 interactiva con otra cuenta estándar nueva, en una segunda sesión de consola de
 la VM, mientras la sesión de `friend` seguía abierta. Mostró bienvenida,
 licencia, carpeta de instalación en `LocalAppData` y fin, y terminó con código
-0. No apareció UAC, lo esperado en modo de usuario. El ejecutable instalado
+0. Las capturas no muestran ningún aviso de UAC; en esta VM aparecería en el
+escritorio capturado, y el modo de usuario no pide elevación. El ejecutable instalado
 coincide con el extraído en CI. El primer arranque gráfico mostró el resumen,
 Ajustes y la licencia AGPL, y la bandeja ofreció sus cuatro acciones. El
 registro de aplicaciones de Windows no anotó errores de Spanreed ni de
 WebView2. La desinstalación gráfica terminó con código 0, retiró programa,
-registro y acceso directo, y conservó los datos del usuario, como indica su
-opción predeterminada.
+registro y acceso directo, y conservó los datos del usuario: la casilla
+«Delete the application data» estaba desmarcada al confirmar.
 
 La limpieza retiró la cuenta, el perfil, su directorio, la clave de
 ProfileList, los hives y sus permisos en el directorio de prueba, sin
@@ -181,7 +184,7 @@ Defender, la política de seguridad y los servicios, normalizados y sin
 normalizar. No se atribuyen esos cambios a Spanreed ni se demuestra su causa.
 La prueba la condujeron agentes de Codex mediante Syl hasta la desinstalación;
 la limpieza y la comparación final se terminaron después mediante el agente de
-QEMU. Recibo: [prueba interactiva](https://github.com/grok-insider/spanreed/blob/8a2c09e/docs/evaluation/windows-gui-e6d9cc8-2026-10-14.json).
+QEMU. Recibo: [prueba interactiva](https://github.com/grok-insider/spanreed/blob/f0a91a3/docs/evaluation/windows-gui-e6d9cc8-2026-10-14.json).
 No acredita SmartScreen (el instalador copiado no tenía la marca de descarga),
 artefacto firmado, MSI, actualización con la aplicación abierta, reemplazo del
 actualizador CLI, pérdida de corriente, Windows físico ni herramientas de

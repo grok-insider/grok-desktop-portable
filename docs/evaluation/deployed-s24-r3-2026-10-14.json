@@ -30,7 +30,7 @@
     "After Android force-stop of Chrome, relaunching the WebAPK and pressing Connect restored the same conversation route and the same unsent draft on a new document with the same shell.",
     "One authorized synthetic prompt was sent from the phone, the app went to Home, and the host replied with the requested token.",
     "A generic Grok notification was posted about 3.5 s after the Home action completed, with PRIVATE visibility and a hidden public version; it contained no conversation text.",
-    "Tapping the notification in the Android shade brought the existing app document to the foreground on the conversation, connected and ready."
+    "Tapping the notification in the Android shade brought the existing app document, already on the conversation route, to the foreground, connected and ready."
   ],
   "explicitUpdate": {
     "waitingWorkerBeforeAction": "installed",
@@ -147,7 +147,6 @@
     "homeActionCompletedAt": "2026-10-14T09:27:08.180134+00:00",
     "androidNotificationPostedAt": "2026-10-14T09:27:11.693Z",
     "androidInterruptionAt": "2026-10-14T09:27:11.749Z",
-    "deviceAndHostClockOffsetSeconds": 0,
     "postedAfterBackgrounding": true,
     "replacedEarlierNotificationWithSameTag": true,
     "earlierNotificationTimestamp": "2026-10-14T00:11:23.584Z",
@@ -164,13 +163,19 @@
       "openedPath": "conversation route (identifier withheld)",
       "sameDocumentAsBeforeTap": true,
       "visible": true,
-      "ready": true
+      "ready": true,
+      "documentAlreadyOnConversationRoute": true,
+      "navigationFromAnotherRouteTested": false,
+      "openFromKilledAppTested": false
     },
     "limitations": [
       "The locked screen was not exercised.",
       "The app process was alive in the background, not killed, when the notification arrived.",
-      "Delivery latency is a single observation, not a distribution."
-    ]
+      "Delivery latency is a single observation, not a distribution.",
+      "Click-through foregrounded the same document, which was already on the conversation route; navigation from another route and opening from a killed app were not tested."
+    ],
+    "deviceAndHostClockOffset": "at most 1 s: one whole-second comparison of device and host epoch at 2026-10-14T09:55:34Z, about 28 minutes after the event",
+    "postedAfterBackgroundingMargin": "about 3.5 s between the completed Home action and the Android post, so at least 2.5 s allowing the clock bound"
   },
   "cleanup": {
     "draftEmpty": true,

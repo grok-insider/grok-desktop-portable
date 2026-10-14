@@ -28,14 +28,14 @@ the existing VM, with final cleanup and baseline preservation verified. A
 separate interactive run of the same installer as a new standard user covered
 the installer pages, first graphical start, Settings, rendered license, tray
 menu and graphical uninstall, with the temporary account removed and every
-baseline equal afterwards ([receipt](https://github.com/grok-insider/spanreed/blob/8a2c09e/docs/evaluation/windows-gui-e6d9cc8-2026-10-14.json)).
+baseline equal afterwards ([receipt](https://github.com/grok-insider/spanreed/blob/f0a91a3/docs/evaluation/windows-gui-e6d9cc8-2026-10-14.json)).
 These scoped results do not qualify retail Firefox, SmartScreen, stable
 signing or physical Windows hardware.
 On the physical S24, the installed WebAPK updated explicitly to the r3 shell
 and, against the activated r3 host, passed portrait and landscape keyboard
-layout, recovery after a Chrome force-stop, a real generic notification posted
-after backgrounding and notification click-through
-([receipt](evaluation/deployed-s24-r3-2026-10-14.json)). Fresh installation,
+layout, recovery after a Chrome force-stop, and a real generic notification
+posted after backgrounding whose tap foregrounded the app on the conversation
+it already showed ([receipt](evaluation/deployed-s24-r3-2026-10-14.json)). Fresh installation,
 OS eviction, long suspension, radio handoff, the locked screen and the share
 target remain open, as do the elapsed-time gates.
 
@@ -79,7 +79,7 @@ repositories.
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; the S24 passed an explicit r1→r3 update and a force-stop recovery, while an offline open of the r3 shell on the device remains pending |
 | Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Linux update/interruption, r3 isolated lifecycle and station activation pass. Windows limited-user security/updater/process checks pass on their recorded revisions; r3 CI, the exact unsigned NSIS lifecycle and its interactive installer/first start/uninstall pass in the VM. SmartScreen with a signed artifact, real CLI replacement, physical Windows and stable distribution remain separate gates |
 | Typed multimodal contract | Versioned content, bounded chunk transfer, validated MIME, real ACP images, queue/replay/history and drafts preserve content | Host/PWA implemented; real PWA/Noise/Spanreed/official ACP/provider/history vision passed 13 checks; device qualification pending |
-| Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic delivery on the S24 passed on the first deployment and again on r3, posted after backgrounding, with click-through to the conversation; delivery to a killed or long-suspended app and the locked screen remain pending |
+| Private notifications | Host-owned VAPID, direct provider delivery, generic content, local revocation | Real generic delivery on the S24 passed on the first deployment and again on r3, posted after backgrounding; its tap foregrounded the same document on the conversation it already showed. Navigation from another route, delivery to a killed or long-suspended app and the locked screen remain pending |
 | Publication authorization | First-party Fabrials login, one-use code plus PKCE, scoped host grant, no third-party cookie dependency | Implemented across PWA, host and web; public routes remain closed |
 | Publication retention and budgets | Atomic admission, real byte accounting, terminal expiry/revocation, snapshots cannot recover deleted content | Application controls and PostgreSQL/key-process tests exist; real S3 counterexample proves a late PUT can resurrect an object after DELETE/HEAD. Physical deletion is not qualified; storage, restore and perimeter gates remain closed |
 | Release packaging | Canonical vendor sync, exact artifact hashes, source bundle, installers and rollback | Exact QA artifact and original native/Rust/WASM notices verified; public N/N−1 source/notice retention and browser rollback passed; platform release installers pending |
