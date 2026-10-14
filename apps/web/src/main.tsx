@@ -4,10 +4,13 @@
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "@fontsource-variable/ibm-plex-sans/index.css";
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
-import "@fontsource/ibm-plex-mono/600.css";
+import { CSPProvider } from "@base-ui/react/csp-provider";
+import "./styles/layers.css";
+import "@fabrials/ui/tokens.css";
+import "./styles/fonts.css";
+import "@fabrials/ui/styles.css";
+import "@fabrials/ai-ui/styles.css";
+import "sonner/dist/styles.css";
 import "./styles.css";
 import { App } from "./App";
 import { RemoteRoot } from "./RemoteRoot";
@@ -28,11 +31,13 @@ if (container === null) {
 }
 if (!redirecting) createRoot(container).render(
   <StrictMode>
+    <CSPProvider disableStyleElements>
     <ThemeProvider>
       <ApplicationLayout>
         {entry === "blocked" ? <main className="p-6"><h1 className="text-title-sm">This build belongs to another website</h1><p className="mt-3 text-body">Open <a className="underline" href={APPLICATION_ORIGIN}>{APPLICATION_ORIGIN}</a> to continue. Pairing links must be created for that website.</p></main> : entry === "remote" ? <RemoteRoot publicationCallback={publicationCallback} /> : <App />}
       </ApplicationLayout>
       <HostToaster />
     </ThemeProvider>
+    </CSPProvider>
   </StrictMode>,
 );

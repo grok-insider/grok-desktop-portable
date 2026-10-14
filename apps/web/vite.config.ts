@@ -1,16 +1,19 @@
 import { fileURLToPath, URL } from "node:url";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { externalizeSonnerStyles } from "./scripts/sonner-csp";
 import { bindShellIdentity } from "./scripts/shell-identity";
 import { thirdPartyNotices } from "./scripts/third-party-notices";
+import { cspViolations } from "./scripts/csp-policy";
 import { deploymentOrigin } from "../../scripts/deployment-origin.mjs";
 
 const applicationOrigin = deploymentOrigin(process.env.FABRIALS_REMOTE_ORIGIN);
+const fabrialsFonts = resolve(dirname(createRequire(import.meta.url).resolve("@fabrials/ui/package.json")), "dist/fonts");
 
 const pushEnabled = true;
 const shareTarget = (process.env.VITE_REMOTE_EXPERIMENTS ?? "").split(",").map((value) => value.trim()).includes("share-target");
@@ -55,10 +58,18 @@ export default defineConfig(({ command }) => ({
     tailwindcss(),
     {
       name: "sonner-external-styles",
-      apply: "build",
       enforce: "pre",
       transform(source, id) {
         if (id.replaceAll("\\", "/").endsWith("/sonner/dist/index.mjs")) return externalizeSonnerStyles(source);
+      },
+    },
+    {
+      name: "grok-csp-module-policy",
+      apply: "build",
+      generateBundle(_, bundle) {
+        const modules = Object.values(bundle).flatMap((item) => item.type === "chunk" ? Object.entries(item.modules).map(([id, info]) => ({id, code: info.code})) : []);
+        const violations = cspViolations(modules, [/\/react-dom\/cjs\/react-dom-client\.production\.js$/]);
+        if (violations.length) throw new Error(`The production CSP would block or forbid these modules:\n${violations.join("\n")}`);
       },
     },
     {
@@ -124,13 +135,14 @@ export default defineConfig(({ command }) => ({
   base: "/",
   define: {__REMOTE_CRYPTO_URL__: JSON.stringify(`/${cryptoPath}/fabrials_remote_noise.js`), "import.meta.env.VITE_REMOTE_ORIGIN": JSON.stringify(applicationOrigin)},
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)), "@fabrials-fonts": fabrialsFonts },
   },
   build: {
     // Spanreed can embed apps/web/dist via FABRIALS_AGENT_HOST_WEB_DIST.
     // Hosted demo is assembled later by scripts/prepare-public.mjs → public/demo.
     outDir: "dist",
     emptyOutDir: true,
+    assetsInlineLimit: 0,
     sourcemap: false,
   },
   server: {
@@ -139,6 +151,7 @@ export default defineConfig(({ command }) => ({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
+    server: {deps: {inline: ["sonner"]}},
     exclude: ["dist/**", "node_modules/**"],
   },
 }));

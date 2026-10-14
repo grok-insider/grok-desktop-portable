@@ -2,8 +2,9 @@
 
 # Grok Desktop Portable UI
 
-Portable shares the **Grok Desktop design system** where available and does
-**not** invent a second visual language. This note records what differs because
+Portable uses the house design system, **Fabrials UI Highstorm**; visual rules,
+CSP guards and exceptions are in [DESIGN.md](../DESIGN.md). This note records
+behaviour and screen contracts, and what differs because
 production UI is a Work-only shell at **`https://desktop.grok.me`** talking to
 the local host **`spanreed agent` on loopback** (ADR light 0016).
 
@@ -66,8 +67,8 @@ Before Work is shown, the SPA probes the bridge:
 
 ## Source of truth
 
-1. **Tokens, type, spacing, motion, a11y:** shared design tokens / desktop
-   DESIGN.md where referenced by the monorepo.
+1. **Tokens, type, spacing, motion, a11y:** `@fabrials/ui` and its `DESIGN.md`,
+   with Portable's consumption and exceptions in [DESIGN.md](../DESIGN.md).
 2. **Implementation:** `apps/web/src/` (`styles.css`, `components/ui.tsx`, views).
 3. **Markdown:** `MarkdownMessage` — GFM, allowlist, `skipHtml`, https-only
    links, no images.
@@ -586,13 +587,8 @@ OpenCode web interface: one home screen rather than two, rows instead of
 buttoned list items, resting states that draw nothing, auxiliary controls
 revealed on hover, and tool calls inline in the conversation.
 
-The **visual language is not** borrowed. Light keeps the Grok Desktop system:
-IBM Plex Sans/Mono (never Inter — DESIGN §9), the green-gray token family,
-weights 400/500/600, the three radii 5/7/9, tinted matte elevation, and DESIGN
-§7 motion limits (120–200 ms micro, `transform`/`opacity` plus colour only,
-never width or height). Anything from that reference which conflicts —
-per-character shimmer, spring height collapsibles, `0fr → 1fr` width
-transitions, 0.5px pure-black hairlines — is deliberately not adopted.
+The **visual language is not** borrowed: it is Fabrials UI Highstorm, as
+described in [DESIGN.md](../DESIGN.md).
 
 Shared row, search, and icon-button recipes live in `components/ui.tsx`
 (`rowClass`, `Row`, `SearchField`, `IconButton`) so density is defined once
@@ -600,5 +596,6 @@ rather than re-derived per view.
 
 ## Working agreement
 
-Same as DESIGN.md §10: tokens first, primitives second, views third. Prefer
-extending `apps/light` until Desktop and Light both need a shared package.
+Tokens first, primitives second, views third: use a Fabrials component or
+token before writing a local recipe, and record any departure in
+[DESIGN.md](../DESIGN.md).

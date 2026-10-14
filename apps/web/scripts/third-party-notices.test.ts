@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { renderThirdPartyNotices } from "./third-party-notices";
+import { loadLicenseSupplements, renderThirdPartyNotices, type LicenseSupplements } from "./third-party-notices";
 
 const directories: string[] = [];
 
@@ -12,6 +13,15 @@ function fixture(name = "example", license = "MIT", version = "1.2.3") {
   writeFileSync(join(directory, "package.json"), JSON.stringify({ name, version, license }));
   writeFileSync(join(directory, "LICENSE"), "Copyright Example\r\nPermission notice\r\n");
   return { name, license, versions: [version], paths: [directory] };
+}
+
+const hash = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
+
+function supplementFor(entry: ReturnType<typeof fixture>, extra: Partial<LicenseSupplements["entries"][number]> = {}): LicenseSupplements {
+  const directory = mkdtempSync(join(tmpdir(), "portable-supplements-"));
+  directories.push(directory);
+  writeFileSync(join(directory, "UPSTREAM-LICENSE"), "Upstream permission notice\n");
+  return {directory, entries: [{package: entry.name, version: entry.versions[0], manifestSha256: hash(join(entry.paths[0], "package.json")), texts: [{file: "UPSTREAM-LICENSE", sha256: hash(join(directory, "UPSTREAM-LICENSE")), source: "https://example.invalid/LICENSE"}], ...extra}]};
 }
 
 afterEach(() => {
@@ -51,6 +61,59 @@ describe("third-party notices", () => {
   it("requires a review when a new license enters production", () => {
     expect(() => renderThirdPartyNotices({ "MPL-2.0": [fixture("example", "MPL-2.0")] })).toThrow("requires review");
     expect(() => renderThirdPartyNotices({})).toThrow("empty");
+  });
+
+  it("accepts the reviewed permissive licenses exactly and still rejects other expressions", () => {
+    for (const license of ["Apache-2.0", "0BSD", "BSD-3-Clause", "MIT AND ISC"]) expect(renderThirdPartyNotices({ [license]: [fixture("example", license)] })).toContain(`License: ${license}`);
+    for (const license of ["MIT OR GPL-3.0", "BSD-2-Clause", "Apache-2.0 WITH LLVM-exception"]) expect(() => renderThirdPartyNotices({ [license]: [fixture("example", license)] })).toThrow("requires review");
+  });
+
+  it("keeps copyright notices and prefixed license files that the old pattern dropped", () => {
+    const entry = fixture();
+    writeFileSync(join(entry.paths[0], "CopyrightNotice.txt"), "Copyright notice text\n");
+    writeFileSync(join(entry.paths[0], "LOBE-ICONS-LICENSE"), "Icon license text\n");
+    const output = renderThirdPartyNotices({ MIT: [entry] });
+    expect(output).toContain("Copyright notice text");
+    expect(output).toContain("Icon license text");
+  });
+
+  it("supplies a reviewed upstream license only for the exact package that lacks one", () => {
+    const entry = fixture();
+    rmSync(join(entry.paths[0], "LICENSE"));
+    const supplements = supplementFor(entry);
+    const output = renderThirdPartyNotices({ MIT: [entry] }, [], supplements);
+    expect(output).toContain("supplied from https://example.invalid/LICENSE");
+    expect(output).toContain("Upstream permission notice");
+    writeFileSync(join(entry.paths[0], "package.json"), JSON.stringify({ name: entry.name, version: "1.2.3", license: "MIT", description: "changed" }));
+    expect(() => renderThirdPartyNotices({ MIT: [entry] }, [], supplements)).toThrow("needs review");
+  });
+
+  it("refuses stale, altered or unused supplements", () => {
+    const entry = fixture();
+    expect(() => renderThirdPartyNotices({ MIT: [entry] }, [], supplementFor(entry))).toThrow("Stale license supplement");
+    rmSync(join(entry.paths[0], "LICENSE"));
+    const altered = supplementFor(entry);
+    writeFileSync(join(altered.directory, "UPSTREAM-LICENSE"), "Edited\n");
+    expect(() => renderThirdPartyNotices({ MIT: [entry] }, [], altered)).toThrow("text changed");
+    const other = fixture("other");
+    expect(() => renderThirdPartyNotices({ MIT: [other] }, [], supplementFor(entry))).toThrow("Unused license supplements");
+  });
+
+  it("includes nested packaged notices by hash and fails when one changes", () => {
+    const entry = fixture();
+    mkdirSync(join(entry.paths[0], "lib-vendor", "d3-ease"), { recursive: true });
+    writeFileSync(join(entry.paths[0], "lib-vendor", "d3-ease", "LICENSE"), "Nested license\n");
+    const supplements: LicenseSupplements = { directory: tmpdir(), entries: [{ package: entry.name, version: "1.2.3", manifestSha256: hash(join(entry.paths[0], "package.json")), packageFiles: [{ path: "lib-vendor/d3-ease/LICENSE", sha256: hash(join(entry.paths[0], "lib-vendor", "d3-ease", "LICENSE")) }] }] };
+    expect(renderThirdPartyNotices({ MIT: [entry] }, [], supplements)).toContain("lib-vendor/d3-ease/LICENSE");
+    writeFileSync(join(entry.paths[0], "lib-vendor", "d3-ease", "LICENSE"), "Changed\n");
+    expect(() => renderThirdPartyNotices({ MIT: [entry] }, [], supplements)).toThrow("Packaged notice changed");
+    expect(() => renderThirdPartyNotices({ MIT: [entry] }, [], { ...supplements, entries: [{ ...supplements.entries[0], packageFiles: [{ path: "../escape", sha256: "0" }] }] })).toThrow("Invalid supplement path");
+  });
+
+  it("ships a committed supplement manifest whose texts match their recorded hashes", () => {
+    const supplements = loadLicenseSupplements();
+    for (const entry of supplements.entries) for (const text of entry.texts ?? []) expect(hash(join(supplements.directory, text.file))).toBe(text.sha256);
+    expect(supplements.entries.map(entry => `${entry.package}@${entry.version}`)).toContain("@fabrials/ui@0.9.0");
   });
 
   it("rejects identity or license mismatches in installed metadata", () => {

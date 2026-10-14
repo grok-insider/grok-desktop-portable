@@ -11,13 +11,17 @@
  */
 
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
 import { Search as SearchIcon } from "lucide-react";
 import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 /** Merge Tailwind classes with later values winning. */
+const merge = extendTailwindMerge({
+  extend: {classGroups: {"font-size": [{text: ["label", "body-sm", "body", "body-lg", "title-sm", "title", "title-lg", "display"]}]}},
+});
+
 export function cn(...values: ClassValue[]): string {
-  return twMerge(clsx(values));
+  return merge(clsx(values));
 }
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";

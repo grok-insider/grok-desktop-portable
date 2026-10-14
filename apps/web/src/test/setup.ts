@@ -32,4 +32,22 @@ if (typeof globalThis.matchMedia === "undefined") {
   });
 }
 
-afterEach(cleanup);
+if (typeof globalThis.ResizeObserver === "undefined") {
+  Object.defineProperty(globalThis, "ResizeObserver", {
+    configurable: true,
+    writable: true,
+    value: class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  });
+}
+
+Object.defineProperty(globalThis, "BASE_UI_ANIMATIONS_DISABLED", {configurable: true, writable: true, value: true});
+
+afterEach(() => {
+  cleanup();
+  const injected = [...document.querySelectorAll("style")].map(element => element.getAttribute("href") ?? element.textContent?.slice(0, 80) ?? "");
+  if (injected.length) throw new Error(`A component inserted <style> elements that the production CSP blocks: ${injected.join(" | ")}`);
+});
