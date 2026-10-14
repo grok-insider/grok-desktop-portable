@@ -176,6 +176,25 @@ la app. El [recibo saneado](evaluation/deployed-s24-2026-10-14.json) conserva
 identidades, medidas y hashes de evidencia local; las capturas y registros
 brutos, las direcciones privadas y los identificadores de sesión no se suben.
 
+## Corrección de disposición horizontal, candidata local
+
+La corrección posterior al S24 pasó 884 pruebas y comprobación de tipos. El
+arnés de Chrome 155 en Sway oculto pasó 95 comprobaciones con dos mensajes en
+una cola pausada, borrador guardado, historial local y un aviso de instalación
+generado por el evento sintético del arnés. Incluyó controles táctiles en
+390×844, 844×390, 750×354, 750×136, 667×136 y 390×430, además de 2560×1440.
+El editor y Enviar pasan límites de viewport, recorte de ancestros y hit testing;
+el documento no se desplaza y la navegación reaparece al salir del editor.
+La cola se elimina explícitamente sin ejecutar sus mensajes. El borrador y la
+selección se conservan durante los cambios de altura y el zoom no se interpreta
+como teclado.
+
+El [recibo local](evaluation/landscape-layout-2026-10-14.json) liga el arnés y los
+bytes del shell probados. Todavía no cualifica el despliegue definitivo ni
+imágenes seleccionadas dentro de esta matriz. El fallo intermitente de revocar
+antes de negociar el protocolo observado en otra pasada se investiga por
+separado; esta pasada correcta no demuestra que esa carrera esté resuelta.
+
 ## Cambio de shell con trabajo activo
 
 La ampliación de `scripts/qualify-direct-browser.ts` pasó 71 comprobaciones con

@@ -590,9 +590,9 @@ export function SessionView({
       }
     >
       {connectionBanner && <div role="region" aria-label="Connection and computer tools" className="min-h-0 max-h-[calc(var(--app-viewport-height,100dvh)*0.4)] shrink-0 overflow-y-auto">{connectionBanner}</div>}
-      <div className="relative flex min-h-0 flex-auto shrink-0">
+      <div className="session-content relative flex min-h-min flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="relative min-h-32 flex-1 overflow-hidden">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             <TranscriptCheckpoints
               turns={userCheckpoints}
               activeId={activeCheckpointId}

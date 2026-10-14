@@ -410,7 +410,7 @@ export function SessionComposer({
   }));
 
   return (
-    <div className="shrink-0 px-3 pb-3 pt-1">
+    <div className="session-composer shrink-0 px-3 pb-3 pt-1">
       {imageComposer && <ImageAttachments composer={imageComposer} />}
       <div className="relative mx-auto w-[min(760px,100%)]">
         {menuOpen ? (
@@ -546,12 +546,11 @@ export function SessionComposer({
               }}
               placeholder={bash ? SHELL_PLACEHOLDER : PROMPT_PLACEHOLDER}
               className={cn(
-                "w-full resize-none overflow-y-auto bg-transparent px-4 pb-2 pt-4",
+                "min-h-[60px] max-h-[180px] w-full resize-none overflow-y-auto bg-transparent px-4 pb-2 pt-4",
                 "text-body leading-5 text-foreground outline-none",
                 "placeholder:text-subtle-foreground",
                 bash && "font-mono",
               )}
-              style={{ minHeight: INPUT_MIN_PX, maxHeight: INPUT_MAX_PX }}
             />
 
             <div className="flex h-11 shrink-0 items-center px-2">

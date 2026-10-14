@@ -206,6 +206,16 @@ the area below the tabs can scroll to expose the composer and its actions.
 Normal phone heights keep the resting composer visible without opening or
 scrolling through configuration panels.
 
+At landscape heights up to 450 px and widths of at least 480 px, the editor and
+its toolbar share one row; the editor scrolls internally and touch actions keep
+their 44 px targets. When the visible viewport falls to 300 px or less while
+the composer has focus, the computer bar and installation/update banner defer
+until editing ends or the keyboard closes. Conversation tabs remain available.
+The focused composer is revealed within its scrolling container after viewport
+changes if it would otherwise be clipped. Queues and other controls remain
+reachable by scrolling. This does not move keyboard focus or alter selection,
+and pinch zoom does not trigger keyboard fitting.
+
 ### Modal priority and keyboard focus
 
 Optional dialogs use the browser's native modal behavior. Initial focus goes

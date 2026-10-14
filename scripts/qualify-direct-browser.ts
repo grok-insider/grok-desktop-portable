@@ -233,7 +233,7 @@ try {
     await writeFile(join(state, "pair-next"), "", {mode:0o600});
     await waitFor(async () => {try {await readFile(join(state,"pair-next.json")); return true;} catch {return false;}});
     const secondPairing = JSON.parse(await readFile(join(state, "pair-next.json"), "utf8"));
-    const secondary = await browser.newContext({viewport:{width:390,height:844}});
+    const secondary = await browser.newContext({viewport:{width:390,height:844}, hasTouch:true, isMobile:true});
     await secondary.route("**/*", networkRoute);
     const other = await secondary.newPage();
     other.setDefaultTimeout(15000);
@@ -407,13 +407,70 @@ try {
   await input().fill("DIRECT_DRAFT_SYNTHETIC_CANARY");
   await page.locator('[data-draft-status="saved"]').waitFor();
   await page.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active));
-  for (const viewport of [{width:2560,height:1440},{width:390,height:844},{width:844,height:390},{width:390,height:430}]) {
+  const fullyVisible = (element: HTMLElement) => {
+    const bounds = element.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0 || bounds.top < 0 || bounds.left < 0 || bounds.bottom > (visualViewport?.height ?? innerHeight) + 1 || bounds.right > innerWidth + 1) return false;
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent), clip = parent.getBoundingClientRect();
+      if (/(hidden|clip|scroll|auto)/.test(style.overflowY) && (bounds.top < clip.top - 1 || bounds.bottom > clip.bottom + 1)) return false;
+      if (/(hidden|clip|scroll|auto)/.test(style.overflowX) && (bounds.left < clip.left - 1 || bounds.right > clip.right + 1)) return false;
+    }
+    return [[bounds.left + 4, bounds.top + 4], [bounds.right - 4, bounds.bottom - 4], [bounds.left + bounds.width / 2, bounds.top + bounds.height / 2]].every(([x, y]) => element.contains(document.elementFromPoint(x, y)));
+  };
+  const touchSession = await context.newCDPSession(page);
+  await page.evaluate(() => {
+    const offer = new Event("beforeinstallprompt");
+    Object.assign(offer, {prompt: async () => {}, userChoice: Promise.resolve({outcome:"dismissed"})});
+    window.dispatchEvent(offer);
+  });
+  report.layoutBannerFixture = "Synthetic installation offer using the real application banner; not Android installation evidence";
+  await page.getByRole("button", {name:"Install app", exact:true}).waitFor();
+  if (multiwriter) {
+    await page.getByRole("button", {name:"Pause queue", exact:true}).click();
+    await page.getByRole("button", {name:"Resume queue", exact:true}).waitFor();
+    for (const text of ["LAYOUT_WAITING_ONE", "LAYOUT_WAITING_TWO"]) {
+      await input().fill(text);
+      await input().press("Enter");
+      await page.getByRole("button", {name:`Remove the waiting message: ${text}`, exact:true}).waitFor();
+    }
+    await input().fill("DIRECT_DRAFT_SYNTHETIC_CANARY");
+  }
+  for (const viewport of [{width:2560,height:1440},{width:390,height:844},{width:844,height:390},{width:750,height:354},{width:750,height:136},{width:667,height:136},{width:390,height:430}]) {
+    const touch = viewport.width < 900;
+    await touchSession.send("Emulation.setTouchEmulationEnabled", {enabled:touch});
     await page.setViewportSize(viewport);
+    await page.waitForFunction(() => Math.abs(parseFloat(document.documentElement.style.getPropertyValue("--app-viewport-height")) - (visualViewport?.height ?? innerHeight)) < 1);
+    await input().focus();
+    await page.evaluate(() => new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+    check(`touch_input_${viewport.width}x${viewport.height}`, await page.evaluate(() => matchMedia("(pointer: coarse)").matches) === touch);
     check(`no_horizontal_overflow_${viewport.width}x${viewport.height}`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     check(`composer_reachable_${viewport.width}x${viewport.height}`, await input().isVisible());
+    check(`editor_visible_without_clipping_${viewport.width}x${viewport.height}`, await input().evaluate(fullyVisible));
+    check(`send_visible_without_clipping_${viewport.width}x${viewport.height}`, await page.getByRole("button", {name:"Send prompt", exact:true}).evaluate(fullyVisible));
+    check(`document_not_scrolled_${viewport.width}x${viewport.height}`, await page.evaluate(() => scrollX === 0 && scrollY === 0));
+    if (viewport.height <= 300) {
+      check(`navigation_and_updates_deferred_while_typing_${viewport.width}`, !await page.getByRole("button", {name:"Computers", exact:true}).isVisible() && !await page.getByRole("button", {name:"Install app", exact:true}).isVisible());
+      await input().evaluate((element: HTMLElement) => element.blur());
+      check(`navigation_and_updates_return_on_blur_${viewport.width}`, await page.getByRole("button", {name:"Computers", exact:true}).isVisible() && await page.getByRole("button", {name:"Install app", exact:true}).isVisible());
+      await input().focus();
+      await page.evaluate(() => new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+      check(`editor_revealed_after_refocus_${viewport.width}`, await input().evaluate(fullyVisible));
+    }
     await page.screenshot({path:join(directory, `layout-${viewport.width}x${viewport.height}.png`)});
   }
+  await touchSession.send("Emulation.setTouchEmulationEnabled", {enabled:false});
+  await touchSession.detach();
   await page.setViewportSize({width:2560,height:1440});
+  if (multiwriter) {
+    await page.getByRole("button", {name:"Clear pending messages", exact:true}).click();
+    await page.getByRole("button", {name:"Confirm clear", exact:true}).click();
+    await page.getByRole("list", {name:"Waiting to be sent", exact:true}).waitFor({state:"hidden"});
+    await page.getByRole("button", {name:"Resume queue", exact:true}).click();
+    check("layout_queue_remains_paused_until_explicit_cleanup", await page.getByText("accepted:LAYOUT_WAITING_ONE", {exact:true}).count() === 0 && await page.getByText("accepted:LAYOUT_WAITING_TWO", {exact:true}).count() === 0);
+  }
+  await page.waitForFunction(() => !document.documentElement.hasAttribute("data-short-viewport"));
+  check("computer_navigation_restored_after_keyboard_dismissal", await page.getByRole("button", {name:"Computers", exact:true}).isVisible());
+  await page.getByRole("button", {name:"Later", exact:true}).click();
   await page.reload();
   await page.getByRole("button", {name:"Connect",exact:true}).click();
   await input().waitFor();

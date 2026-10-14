@@ -563,6 +563,15 @@
 .remote-connected > .work-shell { height: auto; min-height: 0; flex: 1; }
 .remote-host-bar { flex-shrink: 0; padding-top: max(.25rem, env(safe-area-inset-top)); }
 
+@media (max-height: 450px) and (min-width: 480px) {
+  .session-composer { padding-block: .25rem; }
+  .session-composer [data-composer-chrome="card"] { min-height: 0; flex-direction: row; align-items: center; }
+  .session-composer textarea { min-width: 0; flex: 1; width: 0; min-height: 44px; max-height: 44px; padding: .5rem; }
+  .work-shell { padding: 0; }
+}
+
+[data-short-viewport] .application-shell:has(.session-composer:focus-within) :is(.remote-host-bar, .pwa-actions) { display: none; }
+
 @media (pointer: coarse) {
   .work-header { min-height: 48px; height: auto; }
   .work-header [role="tablist"] > div { height: 44px; }
