@@ -35,7 +35,10 @@
     "identityFilesByteIdentical": true,
     "localHealth": "ok",
     "tailscaleHealth": "ok",
-    "downtimeSeconds": 23
+    "downtimeSeconds": 23,
+    "doctorSameAsR3": true,
+    "otherUnits": "spanreed.service restarted once during activation and is active",
+    "nativeEmbedsDeployedShell": "the running binary contains the r4c shell id 5bf49c9f\u2026"
   },
   "livePairing": {
     "r3ShellWithR4cHost": {
@@ -45,7 +48,8 @@
     "r4cShellWithR4cHost": {
       "result": "passed",
       "checks": 24
-    }
+    },
+    "runner": "both runs used qualify-live-pairing.mjs exactly as committed in 293771e (runnerSha256 matches)"
   },
   "deployedUpdateR3ToR4c": {
     "result": "passed",
@@ -75,7 +79,8 @@
     "restoredCdn": {
       "passed": 226,
       "failed": 0
-    }
+    },
+    "whyFewerChecksThanR3": "the r4c wrapper serves 53 static files (14 shell files, 25 fonts, 14 retained source files) against r3's 61 (29, 21, 11); the rollback image serves 64"
   },
   "coolifyRollbackExercised": {
     "rollbackHealthyAt": "2026-10-14T21:21:28Z",
