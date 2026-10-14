@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "startedAt": "2026-10-14T00:02:06.015Z",
+  "origin": "https://grok.fabrials.com",
+  "checks": [
+    "deployment_candidate_and_real_corresponding_source_verified",
+    "upgrade_candidate_and_real_corresponding_source_verified",
+    "deployment_response_csp_enforced",
+    "qualification_pairing_uses_its_exact_origin",
+    "source_identity_binds_the_loaded_shell",
+    "unavailable_source_reports_failure_without_false_links",
+    "source_dialog_returns_keyboard_focus",
+    "source_dialog_loads_real_version_bound_metadata",
+    "source_dialog_exposes_verified_archive_link",
+    "browser_downloads_exact_real_archive",
+    "source_dialog_exposes_verified_license_link",
+    "browser_downloads_exact_real_license",
+    "source_dialog_exposes_verified_notices_link",
+    "browser_downloads_exact_real_notices",
+    "source_dialog_notices_preserve_font_icon_and_generated_style_attributions",
+    "source_dialog_fits_mobile_viewport",
+    "real_direct_noise_pairing_restores_synthetic_native_history",
+    "private_handshake_preserves_the_real_browser_origin",
+    "pairing_fragment_erased",
+    "closing_source_preserves_computer_settings_and_connection",
+    "source_information_does_not_disconnect_the_private_session",
+    "two_independent_pairings_are_simultaneously_writable_without_takeover",
+    "custom_model_and_effort_roundtrip_converges_across_devices",
+    "stale_model_revision_is_refused_without_overwriting_newer_device_choice",
+    "model_revision_conflict_is_explained_as_a_transient_notice",
+    "model_revision_conflict_dismisses_without_a_persistent_error",
+    "paused_fifo_preserves_distinct_device_origins_without_starting_inference",
+    "paused_queue_fits_mobile_viewport",
+    "stale_clear_revision_preserves_concurrently_enqueued_messages",
+    "queue_revision_conflict_is_explained_as_a_transient_notice",
+    "queue_revision_conflict_dismisses_without_a_persistent_error",
+    "first_device_model_changes_disabled_during_turn",
+    "first_device_unqualified_stop_disabled",
+    "second_device_model_changes_disabled_during_turn",
+    "second_device_unqualified_stop_disabled",
+    "second_device_reconnect_preserves_active_turn_queue_and_receipt_count",
+    "upgrade_baseline_is_service_worker_controlled",
+    "upgrade_does_not_reload_or_clear_unsent_draft_without_consent",
+    "older_shell_is_reported_read_only",
+    "older_shell_disables_the_composer",
+    "upgrade_preserves_pairing_and_unsent_draft",
+    "upgrade_preserves_active_turn_and_durable_receipts_without_replay",
+    "upgrade_leaves_peer_writable_on_its_original_shell",
+    "rollback_preserves_pairing_and_unsent_draft",
+    "rollback_preserves_active_turn_and_durable_receipts_without_replay",
+    "rollback_leaves_peer_writable_on_its_original_shell",
+    "original_device_transcript_not_reset_or_duplicated",
+    "reconnecting_device_transcript_not_duplicated",
+    "both_devices_allow_model_changes_after_fifo_drains",
+    "both_devices_clear_working_status_after_fifo_drains",
+    "fifo_executes_each_accepted_turn_once_and_removal_never_executes",
+    "both_transcripts_agree_on_exactly_once_fifo_order",
+    "first_empty_catalogue_has_no_selectable_model",
+    "second_empty_catalogue_has_no_selectable_model",
+    "no_horizontal_overflow_2560x1440",
+    "composer_reachable_2560x1440",
+    "no_horizontal_overflow_390x844",
+    "composer_reachable_390x844",
+    "no_horizontal_overflow_844x390",
+    "composer_reachable_844x390",
+    "no_horizontal_overflow_390x430",
+    "composer_reachable_390x430",
+    "direct_pairing_and_draft_survive_reload",
+    "private_drafts_and_history_never_enter_static_shell_cache",
+    "installed_shell_opens_with_app_origin_blackholed",
+    "consented_history_readable_without_cloud_or_private_host",
+    "private_host_remains_usable_without_fabrials_or_app_origin",
+    "explicit_forget_revokes_and_removes_saved_profile",
+    "forget_removes_durable_draft_and_history_rows",
+    "no_external_application_requests",
+    "no_uncaught_browser_errors"
+  ],
+  "errors": [],
+  "notQualified": [
+    "Production TLS trust: laboratory self-signed certificate",
+    "Actual hosting and CDN routing",
+    "Tailscale",
+    "Physical Android and Apple hardware",
+    "Grok inference: synthetic history only",
+    "Real push delivery",
+    "GPU performance: hidden software compositor",
+    "Cancellation GUI execution: the synthetic ACP intentionally does not advertise qualified targeted cancellation"
+  ],
+  "deploymentManifestSha256": "a414f4c9f08de4aaa76be4008a5ab9a75c99387610ddfde56f8ef64a9619f15a",
+  "sources": {
+    "portable": {
+      "commit": "5bdcf17b493a25feb7101fba33fbde8a8a145713",
+      "dirty": false,
+      "sha256": "9ae81819d96d5a9926ea589937d842c2bf8c853430917067f31a8009acf4d67e"
+    },
+    "libs": {
+      "commit": "6ae91bdca8fa9fcdae6971618363cb976d410087",
+      "dirty": false,
+      "sha256": "ee64d9822fe855db10d26fd2986c14df003bc0d17e515c63d8ed2b09b1554106"
+    }
+  },
+  "upgrade": {
+    "deploymentManifestSha256": "8ebcfcd4bc4bc014589798d1e4b589e2c3e50d43facf3970df3ebb575580681d",
+    "sources": {
+      "portable": {
+        "commit": "2aaed2e11cc88aced4e7c216f698308eae718967",
+        "dirty": false,
+        "sha256": "420fb0a055c4dcf33befd9ade6cb872c2f4c9bf7ddd28fb9132b928d0f1c608b"
+      },
+      "libs": {
+        "commit": "f4318f623b74cf443d36c219a0de08b763112c48",
+        "dirty": false,
+        "sha256": "ecb06f2ccbd8ccbb8572b679c2826c085b7c4649cc5b79dd33ffe6bbd60f98bb"
+      }
+    },
+    "intermediateReadOnly": true,
+    "baselineShellId": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982",
+    "candidateShellId": "a3612b47d5994d284e5d9729dd2918dfdbea69cc1d262e0ef789a4f22c57fe6f",
+    "restoredShellId": "fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982"
+  },
+  "runnerSha256": "7591aeac7e23d4c84ce761e331fe46855944eaacac323e1143b96b4107a5f08b",
+  "artifactSha256": "1b1e8d4091d66b5c5d1f3a889b0836d62a9d72c1f2d7a018b445a36320adb273",
+  "nativeFixtureSha256": "dbec16886ade99f553ff17b20f33351affda91485ad89b50287744c4c1d15d43",
+  "browser": "155.0.8059.39",
+  "expectedResourceErrors": [
+    {
+      "url": "https://grok.fabrials.com/sources/fe9e3a52d2d3603472c413511e075bd03bd0c80af282165cbe831b0790bac982.json",
+      "status": 404
+    }
+  ],
+  "sourceDistribution": {
+    "metadata": "Real verified corresponding-source archive",
+    "native": {
+      "version": "0.7.1",
+      "commit": "8b12b86b67a0d6aceadfde3aeb4a88768335cdd0"
+    },
+    "archiveSha256": "8ce266700085c207c6d40a2dfa9e972e868b84a10f5981aaa904868cd69a083b",
+    "noticesSha256": "ac43b37d00d1074a0871f12d4e95ce660d272c3ddb1fbfd155cc92dc3276922c",
+    "sourceArchiveDownloadQualified": true
+  },
+  "multiwriter": {
+    "fixture": "Actual Noise host with deterministic synthetic ACP; no inference",
+    "sessions": 1,
+    "browserContexts": 2,
+    "schedulerBound": "Covered by Rust saturation tests; browser checks convergence and exactly-once transcript",
+    "queueReceipts": {
+      "completed": 2,
+      "removed": 1
+    },
+    "expectedConflicts": {
+      "configuration": 1,
+      "clearQueue": 1
+    }
+  },
+  "offlineShellMs": 34,
+  "result": "passed",
+  "finishedAt": "2026-10-14T00:02:25.374Z",
+  "scope": "Two exact published shell artifacts N \u2192 N\u22121 \u2192 N during a synthetic active turn, queued successor and unsent draft; laboratory TLS and real Noise, not a CDN rollout",
+  "evidenceScope": "The native fixture retains its recorded binary hash; it predates the subsequent ACP lifetime changes."
+}

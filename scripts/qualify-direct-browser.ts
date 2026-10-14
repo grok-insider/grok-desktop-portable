@@ -14,6 +14,9 @@ assert.ok(process.env.REMOTE_QA_CHROME?.startsWith("/nix/store/") && process.env
 const directory = resolve(directoryArgument);
 const artifact = process.env.REMOTE_QA_ARTIFACT ? resolve(process.env.REMOTE_QA_ARTIFACT) : undefined;
 const dist = artifact ? join(artifact, ".vercel/output/static") : resolve("apps/web/dist");
+const upgradeArtifact = process.env.REMOTE_QA_UPGRADE_ARTIFACT ? resolve(process.env.REMOTE_QA_UPGRADE_ARTIFACT) : undefined;
+const upgradeReadOnly = process.env.REMOTE_QA_UPGRADE_READ_ONLY === "1";
+let servedDist = dist;
 const origin = deploymentOrigin(process.env.REMOTE_QA_ORIGIN ?? buildOrigin(await readFile(join(dist, "index.html"), "utf8")));
 assert.equal(buildOrigin(await readFile(join(dist, "index.html"), "utf8")), origin, "Browser qualification must use the built shell's exact origin");
 const hostname = new URL(origin).hostname;
@@ -56,6 +59,12 @@ try {
     report.sources = manifest.sources;
     check("deployment_candidate_and_real_corresponding_source_verified", manifest.deployCandidate);
   }
+  if (upgradeArtifact) {
+    assert.ok(artifact && multiwriter && process.env.REMOTE_QA_UPGRADE_SPANREED, "Upgrade qualification requires two real artifacts, their source checkouts and multiwriter mode");
+    const manifest = await verifyArtifact(upgradeArtifact, {forDeploy: true, spanreed: resolve(process.env.REMOTE_QA_UPGRADE_SPANREED!), origin});
+    report.upgrade = {deploymentManifestSha256: createHash("sha256").update(await readFile(join(upgradeArtifact, "deployment.json"))).digest("hex"), sources: manifest.sources, intermediateReadOnly: upgradeReadOnly};
+    check("upgrade_candidate_and_real_corresponding_source_verified", manifest.deployCandidate);
+  }
   report.runnerSha256 = createHash("sha256").update(await readFile(import.meta.filename)).digest("hex");
   report.artifactSha256 = createHash("sha256").update(await readFile(join(dist, "index.html"))).update(await readFile(join(dist, "sw.js"))).digest("hex");
   const nativeBinary = process.env.DIRECT_QA_NATIVE_BINARY ?? "/tmp/fabrials-remote-integration/target/debug/examples/direct_browser_fixture";
@@ -88,7 +97,7 @@ try {
     if (!artifact && url.pathname === sourceNoticesPath) return new Response(sourceNotices, {headers:{"content-type":"text/plain;charset=utf-8","cache-control":"no-store"}});
     const path = url.pathname === "/" ? "/index.html" : url.pathname;
     if (path.includes("..")) return new Response(null, {status: 404});
-    const file = Bun.file(cropPath ? join(cropDist!, path.slice("/crop-qa/".length)) : join(dist, path));
+    const file = Bun.file(cropPath ? join(cropDist!, path.slice("/crop-qa/".length)) : join(servedDist, path));
     if (!await file.exists()) return new Response(null, {status: 404});
     const headers = new Headers({"cache-control":"no-store", ...(path.endsWith(".js") ? {"content-type":"text/javascript"} : {})});
     for (const route of deployment.routes) if (route.src && !route.has && !route.missing && route.headers && new RegExp(`^${route.src}$`).test(url.pathname)) {
@@ -312,6 +321,45 @@ try {
       await other.getByText("accepted:MW_FIRST",{exact:true}).waitFor();
       await waitQueue(["MW_SECOND"]);
       check("second_device_reconnect_preserves_active_turn_queue_and_receipt_count", (await execution()).activeTurn.turnId === beforeReload && Object.keys((await ledger()).receipts).length === beforeReceipts);
+      if (upgradeArtifact) {
+        const composer = other.getByRole("textbox", {name:"Message the agent", exact:true});
+        const shell = () => other.locator('meta[name="grok-shell-build"]').getAttribute("content");
+        const baseline = await shell();
+        assert.match(baseline!, /^[a-f0-9]{64}$/);
+        await other.getByRole("button", {name:"Drafts off", exact:true}).click();
+        await other.getByRole("button", {name:"Remember drafts on this device", exact:true}).click();
+        await composer.fill("UNSENT_UPGRADE_DRAFT_SYNTHETIC_CANARY");
+        await other.locator('[data-draft-status="saved"]').waitFor();
+        check("upgrade_baseline_is_service_worker_controlled", await other.evaluate(() => Boolean(navigator.serviceWorker.controller)));
+        servedDist = join(upgradeArtifact, ".vercel/output/static");
+        await other.evaluate(async () => {await (await navigator.serviceWorker.getRegistration())!.update();});
+        await other.getByRole("button", {name:"Update and reload", exact:true}).waitFor();
+        check("upgrade_does_not_reload_or_clear_unsent_draft_without_consent", await shell() === baseline && await composer.inputValue() === "UNSENT_UPGRADE_DRAFT_SYNTHETIC_CANARY");
+        await other.getByRole("button", {name:"Update and reload", exact:true}).click();
+        await other.waitForFunction(previous => document.querySelector('meta[name="grok-shell-build"]')?.getAttribute("content") !== previous, baseline);
+        const candidate = await shell();
+        assert.match(candidate!, /^[a-f0-9]{64}$/);
+        for (const phase of ["upgrade", "rollback"]) {
+          if (phase === "rollback") {
+            await other.getByRole("button", {name:"Restore previous app and reload", exact:true}).click();
+            await other.waitForFunction(previous => document.querySelector('meta[name="grok-shell-build"]')?.getAttribute("content") === previous, baseline);
+          }
+          await other.getByRole("button", {name:"Connect", exact:true}).click();
+          await other.getByText("accepted:MW_FIRST", {exact:true}).waitFor();
+          await other.locator('[data-draft-status="saved"]').waitFor();
+          if (phase === "upgrade" && upgradeReadOnly) {
+            await waitFor(async () => JSON.stringify((await execution()).queue.map((entry: any) => entry.text)) === JSON.stringify(["MW_SECOND"]));
+            check("older_shell_is_reported_read_only", await other.getByText("Another browser tab has control. You can follow the conversation here. Close that tab or wait for its connection to expire.", {exact:true}).isVisible());
+            check("older_shell_disables_the_composer", await composer.isDisabled());
+          } else await waitQueue(["MW_SECOND"]);
+          check(`${phase}_preserves_pairing_and_unsent_draft`, await composer.inputValue() === "UNSENT_UPGRADE_DRAFT_SYNTHETIC_CANARY");
+          check(`${phase}_preserves_active_turn_and_durable_receipts_without_replay`, (await execution()).activeTurn.turnId === beforeReload && Object.keys((await ledger()).receipts).length === beforeReceipts);
+          check(`${phase}_leaves_peer_writable_on_its_original_shell`, await page.getByRole("button", {name:"Pause queue", exact:true}).isEnabled() && await page.locator('meta[name="grok-shell-build"]').getAttribute("content") === baseline);
+        }
+        report.upgrade = {...report.upgrade, baselineShellId: baseline, candidateShellId: candidate, restoredShellId: await shell()};
+        await composer.fill("");
+        await other.locator('[data-draft-status="saved"]').waitFor();
+      }
       for (const target of both) check(target === page ? "original_device_transcript_not_reset_or_duplicated" : "reconnecting_device_transcript_not_duplicated", await target.getByRole("article",{name:"Your message",exact:true}).filter({hasText:"MW_FIRST"}).count() === 1 && await target.getByText("accepted:MW_FIRST",{exact:true}).count() === 1);
       await writeFile(join(state,"release-turn"),sessionId,{mode:0o600});
       await waitFor(async () => (await execution()).activeTurn?.entry.text === "MW_SECOND");

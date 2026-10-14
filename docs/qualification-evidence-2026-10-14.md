@@ -103,6 +103,27 @@ instalación `.deb`, de NSIS ni de un paquete Nix general.
 
 Siguen pendientes la cualificación física del S24 de esta candidata, push real,
 suspensión y cambios de red, instalación/recuperación completas de Windows,
-turnos y borradores durante una actualización real, el soak de 24 horas, la
+el soak de 24 horas, la
 infraestructura de borrado/restauración de publicaciones y la cohorte de tiempo
 real. No se ha iniciado ni simulado como transcurrida la cohorte de siete días.
+
+## Cambio de shell con trabajo activo
+
+La ampliación de `scripts/qualify-direct-browser.ts` pasó 71 comprobaciones con
+dos contextos independientes en Chrome 155 dentro de Sway oculto. Sirvió los
+artefactos exactos ya retenidos: shell actual `fe9e3a52…`, anterior `a3612b47…`
+y vuelta al actual. El cambio de shell requirió una acción explícita. Durante
+ambas transiciones había un turno ACP sintético activo, un sucesor en la cola
+duradera y un borrador local sin enviar.
+
+Se conservaron emparejamiento, borrador, identificador del turno y recibos; el
+otro navegador permaneció operativo. La versión anterior mostró su aviso de
+solo lectura y deshabilitó el editor. Al volver a la actual, ambos clientes
+convergieron y la cola ejecutó exactamente una vez cada mensaje aceptado. El
+mensaje retirado nunca se ejecutó. La prueba mantuvo el host activo.
+
+El [recibo](evaluation/active-shell-upgrade-2026-10-14.json) identifica artefactos,
+fuentes, ejecutable sintético y arnés. Esta prueba usa TLS de laboratorio y no
+repite el despliegue CDN; el despliegue real anterior se comprobó por separado.
+No cualifica Android ni inferencia, ni el binario posterior con el arreglo del
+ciclo de vida ACP. No se abrió ninguna ventana en el escritorio del usuario.

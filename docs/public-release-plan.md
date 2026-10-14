@@ -40,7 +40,7 @@ repositories.
 
 | Work | Acceptance gate | Current state |
 | --- | --- | --- |
-| Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented and covered by PWA tests; real N/N-1 release upgrade qualification pending |
+| Preserve drafts across upgrades | Version mismatch and malformed remote messages never count as authenticated revocation | Implemented; exact N/N−1 shell transitions preserve a live synthetic turn, queue and draft in two browsers; physical-device release qualification pending |
 | Direct multi-host transport | Pair/reload/revoke on Tailscale and custom TLS, isolated data per endpoint/installation/pairing, no Fabrials requests | Implemented; two independent browsers paired and reconnected against deployed trusted TLS/Tailscale; custom TLS and multi-host release qualification pending |
 | Offline installed application | Block all three Fabrials domains; shell opens and paired host remains usable; explicit atomic updates | Implemented; isolated browser checks cover blackholed application origin and blocked Fabrials domains; physical S24 qualification pending |
 | Native lifecycle | Socket preflight before writes, Windows ACL/reparse checks, installer/update/restart/rollback on each supported OS | Transactional Linux updater passes 31 tests including process interruption; Windows Job/ACL implementation remains gated until real guest qualification; installed-service qualification pending |
@@ -348,8 +348,11 @@ under a limited user. Complete installer/upgrade qualification and green
 cross-platform CI remain required. Linux station now runs the exact QA native
 candidate in its own service, retaining identity and pairings. Real TLS/Tailscale,
 two independent browser connections, N/N−1 source retention, browser update and
-rollback passed for the deployed candidate. These checks did not exercise an
-active turn or drafts during upgrade. Prior device and relay receipts cannot
+rollback passed for the deployed candidate. The subsequent 71-check laboratory
+trial exercised exact N→N−1→N shells with an active synthetic turn, queued
+successor and saved draft, without replay or loss of pairing; its receipt is
+`evaluation/active-shell-upgrade-2026-10-14.json`. It is not a second CDN rollout
+or a hardware trial. Prior device and relay receipts cannot
 substitute for this candidate. Real push, device/platform distribution and the
 infrastructure and elapsed-time gates below remain release work.
 
